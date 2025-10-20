@@ -77,6 +77,7 @@ class InvalidMeasurementTypeError(ValueError):
         )
         super().__init__(msg)
 
+
 class NoDistortionCorrectionError(ValueError):
     """No distortion correction enabled for this dataset."""
 
