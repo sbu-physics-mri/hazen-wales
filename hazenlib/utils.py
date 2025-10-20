@@ -116,7 +116,7 @@ def is_distortion_corrected(dcm: pydicom.Dataset) -> bool:
     for key, value in distortion_correction_keys.items():
         expr = re.compile(value, re.IGNORECASE)
         with contextlib.suppress(KeyError):
-            if expr.search(dcm[key]):
+            if expr.search(dcm[key].value):
                 return True
     return False
 

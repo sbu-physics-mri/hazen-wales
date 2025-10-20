@@ -1,10 +1,11 @@
-import unittest
 import os
+import unittest
+from dataclasses import dataclass
 
+import hazenlib.utils as hazen_tools
 import numpy as np
 import pydicom
 
-import hazenlib.utils as hazen_tools
 from tests import TEST_DATA_DIR
 
 
@@ -273,7 +274,11 @@ class TestUtils(unittest.TestCase):
 
     def test_is_distortion_corrected(self):
         """Test is_distortion_correct utility function."""
-        distortion_corrected_data = {(0x0051,0x1016): "M/DIS2D"}
+        @dataclass
+        class FakeDICOM:
+            value: str
+
+        distortion_corrected_data = {(0x0051,0x1016): FakeDICOM("M/DIS2D")}
         assert hazen_tools.is_distortion_corrected(distortion_corrected_data)
 
         # Empty dictionary should return False for distortion correction
