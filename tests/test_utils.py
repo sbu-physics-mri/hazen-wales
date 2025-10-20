@@ -271,5 +271,14 @@ class TestUtils(unittest.TestCase):
         self.assertListEqual(test_array, TEST_OUT)
 
 
+    def test_is_distortion_corrected(self):
+        """Test is_distortion_correct utility function."""
+        distortion_corrected_data = {(0x0051,0x1016): "M/DIS2D"}
+        assert hazen_tools.is_distortion_corrected(distortion_corrected_data)
+
+        # Empty dictionary should return False for distortion correction
+        assert not hazen_tools.is_distortion_corrected({})
+
+
 if __name__ == "__main__":
     unittest.main()
