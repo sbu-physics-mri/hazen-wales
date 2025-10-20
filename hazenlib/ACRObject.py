@@ -14,9 +14,11 @@ import numpy as np
 import scipy
 import skimage
 
+from hazenlib.exceptions import NoDistortionCorrectionError
 from hazenlib.logger import logger
 from hazenlib.utils import (detect_circle, determine_orientation,
-                            get_pixel_size, is_enhanced_dicom)
+                            get_pixel_size, is_distortion_corrected,
+                            is_enhanced_dicom)
 
 
 class ACRObject:
@@ -33,7 +35,19 @@ class ACRObject:
                 - DICOM files loaded
 
         """
-        # First, need to determine if input DICOMs are
+        # Check if the dataset is distortion corrected
+        # if not, the ACR tests should fail (i.e. raise an error)
+        if not all(is_distortion_corrected(dcm) for dcm in dcm_list):
+            logger.critical(
+                "ACR data must have distortion correction applied!"
+                " This is a requirement of the ACR testing guidelines"
+                " and thus an error in the acquisition"
+                " - hence cannot be fixed in post-processing.\n"
+                "Please re-acquire the ACR test data.",
+            )
+            raise NoDistortionCorrectionError
+
+        # Need to determine if input DICOMs are
         # enhanced or normal, single or multi-frame
         # may be 11 in 1 or 11 separate DCM objects
 
