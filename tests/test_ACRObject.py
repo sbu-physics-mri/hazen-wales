@@ -1,10 +1,63 @@
+"""Test the ACRobject module."""
+
+# ruff: noqa: S101 PT027
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
 import os
 import unittest
-import pydicom
-import numpy as np
 
+import numpy as np
+import pydicom
 from hazenlib.ACRObject import ACRObject
+from hazenlib.exceptions import NoDistortionCorrectionError
+
 from tests import TEST_DATA_DIR
+
+
+class TestDistortionCorrection(unittest.TestCase):
+    """Test no failure with distorition correction."""
+
+    data_dir: Path = TEST_DATA_DIR / "acr" / "Siemens"
+    distortion_corrected: bool = True
+
+    def setUp(self) -> None:
+        """Set up the tests."""
+        self.data = [
+            pydicom.dcmread(f)
+            for f in self.data_dir.glob("*.dcm")
+        ]
+
+    def test_distortion_correction_handling(self) -> None:
+        """Check that distortion corrected data is handled correctly.
+
+        If the data is distortion corrected, check no error is raised.
+        Else, raise an appropriate error.
+        """
+        if self.distortion_corrected:
+            ACRObject(self.data)
+
+        else:
+            with self.assertRaises(
+                NoDistortionCorrectionError,
+                msg=(
+                    "Distortion correction error has not been raised"
+                    " for data that has no distortion correction.",
+                ),
+            ):
+                ACRObject(self.data)
+
+
+class TestNoDistortionCorrection(TestDistortionCorrection):
+    """Test failure with no distorition correction."""
+
+    data_dir: Path = TEST_DATA_DIR / "acr" / "SiemensMTF"
+    distortion_corrected: bool = False
 
 
 # Siemens (axial)
