@@ -1,11 +1,13 @@
+import contextlib
 import os
+import re
+from collections import defaultdict
+
 import cv2 as cv
-import pydicom
 import imutils
 import matplotlib
 import numpy as np
-
-from collections import defaultdict
+import pydicom
 from skimage import filters
 
 import hazenlib.exceptions as exc
@@ -93,6 +95,30 @@ def is_enhanced_dicom(dcm: pydicom.Dataset) -> bool:
         return False
     else:
         raise Exception("Unrecognised SOPClassUID")
+
+
+def is_distortion_corrected(dcm: pydicom.Dataset) -> bool:
+    """Check if the dataset has distortion correction.
+
+    Args:
+        dcm : DICOM dataset.
+
+    Returns:
+        return_value : True if the dataset has distortion correction,
+                False, otherwise.
+
+    """
+    distortion_correction_keys = {
+        (0x0051,0x1016): "DIS2D",       # Private tag for Siemens systems
+
+    }
+
+    for key, value in distortion_correction_keys.items():
+        expr = re.compile(value, re.IGNORECASE)
+        with contextlib.suppress(KeyError):
+            if expr.search(dcm[key]):
+                return True
+    return False
 
 
 def get_manufacturer(dcm: pydicom.Dataset) -> str:
