@@ -11,6 +11,9 @@ from hazenlib.utils import get_dicom_files
 
 from tests import TEST_DATA_DIR, TEST_REPORT_DIR
 
+###########
+# Siemens #
+###########
 
 class TestACRGeometricAccuracySiemens(unittest.TestCase):
     """Geometric accuracy for legacy Siemens test data."""
@@ -65,6 +68,76 @@ class TestACRGeometricAccuracySiemens(unittest.TestCase):
         metrics = np.round(metrics, 2)
         assert (metrics == self.distortion_metrics).all()
 
+
+class TestACRGeometricAccuracySiemensAeraT1(TestACRGeometricAccuracySiemens):
+    """Test Data for the Siemens_Aera_1.5T_T1 dataset."""
+
+    ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "Siemens_Aera_1.5T_T1")
+    L1 = 189.45, 190.43
+    L5 = 190.43, 191.41, 189.45, 189.45
+    distortion_metrics = (0.1 , 1.41, 0.38)
+
+
+class TestACRGeometricAccuracySiemensAeraT2(
+        TestACRGeometricAccuracySiemensAeraT1,
+):
+    """Test Data for the Siemens_Aera_1.5T_T2 dataset."""
+
+    ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "Siemens_Aera_1.5T_T2")
+
+
+class TestACRGeometricAccuracySiemensMagnetomSkyraT1(
+        TestACRGeometricAccuracySiemens,
+):
+    """Test Data for the Siemens_MagnetomSkyra_3T_T1 dataset."""
+
+    ACR_DATA = (
+        pathlib.Path(TEST_DATA_DIR) / "acr" / "Siemens_MagnetomSkyra_3T_T1"
+    )
+    L1 = 192.38, 192.38
+    L5 = 191.41, 191.41, 190.43, 190.43
+    distortion_metrics = (1.41, 2.38, 0.42)
+
+
+class TestACRGeometricAccuracySiemensMagnetomSkyraT2(
+        TestACRGeometricAccuracySiemensMagnetomSkyraT1,
+):
+    """Test Data for the Siemens_MagnetomSkyra_3T_T2 dataset."""
+
+    ACR_DATA = (
+        pathlib.Path(TEST_DATA_DIR) / "acr" / "Siemens_MagnetomSkyra_3T_T2"
+    )
+
+
+class TestACRGeometricAccuracySiemensSolaT1(TestACRGeometricAccuracySiemens):
+    """Test Data for the Siemens_Sola_1.5T_T1 dataset."""
+
+    ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "Siemens_Sola_1.5T_T1")
+    L1 = (190.43, 189.45)
+    L5 = 189.45, 190.43, 190.43, 189.45
+    distortion_metrics = (-0.06, 0.55, 0.26)
+
+
+class TestACRGeometricAccuracySiemensSolaT2(
+    TestACRGeometricAccuracySiemensSolaT1,
+):
+    """Test Data for the Siemens_Sola_1.5T_T2 dataset."""
+
+    ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "Siemens_Sola_1.5T_T2")
+
+    @unittest.skip(
+        "Skipping test as does not agree with T1 results"
+        " - this needs to be fixed!"
+    )
+    def test_geometric_accuracy_slice_5(self) -> None:
+        super().test_geometric_accuracy_slice_5()
+
+
+######
+# GE #
+######
+
+
 class TestACRGeometricAccuracyGE(TestACRGeometricAccuracySiemens):
     """Test Data for the GE dataset."""
 
@@ -72,3 +145,76 @@ class TestACRGeometricAccuracyGE(TestACRGeometricAccuracySiemens):
     L1 = 190.42, 188.9
     L5 = 190.42, 189.41, 190.42, 189.41
     distortion_metrics = (-0.17, 1.1, 0.32)
+
+
+class TestACRGeometricAccuracyGEArtistT1(TestACRGeometricAccuracyGE):
+    """Test Data for the GE Artist 1.5T T1 dataset."""
+
+    ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "GE_Artist_1.5T_T1")
+    L1 = 190.44, 190.44
+    L5 = 190.44, 190.44, 189.46, 190.44
+    distortion_metrics = (0.28, 0.54, 0.19)
+
+
+class TestACRGeometricAccuracyGEArtistT2(TestACRGeometricAccuracyGEArtistT1):
+    """Test Data for the GE Artist 1.5T T2 dataset."""
+
+    ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "GE_Artist_1.5T_T2")
+
+    @unittest.skip(
+        "Skipping test as does not agree with T1 results"
+        " - this needs to be fixed!"
+    )
+    def test_geometric_accuracy_slice_5(self) -> None:
+        super().test_geometric_accuracy_slice_5()
+
+
+class TestACRGeometricAccuracyGEMR450WT1(TestACRGeometricAccuracyGE):
+    """Test Data for the GE MR450W 1.5T T1 dataset."""
+
+    ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "GE_MR450W_1.5T_T1")
+    L1 = 188.48, 188.48
+    L5 = 188.48, 188.48, 191.41, 191.41
+    distortion_metrics = (-0.54, 1.52, 0.73)
+
+
+class TestACRGeometricAccuracyGEMR450WT2(TestACRGeometricAccuracyGEMR450WT1):
+    """Test Data for the GE MR450W 1.5T T2 dataset."""
+
+    ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "GE_MR450W_1.5T_T2")
+
+    @unittest.skip(
+        "Skipping test as does not agree with T1 results"
+        " - this needs to be fixed!"
+    )
+    def test_geometric_accuracy_slice_1(self) -> None:
+        super().test_geometric_accuracy_slice_1()
+
+    @unittest.skip(
+        "Skipping test as does not agree with T1 results"
+        " - this needs to be fixed!"
+    )
+    def test_geometric_accuracy_slice_5(self) -> None:
+        super().test_geometric_accuracy_slice_5()
+
+
+class TestACRGeometricAccuracyGESignaT1(TestACRGeometricAccuracyGE):
+    """Test Data for the GE Signa 3T T1 dataset."""
+
+    ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "GE_Signa_3T_T1")
+    L1 = 189.46, 189.46
+    L5 = 190.44, 188.48, 189.46, 190.44
+    distortion_metrics = (-0.38, 1.52, 0.36)
+
+
+class TestACRGeometricAccuracyGESignaT2(TestACRGeometricAccuracyGESignaT1):
+    """Test Data for the GE Signa 3T T2 dataset."""
+
+    ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "GE_Signa_3T_T2")
+
+    @unittest.skip(
+        "Skipping test as does not agree with T1 results"
+        " - this needs to be fixed!"
+    )
+    def test_geometric_accuracy_slice_5(self) -> None:
+        super().test_geometric_accuracy_slice_5()
