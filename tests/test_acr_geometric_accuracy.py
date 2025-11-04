@@ -2,6 +2,7 @@
 
 # ruff: noqa: T201 S101
 
+import logging
 import pathlib
 import unittest
 
@@ -10,6 +11,9 @@ from hazenlib.tasks.acr_geometric_accuracy import ACRGeometricAccuracy
 from hazenlib.utils import get_dicom_files
 
 from tests import TEST_DATA_DIR, TEST_REPORT_DIR
+
+logger = logging.getLogger(__name__)
+
 
 ###########
 # Siemens #
@@ -38,12 +42,11 @@ class TestACRGeometricAccuracySiemens(unittest.TestCase):
     def test_geometric_accuracy_slice_1(self) -> None:
         """Test Geometric Accuracy with Slice 1."""
         slice1_vals = self.acr_geometric_accuracy_task.get_geometric_accuracy(0)
-
         slice1_vals = np.round(slice1_vals, 2)
 
-        print("\ntest_geo_accuracy.py::TestGeoAccuracy::test_geo_accuracy_slice1")
-        print("new_release:", slice1_vals)
-        print("fixed value:", self.L1)
+        logger.info(
+            "Slice 1:\nnew_release: %s\nfixed value: %s", slice1_vals, self.L1,
+        )
 
         assert (slice1_vals == self.L1).all()
 
@@ -55,15 +58,18 @@ class TestACRGeometricAccuracySiemens(unittest.TestCase):
 
         slice5_vals = np.round(slice5_vals, 2)
 
-        print("\ntest_geo_accuracy.py::TestGeoAccuracy::test_geo_accuracy_slice5")
-        print("new_release:", slice5_vals)
-        print("fixed value:", self.L5)
+        logger.info(
+            "Slice 5:\nnew_release: %s\nfixed value: %s", slice5_vals, self.L5,
+        )
+
         assert (slice5_vals == self.L5).all()
 
     def test_distortion_metrics(self) -> None:
         """Test distortion metrics."""
         metrics = np.array(
-            self.acr_geometric_accuracy_task.get_distortion_metrics(self.L1 + self.L5),
+            self.acr_geometric_accuracy_task.get_distortion_metrics(
+                self.L1 + self.L5,
+            ),
         )
         metrics = np.round(metrics, 2)
         assert (metrics == self.distortion_metrics).all()
@@ -125,13 +131,6 @@ class TestACRGeometricAccuracySiemensSolaT2(
 
     ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "Siemens_Sola_1.5T_T2")
 
-    @unittest.skip(
-        "Skipping test as does not agree with T1 results"
-        " - this needs to be fixed!"
-    )
-    def test_geometric_accuracy_slice_5(self) -> None:
-        super().test_geometric_accuracy_slice_5()
-
 
 ######
 # GE #
@@ -161,13 +160,6 @@ class TestACRGeometricAccuracyGEArtistT2(TestACRGeometricAccuracyGEArtistT1):
 
     ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "GE_Artist_1.5T_T2")
 
-    @unittest.skip(
-        "Skipping test as does not agree with T1 results"
-        " - this needs to be fixed!"
-    )
-    def test_geometric_accuracy_slice_5(self) -> None:
-        super().test_geometric_accuracy_slice_5()
-
 
 class TestACRGeometricAccuracyGEMR450WT1(TestACRGeometricAccuracyGE):
     """Test Data for the GE MR450W 1.5T T1 dataset."""
@@ -182,20 +174,6 @@ class TestACRGeometricAccuracyGEMR450WT2(TestACRGeometricAccuracyGEMR450WT1):
     """Test Data for the GE MR450W 1.5T T2 dataset."""
 
     ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "GE_MR450W_1.5T_T2")
-
-    @unittest.skip(
-        "Skipping test as does not agree with T1 results"
-        " - this needs to be fixed!"
-    )
-    def test_geometric_accuracy_slice_1(self) -> None:
-        super().test_geometric_accuracy_slice_1()
-
-    @unittest.skip(
-        "Skipping test as does not agree with T1 results"
-        " - this needs to be fixed!"
-    )
-    def test_geometric_accuracy_slice_5(self) -> None:
-        super().test_geometric_accuracy_slice_5()
 
 
 class TestACRGeometricAccuracyGESignaT1(TestACRGeometricAccuracyGE):
@@ -212,9 +190,3 @@ class TestACRGeometricAccuracyGESignaT2(TestACRGeometricAccuracyGESignaT1):
 
     ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "GE_Signa_3T_T2")
 
-    @unittest.skip(
-        "Skipping test as does not agree with T1 results"
-        " - this needs to be fixed!"
-    )
-    def test_geometric_accuracy_slice_5(self) -> None:
-        super().test_geometric_accuracy_slice_5()
