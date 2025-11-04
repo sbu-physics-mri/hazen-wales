@@ -130,6 +130,8 @@ class TestACRGeometricAccuracySiemensSolaT2(
     """Test Data for the Siemens_Sola_1.5T_T2 dataset."""
 
     ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "Siemens_Sola_1.5T_T2")
+    L5 = 189.45, 190.43, 191.41, 189.45
+    distortion_metrics = (0.1, 1.41, 0.38)
 
 
 ######
@@ -159,6 +161,8 @@ class TestACRGeometricAccuracyGEArtistT2(TestACRGeometricAccuracyGEArtistT1):
     """Test Data for the GE Artist 1.5T T2 dataset."""
 
     ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "GE_Artist_1.5T_T2")
+    L5 = 190.44, 190.44, 190.44, 191.41
+    distortion_metrics = (0.6, 1.41, 0.19)
 
 
 class TestACRGeometricAccuracyGEMR450WT1(TestACRGeometricAccuracyGE):
@@ -174,6 +178,9 @@ class TestACRGeometricAccuracyGEMR450WT2(TestACRGeometricAccuracyGEMR450WT1):
     """Test Data for the GE MR450W 1.5T T2 dataset."""
 
     ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "GE_MR450W_1.5T_T2")
+    L1 = 189.46, 188.48
+    L5 = (188.48, 188.48, 191.41, 189.46)
+    distortion_metrics = (-0.71, 1.52, 0.55)
 
 
 class TestACRGeometricAccuracyGESignaT1(TestACRGeometricAccuracyGE):
@@ -189,4 +196,5 @@ class TestACRGeometricAccuracyGESignaT2(TestACRGeometricAccuracyGESignaT1):
     """Test Data for the GE Signa 3T T2 dataset."""
 
     ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "GE_Signa_3T_T2")
-
+    L5 = 190.44, 188.48, 189.46, 191.41
+    distortion_metrics = (-0.21, 1.52, 0.49)
