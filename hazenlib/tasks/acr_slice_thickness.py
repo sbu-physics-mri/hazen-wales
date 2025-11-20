@@ -73,7 +73,7 @@ class ACRSliceThickness(HazenTask):
             results.add_measurement(
                 Measurement(
                     name="SliceWidth",
-                    type="measurement",
+                    type="measured",
                     subtype="slice width",
                     unit="mm",
                     value=(result, 2),
