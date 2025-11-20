@@ -73,9 +73,16 @@ class ACRObject:
             # Create new DICOM object for this frame
             frame_dcm = copy.deepcopy(dcm)
 
+            try:
+                pixel_data = dcm.pixel_array[frame_idx, :, :]
+
+            # Case for (2D) sagittal localizer stored as an enhanced DICOM
+            except IndexError:
+                pixel_data = dcm.pixel_array
+
             # Extract single frame pixel data
             frame_dcm.set_pixel_data(
-                dcm.pixel_array[frame_idx, :, :],
+                pixel_data,
                 dcm[(0x0028,0x0004)].value, # Photometric Interpretation
                 dcm[(0x0028,0x0101)].value, # Bits Stored
             )
