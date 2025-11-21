@@ -200,7 +200,7 @@ def get_slice_thickness(dcm: pydicom.Dataset) -> float:
 
 def get_pixel_size(
         dcm: pydicom.Dataset, *, swap_indexes: bool = False,
-) -> (float, float):
+) -> tuple[float, float]:
     """Get the PixelSpacing field from the DICOM header
 
     Args:

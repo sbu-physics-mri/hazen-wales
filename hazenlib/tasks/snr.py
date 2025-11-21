@@ -261,7 +261,7 @@ class SNR(HazenTask):
 
         return imthresholded, mask
 
-    def get_binary_mask_centre(self, binary_mask) -> (int, int):
+    def get_binary_mask_centre(self, binary_mask) -> tuple[int, int]:
         """Determine coordinates of binary polygonal shape's centre
 
         Args:
@@ -340,7 +340,7 @@ class SNR(HazenTask):
 
         return sample
 
-    def get_object_centre(self, dcm) -> (int, int):
+    def get_object_centre(self, dcm) -> tuple[int, int]:
         """Find the phantom object within the image and return its centre col and row value.
         Note first element in output = col, second = row.
 

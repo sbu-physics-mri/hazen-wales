@@ -124,6 +124,7 @@ Get r-squared measure of fit.
 import json
 import os.path
 import pathlib
+from typing import Union
 
 import cv2 as cv
 import hazenlib.exceptions
@@ -214,6 +215,7 @@ class Relaxometry(HazenTask):
         # Set up parameters specific to T1 or T2
         relax_str = calc.lower()
 
+        image_stack: Union[T1ImageStack, T2ImageStack]
         if calc in ["T1", "t1"]:
             image_stack = T1ImageStack(self.dcm_list)
             try:
