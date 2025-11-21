@@ -51,7 +51,7 @@ class HazenTask:
         )
 
         self.report_path.mkdir(parents=True, exist_ok=True)
-        self.report_files: Sequence[str] = []
+        self.report_files: list[str] = []
 
     def init_result_dict(self, desc: str = "") -> Result:
         """Initialise measurement results holder and input description.

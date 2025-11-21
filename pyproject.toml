@@ -32,12 +32,14 @@ hazen = "hazenlib:main"
 [dependency-groups]
 dev = [
     "flake8>=7.3.0",
+    "mypy>=1.0.0",
     "pytest>=8.4.1",
     "pytest-cov>=6.2.1",
     "sphinx>=7.4.7",
     "sphinx-rtd-theme>=3.0.2",
     "sphinxcontrib-bibtex>=2.6.5",
     "types-docopt>=0.6.11.20241107",
+    "types-Pillow>=10.0.0",
 ]
 
 [tool.setuptools.packages.find]

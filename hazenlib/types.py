@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 # Python imports
 import functools
 import json
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from dataclasses import asdict, dataclass, field
 from typing import Any, ParamSpec, get_args
 
@@ -138,7 +138,6 @@ class Result(JsonSerializableMixin):
     task: str
     desc: str = ""
     files: str | Sequence[str] | None = None
-    desc: str = ""
 
     def __post_init__(self) -> None:
         """Initialize the measurements, report_images and metadata."""
@@ -242,7 +241,7 @@ class Spoke:
     diameter: float
 
     # Distance from the center (mm)
-    dist: tuple[float] = (12.5, 25, 38.0)
+    dist: tuple[float, float, float] = (12.5, 25, 38.0)
 
     # Spoke length
     length: float = 44.0
@@ -272,7 +271,7 @@ class Spoke:
         """Objects within the spoke."""
         return len(self.objects)
 
-    def __iter__(self) -> LowContrastObject:
+    def __iter__(self) -> Iterator[LowContrastObject]:
         """Iterate over the low contrast objects."""
         return iter(self.objects)
 
@@ -280,16 +279,16 @@ class Spoke:
         self,
         dcm: pydicom.FileDataset,
         size: int = 128,
-        offset: tuple[float] = (0.0, 0.0),
+        offset: tuple[float, float] = (0.0, 0.0),
         *,
         return_object_mask: bool = False,
         return_coords: bool = False,
-    ) -> tuple[np.ndarray]:
+    ) -> tuple[np.ndarray, ...]:
         """Return the 1D profile of the DICOM for the spoke."""
         px_x, px_y = get_pixel_size(dcm)
         if px_x != px_y:
             msg = "Only square pixels are supported"
-            logger.critcal("%s but got (%f, %f)", msg, px_x, px_y)
+            logger.critical("%s but got (%f, %f)", msg, px_x, px_y)
             raise ValueError(msg)
         r_coords = np.linspace(
             0, self.length / px_x, size, endpoint=False,
@@ -316,6 +315,7 @@ class Spoke:
         if return_object_mask:
             object_mask = np.zeros((size, len(self)), dtype=bool)
             r = np.linspace(0, self.length, size)
+            obj: LowContrastObject
             for i, obj in enumerate(self):
                 obj_r_pos = np.sqrt(
                     (obj.x - self.cx) ** 2
@@ -343,7 +343,7 @@ class LCODTemplate:
 
     # Diameters of each low contrast object (mm)
     # Starting with the largest spoke and moving clockwise.
-    diameters: tuple[float]  = (
+    diameters: tuple[float, ...]  = (
         7.00, 6.39, 5.78, 5.17, 4.55, 3.94, 3.33, 2.72, 2.11, 1.50,
     )
 
@@ -361,8 +361,8 @@ class LCODTemplate:
         cx: float,
         cy: float,
         theta: float,
-        diameters: tuple[float],
-    ) -> tuple[Spoke]:
+        diameters: tuple[float, ...],
+    ) -> tuple[Spoke, ...]:
         # Spokes start with the largest and decrease in size clockwise
         return tuple(
             Spoke(cx, cy, theta + i * (360 / len(diameters)), d)
@@ -372,7 +372,7 @@ class LCODTemplate:
     def mask(
         self,
         dcm: pydicom.FileDataset,
-        offset: tuple[float] = (0.0, 0.0),
+        offset: tuple[float, float] = (0.0, 0.0),
         *,
         subset: str = "all",
         warn_if_object_out_of_bounds: bool = False,
@@ -399,6 +399,7 @@ class LCODTemplate:
         )
 
         for sidx, spoke in enumerate(self.spokes):
+            obj: LowContrastObject
             for oidx, obj in enumerate(spoke):
                 is_object = (
                     (y_grid - obj.y) ** 2 + (x_grid - obj.x) ** 2

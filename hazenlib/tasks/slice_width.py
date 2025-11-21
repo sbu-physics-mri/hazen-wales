@@ -848,7 +848,7 @@ class SliceWidth(HazenTask):
 
         return trapezoid_fit_coefficients, baseline_fit_coefficients
 
-    def get_slice_width(self, dcm) -> Measurement:
+    def get_slice_width(self, dcm) -> list[Measurement]:
         """Calculates slice width using double wedge image
 
         Args:
@@ -863,7 +863,7 @@ class SliceWidth(HazenTask):
                 - horz_distortion_mm, vert_distortion_mm (float)
                     calculated rod distance distortion in mm
         """
-        slice_width_mm = {"top": {}, "bottom": {}, "combined": {}}
+        slice_width_mm: dict[str, dict] = {"top": {}, "bottom": {}, "combined": {}}
         arr = dcm.pixel_array
         sample_spacing = 0.25
 

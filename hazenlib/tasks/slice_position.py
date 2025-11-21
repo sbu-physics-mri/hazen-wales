@@ -197,7 +197,8 @@ class SlicePosition(HazenTask):
         """
         # TODO: split function so there is no looping
         # TODO: combine this with the function above so rod coords are not recorded again
-        left_rod, right_rod = {"x_pos": [], "y_pos": []}, {"x_pos": [], "y_pos": []}
+        left_rod: dict[str, list] = {"x_pos": [], "y_pos": []}
+        right_rod: dict[str, list] = {"x_pos": [], "y_pos": []}
         nominal_positions = []
         for i, dcm in enumerate(data):
             # print(dcm.SpacingBetweenSlices) # constant
@@ -220,7 +221,7 @@ class SlicePosition(HazenTask):
 
     def correct_rods_for_rotation(
         self, left_rod: dict, right_rod: dict
-    ) -> (dict, dict):
+    ) -> tuple[dict, dict]:
         """Update rod coordinates corrected for rotational angle
 
         Args:
