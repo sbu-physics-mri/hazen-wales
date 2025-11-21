@@ -71,9 +71,31 @@ There are two main options for running hazen.
 
 ### 1) Python install and run (CLI)
 
-hazen can be installed with Python 3.9, 3.10, 3.11 or 3.12 versions via pip.
+hazen can be installed with Python 3.11, 3.12 or 3.13 versions. We recommend using [uv](https://docs.astral.sh/uv/) for installation.
 
-It is strongly recommended to use a virtual environment, that can be made using the following commands.
+#### Installing with uv (recommended)
+
+First, install uv if you haven't already:
+
+```bash
+# On macOS and Linux
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# On Windows
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
+Then install hazen:
+
+```bash
+uv tool install hazen
+# Check that hazen was correctly installed and see which version it is:
+hazen --version
+```
+
+#### Installing with pip
+
+Alternatively, you can install hazen using pip in a virtual environment:
 
 ```bash
 python3 -m venv hazen-venv
@@ -87,6 +109,10 @@ hazen --version
 If you already have an old version of hazen installed, upgrade to the latest version with:
 
 ```shell
+# With uv
+uv tool upgrade hazen
+
+# Or with pip
 source hazen-venv/bin/activate
 pip install --upgrade pip
 pip install --upgrade hazen
