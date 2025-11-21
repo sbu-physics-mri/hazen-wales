@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     import pydicom
 
 # Python imports
+from logging import INFO
 from pathlib import Path
 
 # Module imports
@@ -43,6 +44,21 @@ class HazenTask:
         """
         data_paths = sorted(input_data)
         self.dcm_list = [dcmread(dicom) for dicom in data_paths]
+
+        # Log acquisition information for each DICOM file
+        if logger.isEnabledFor(INFO):
+            for dcm in self.dcm_list:
+                acq_number = dcm.get("AcquisitionNumber", "N/A")
+                series_desc = dcm.get("SeriesDescription", "N/A")
+                series_number = dcm.get("SeriesNumber", "N/A")
+                instance_number = dcm.get("InstanceNumber", "N/A")
+                logger.info(
+                    "Loaded DICOM - AcquisitionNumber: %s, "
+                    "SeriesDescription: %s, SeriesNumber: %s, "
+                    "InstanceNumber: %s",
+                    acq_number, series_desc, series_number, instance_number
+                )
+
         self.report: bool = report
         self.report_path = (
             Path().cwd() / "report_image" / type(self).__name__
@@ -78,16 +94,19 @@ class HazenTask:
 
         """
         if properties is None:
-            properties = ["SeriesDescription", "SeriesNumber", "InstanceNumber"]
+            properties = [
+                "SeriesDescription", "SeriesNumber", "InstanceNumber"
+            ]
         try:
             metadata = [str(dcm.get(field)) for field in properties]
         except KeyError:
             logger.warning(
-                f"Could not find one or more of the following properties: {properties}",
+                f"Could not find one or more of the following "
+                f"properties: {properties}",
             )
             metadata = [
-                str(dcm.get(field)) for field in ["SeriesDescription", "SeriesNumber"]
+                str(dcm.get(field))
+                for field in ["SeriesDescription", "SeriesNumber"]
             ]
 
         return "_".join(metadata).replace(" ", "_")
-
