@@ -9,7 +9,7 @@ If, however, you are interested in using or contributing to the *hazen web app*,
 Prerequisites
 -------------
 
-* Python v3.11+
+* Python v3.11-3.13
 * Git
 * Docker (optional)
 

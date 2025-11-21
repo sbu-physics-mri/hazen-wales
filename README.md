@@ -71,7 +71,7 @@ There are two main options for running hazen.
 
 ### 1) Python install and run (CLI)
 
-hazen can be installed with Python 3.11, 3.12 or 3.13 versions. We recommend using [uv](https://docs.astral.sh/uv/) for installation.
+hazen can be installed with Python 3.11+ (currently supporting 3.11, 3.12, and 3.13). We recommend using [uv](https://docs.astral.sh/uv/) for installation.
 
 #### Installing with uv (recommended)
 
