@@ -43,6 +43,19 @@ class HazenTask:
         """
         data_paths = sorted(input_data)
         self.dcm_list = [dcmread(dicom) for dicom in data_paths]
+        
+        # Log acquisition information for each DICOM file
+        for dcm in self.dcm_list:
+            acq_number = dcm.get("AcquisitionNumber", "N/A")
+            series_desc = dcm.get("SeriesDescription", "N/A")
+            series_number = dcm.get("SeriesNumber", "N/A")
+            instance_number = dcm.get("InstanceNumber", "N/A")
+            logger.info(
+                "Loaded DICOM - AcquisitionNumber: %s, SeriesDescription: %s, "
+                "SeriesNumber: %s, InstanceNumber: %s",
+                acq_number, series_desc, series_number, instance_number
+            )
+        
         self.report: bool = report
         self.report_path = (
             Path().cwd() / "report_image" / type(self).__name__
