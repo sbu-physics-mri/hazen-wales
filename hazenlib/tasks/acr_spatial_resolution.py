@@ -402,7 +402,7 @@ class ACRSpatialResolution(HazenTask):
             erf,
             sigma=(1 / weights),
             p0=[np.min(erf), np.max(erf), 0, sum(turning_points) / 2, 1],
-            maxfev=5000,
+            maxfev=100000,
         )
         erf_fit = func(
             np.arange(1, len(erf) + 1), popt[0], popt[1], popt[2], popt[3], popt[4]
