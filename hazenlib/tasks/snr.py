@@ -47,15 +47,17 @@ class SNR(HazenTask):
         # measured slice width is expected to be a floating point number
         self.measured_slice_width = measured_slice_width
         with contextlib.suppress(TypeError):
-            self.measured_slice_width = float(measured_slice_width)
+            self.measured_slice_width = float(measured_slice_width)  # type: ignore[arg-type]
 
 
         # Determining kernel size based on coil choice. Values of 9 and 25 come from McCann 2013 paper.
         try:
-            if coil.lower() in ["hc", "head"]:
+            if coil is not None and coil.lower() in ["hc", "head"]:
                 self.kernel_size = 9
-            elif coil.lower() in ["bc", "body"]:
+            elif coil is not None and coil.lower() in ["bc", "body"]:
                 self.kernel_size = 25
+            else:
+                self.kernel_size = 9
 
         except AttributeError:
             self.kernel_size = 9

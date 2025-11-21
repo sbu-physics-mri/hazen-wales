@@ -157,12 +157,12 @@ def get_num_of_frames(dcm: pydicom.Dataset) -> int:
         dcm (pydicom.Dataset): DICOM image object
 
     Returns:
-        float: value of the PixelBandwidth field from the DICOM header
+        int: number of frames in the DICOM pixel array
     """
     # TODO: investigate what values could the dcm.pixel_array.shape be and what that means
     if len(dcm.pixel_array.shape) > 2:
         return dcm.pixel_array.shape[0]
-    elif len(dcm.pixel_array.shape) == 2:
+    else:  # len == 2 or len == 1
         return 1
 
 
