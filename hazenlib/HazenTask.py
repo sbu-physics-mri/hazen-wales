@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     import pydicom
 
 # Python imports
-import logging
+from logging import INFO
 from pathlib import Path
 
 # Module imports
@@ -46,7 +46,7 @@ class HazenTask:
         self.dcm_list = [dcmread(dicom) for dicom in data_paths]
 
         # Log acquisition information for each DICOM file
-        if logger.isEnabledFor(logging.INFO):
+        if logger.isEnabledFor(INFO):
             for dcm in self.dcm_list:
                 acq_number = dcm.get("AcquisitionNumber", "N/A")
                 series_desc = dcm.get("SeriesDescription", "N/A")
