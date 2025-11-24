@@ -134,6 +134,15 @@ class TestACRGeometricAccuracySiemensSolaT2(
     distortion_metrics = (0.1, 1.41, 0.38)
 
 
+class TestACRGeometricAccuracySiemensSolaFit(TestACRGeometricAccuracySiemens):
+    """Test Data for the Siemens Sola Fit dataset."""
+
+    ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "SiemensSolaFit")
+    L1 = 190.43, 190.43
+    L5 = 189.45, 190.43, 191.41, 191.41
+    distortion_metrics = (0.59, 1.41, 0.35)
+
+
 ######
 # GE #
 ######
@@ -198,3 +207,17 @@ class TestACRGeometricAccuracyGESignaT2(TestACRGeometricAccuracyGESignaT1):
     ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "GE_Signa_3T_T2")
     L5 = (190.44, 188.48, 189.46, 191.41)
     distortion_metrics = (-0.21, 1.52, 0.49)
+    L1 = 190.93, 188.9
+
+###########
+# Philips #
+###########
+
+
+class TestACRGeometricAccuracyPhilipsAchieva(TestACRGeometricAccuracySiemens):
+    """Test data for the Philips Achieva."""
+
+    ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "PhilipsAchieva")
+    L1 = 190.43, 189.45
+    L5 = 190.43, 189.45, 189.45, 189.45
+    distortion_metrics = (-0.22, 0.55, 0.24)

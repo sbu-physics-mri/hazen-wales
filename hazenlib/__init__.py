@@ -47,7 +47,8 @@ import pkgutil
 import sys
 
 from docopt import docopt
-
+from hazenlib.logger import logger
+from hazenlib.utils import get_dicom_files, is_enhanced_dicom
 from hazenlib._version import __version__
 from hazenlib.formatters import write_result
 from hazenlib.logger import logger
@@ -139,6 +140,7 @@ def main():
     fmt = arguments["--format"] if arguments["--format"] else "json"
     result_file = arguments["--result"] if arguments["--result"] else "-"
 
+    logger.info(f"Hazen version: {__version__}")
     logger.debug("The following files were identified as valid DICOMs:")
     files = get_dicom_files(arguments["<folder>"])
     logger.debug(
@@ -201,7 +203,12 @@ def main():
                 if (t := m.split(".")[-1]).startswith("acr")
             ]
         else:
-            selected_tasks = [selected_task]
+            # Slice Position task, all ACR tasks except SNR
+            # may be enhanced, may be multi-frame
+            fns = [os.path.basename(fn) for fn in files]
+            logger.info(f"Processing {fns}")
+            task = init_task(selected_task, files, report, report_dir, verbose=verbose)
+            result = task.run()
 
         for selected_task in selected_tasks:
             task = init_task(

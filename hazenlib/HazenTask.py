@@ -19,6 +19,7 @@ from pydicom import dcmread
 # Local imports
 from hazenlib.logger import logger
 from hazenlib.types import Result
+from hazenlib.utils import scrub, REGEX_SCRUBNAME
 
 
 class HazenTask:
@@ -89,5 +90,12 @@ class HazenTask:
                 str(dcm.get(field)) for field in ["SeriesDescription", "SeriesNumber"]
             ]
 
-        return "_".join(metadata).replace(" ", "_")
-
+        join_char = "_"
+        img_desc = join_char.join(metadata).replace(" ", join_char)
+        # Let's make sure dirty names do not contaminate the file names
+        # or any other string operations.
+        return scrub(
+            img_desc,
+            REGEX_SCRUBNAME,
+            join_char,
+        ).strip(join_char).replace(join_char * 2, join_char)
