@@ -1,4 +1,8 @@
+import copy
 import os
+import re
+from multiprocessing import Pool
+
 import cv2 as cv
 import pydicom
 import imutils
@@ -6,12 +10,33 @@ import matplotlib
 import numpy as np
 
 from collections import defaultdict
+
+from scipy.ndimage import uniform_filter
 from skimage import filters
 
 import hazenlib.exceptions as exc
 from hazenlib.logger import logger
 
 matplotlib.use("Agg")
+
+REGEX_SCRUBNAME = '\\^\\\\`\\{\\}\\[\\]\\(\\)\\!\\$\'\\/\\ \\_\\:\\,\\-\\&\\=\\.\\*\\+\\;\\#'  #: Regex to match for these dirty characters.
+
+
+def scrub(dirtyString, matchCharacters, join_str='_'):
+    """
+    This function provides the core functionality for scrubbing strings for bad characters. This is the most useful
+    function in the core library since it provides a security hardening benefit as well. Ideally, user input should get
+    scrubbed with this function or derivatives. This functionality is mediated by `re.split
+    <https://docs.python.org/3/library/re.html?highlight=re%20split#re.split>`_.
+
+    :param dirtyString: Untrustworthy string that needs to be stripped of bad characters such as newlines.
+    :param matchCharacters: Iterable of characters to scrub out of the string (typically a string of such characters)
+    :param join_str: String used in-between clean fragments. Example, te\\nst => te_st if this parameter is _
+    :return: Reconstructed clean string.
+    """
+    pattern = re.compile('[{}]'.format(matchCharacters))
+    target_string = re.split(pattern, str(dirtyString))
+    return join_str.join(target_string)
 
 
 def get_dicom_files(folder: str, sort=False) -> list:
@@ -338,10 +363,10 @@ def get_field_of_view(dcm: pydicom.Dataset):
     elif "philips" in manufacturer:
         if is_enhanced_dicom(dcm):
             fov = (
-                dcm.Columns
-                * dcm.PerFrameFunctionalGroupsSequence[0]
-                .PixelMeasuresSequence[0]
-                .PixelSpacing[0]
+                    dcm.Columns
+                    * dcm.PerFrameFunctionalGroupsSequence[0]
+                    .PixelMeasuresSequence[0]
+                    .PixelSpacing[0]
             )
         else:
             fov = dcm.Columns * dcm.PixelSpacing[0]
@@ -355,6 +380,87 @@ def get_field_of_view(dcm: pydicom.Dataset):
 
     return fov
 
+def get_datatype_max(dtype=np.uint8):
+    """Get max value of the numpy datatype range. This is the machine max and not the data's max used value.
+    For example, a np.uint8 has a machine range of 0 to 255.
+
+    Args:
+        dtype (np.dtype): Numpy datatype
+
+    Returns:
+        int|float: max machine value of data type
+    """
+    try:
+        return np.iinfo(dtype).max
+    except:
+        return np.finfo(dtype).max
+
+
+def get_datatype_min(dtype=np.uint8):
+    """Get min value of the numpy datatype range. This is the machine min and not the data's min used value.
+    For example, a np.uint8 has a machine range of 0 to 255.
+
+    Args:
+        dtype (np.dtype): Numpy datatype
+
+    Returns:
+        int|float: min machine value of data type
+    """
+    try:
+        return np.iinfo(dtype).min
+    except:
+        return np.finfo(dtype).min
+
+
+def get_image_IOP(dcm):
+    """Get the IOP vectors from the DICOM header.
+
+    Args:
+        dcm (pydicom.dataset.FileDataset): DICOM Dataset
+
+    Returns:
+        pydicom.multival.MultiValue: vector
+    """
+    if is_enhanced_dicom(dcm):
+        return (
+            dcm.PerFrameFunctionalGroupsSequence[-1]
+            .PlaneOrientationSequence[-1]
+            .ImageOrientationPatient
+        )
+    return dcm.ImageOrientationPatient
+
+
+def get_image_IPP(dcm):
+    """Get the IPP vector from the DICOM header.
+
+    Args:
+        dcm (pydicom.dataset.FileDataset): DICOM Dataset
+
+    Returns:
+        pydicom.multival.MultiValue: vector
+    """
+    if is_enhanced_dicom(dcm):
+        return (
+            dcm.PerFrameFunctionalGroupsSequence[-1]
+            .PlanePositionSequence[-1]
+            .ImagePositionPatient
+        )
+    return dcm.ImagePositionPatient
+
+
+def get_image_spacing(dcm):
+    """Get the pixel resolution from the DICOM header.
+
+    Args:
+        dcm (pydicom.dataset.FileDataset): DICOM Dataset
+
+    Returns:
+        pydicom.multival.MultiValue: vector
+    """
+    if is_enhanced_dicom(dcm):
+        return dcm.PerFrameFunctionalGroupsSequence[-1].PixelMeasuresSequence[-1].PixelSpacing
+    return dcm.PixelSpacing
+
 
 def get_image_orientation(dcm):
     """
@@ -366,14 +472,7 @@ def get_image_orientation(dcm):
     Returns:
         str: Sagittal, Coronal or Transverse
     """
-    if is_enhanced_dicom(dcm):
-        iop = (
-            dcm.PerFrameFunctionalGroupsSequence[0]
-            .PlaneOrientationSequence[0]
-            .ImageOrientationPatient
-        )
-    else:
-        iop = dcm.ImageOrientationPatient
+    iop = get_image_IOP(dcm)
 
     iop_round = [round(x) for x in iop]
     plane = np.cross(iop_round[0:3], iop_round[3:6])
@@ -402,28 +501,13 @@ def determine_orientation(dcm_list):
             "saggital", "coronal", "axial", or "unexpected" orientation. \n
             list of the changing ImagePositionPatient values.
     """
-    # for dcm in dcm_list:
-    #     print(dcm.InstanceNumber) # unique
-    #     print(dcm.ImagePositionPatient) # unique
-    #     # The x, y, and z coordinates of the upper left hand corner (center of the first voxel transmitted) of the image, in mm
-    #     # eg [28.364610671997, -88.268096923828, 141.94101905823]
-    #     print(dcm.ImageOrientationPatient) # common
-    #     # The direction cosines of the first row and the first column with respect to the patient.
-    #     # eg
-    #     # [1, 0, 0, 0, 1, 0]  transverse/axial
-    #     # [1, 0, 0, 0, 0, -1] coronal
-    #     # [0, 1, 0, 0, 0, -1] sagittal
-    #     print(dcm.PixelSpacing) # common
-    #     # Physical distance in the patient between the center of each pixel, specified by a numeric pair - adjacent row spacing (dx) (delimiter) adjacent column spacing (dy) in mm.
-    #     print(dcm.SliceThickness) # common
-    #     # Nominal slice thickness, in mm
     # Get the number of images in the list,
     # assuming each have a unique position in one of the 3 directions
     expected = len(dcm_list)
-    iop = dcm_list[0].ImageOrientationPatient
-    x = np.array([round(dcm.ImagePositionPatient[0]) for dcm in dcm_list])
-    y = np.array([round(dcm.ImagePositionPatient[1]) for dcm in dcm_list])
-    z = np.array([round(dcm.ImagePositionPatient[2]) for dcm in dcm_list])
+    iop = [np.round(c) for c in get_image_IOP(dcm_list[0])]
+    x = np.array([round(get_image_IPP(dcm)[0]) for dcm in dcm_list])
+    y = np.array([round(get_image_IPP(dcm)[1]) for dcm in dcm_list])
+    z = np.array([round(get_image_IPP(dcm)[2]) for dcm in dcm_list])
 
     # Determine phantom orientation based on DICOM header metadata
     # Assume phantom orientation based on ImageOrientationPatient
@@ -441,27 +525,107 @@ def determine_orientation(dcm_list):
         logger.debug("Checking phantom orientation based on ImagePositionPatient")
         # Assume phantom orientation based on the changing value in ImagePositionPatient
         if (
-            len(set(x)) == expected
-            and len(set(y)) < expected
-            and len(set(z)) < expected
+                len(set(x)) == expected
+                and len(set(y)) < expected
+                and len(set(z)) < expected
         ):
             return "sagittal", x
         elif (
-            len(set(x)) < expected
-            and len(set(y)) == expected
-            and len(set(z)) < expected
+                len(set(x)) < expected
+                and len(set(y)) == expected
+                and len(set(z)) < expected
         ):
             return "coronal", y
         elif (
-            len(set(x)) < expected
-            and len(set(y)) < expected
-            and len(set(z)) == expected
+                len(set(x)) < expected
+                and len(set(y)) < expected
+                and len(set(z)) == expected
         ):
             return "axial", z
         else:
             logger.warning("Unable to determine orientation based on DICOM metadata")
+            logger.info(f'Image orientation cosines => {iop}')
             logger.info("x %s\ny %s\nz %s", set(x), set(y), set(z))
             return "unexpected", [x, y, z]
+
+
+def compute_dicom_frame_size(dcm):
+    """Computes the full size in bytes of a Enhanced Multiframe DICOM frame. This value can be used for selecting the
+    range of bytes for a given frame when manipulating the individual frames.
+
+    Args:
+        dcm (pydicom.dataset.FileDataset): DICOM Dataset
+
+    Returns:
+        float|int: byte count of a single frame
+    """
+    bits_allocated = dcm.BitsAllocated
+    bytes_per_pixel = ((bits_allocated - 1) // 8) + 1
+    samples_per_pixel = dcm.SamplesPerPixel
+    rows, columns = dcm.Rows, dcm.Columns
+    initial_frame_length = rows * columns * samples_per_pixel
+    if bits_allocated == 1:
+        return initial_frame_length // 8 + (initial_frame_length % 8 > 0) # From pydicom's upcoming 3.0
+    return initial_frame_length * bytes_per_pixel
+
+
+def new_dicom(dcm, frame_pixel_data, i):
+    """Crude method for spawning a new copy of the input slice with the header patched for consumption.
+    This function will patch elements related to enhanced multiframe dicom into the root of the header.
+    I attempt the bare minimum patching needed for the proper functioning of the downstream tasks.
+
+
+    Args:
+        dcm (pydicom.dataset.FileDataset): DICOM Dataset
+        frame_pixel_data (bytes|bytearray): Pixels meant for this new DICOM slice
+        i (int): index of slice in header contents of original slice
+
+    Returns:
+        pydicom.dataset.FileDataset: new DICOM slice
+    """
+    new_dcm = copy.deepcopy(dcm)
+    new_dcm.PixelData = frame_pixel_data
+    new_dcm.InstanceNumber = i + 1
+
+    subheader = new_dcm.PerFrameFunctionalGroupsSequence[i]
+
+    frame_voi = subheader.FrameVOILUTSequence[-1]
+    new_dcm.WindowCenter = dcm.get('WindowCenter', frame_voi.get('WindowCenter', None))
+    new_dcm.WindowWidth = dcm.get('WindowWidth', frame_voi.get('WindowWidth', None))
+
+    pixel_value_transformation = subheader.PixelValueTransformationSequence[-1]
+    new_dcm.RescaleIntercept = dcm.get('RescaleIntercept', pixel_value_transformation.get('RescaleIntercept', 1))
+    new_dcm.RescaleSlope = dcm.get('RescaleSlope', pixel_value_transformation.get('RescaleSlope', 1))
+    new_dcm.RescaleType = dcm.get('RescaleType', pixel_value_transformation.get('RescaleType', 1))
+    new_dcm.VOILUTFunction = dcm.get('VOILUTFunction', pixel_value_transformation.get('VOILUTFunction', 'linear'))
+
+    return new_dcm
+
+
+def split_dicom(dcm):
+    """Crude method for uncatenating an Enhanced DICOM Multiframe object. If the input is enhanced, we assume that it
+    is a multiframe dicom and split it into constituent frames. We return this list.
+
+    Otherwise, return a list whose single element is the given dicom
+
+    Args:
+        dcm (pydicom.dataset.FileDataset): DICOM Dataset
+
+    Returns:
+        float|int: byte count of a single frame
+    """
+    if is_enhanced_dicom(dcm):
+        frames = []
+        pixel_data = dcm.PixelData
+        frame_size = compute_dicom_frame_size(dcm)
+        frame_count = len(pixel_data) // frame_size
+        logger.info(frame_size)
+        for i in range(frame_count):
+            offset = i * frame_size
+            frame_pixel_data = pixel_data[offset:offset + frame_size]
+            frames.append(new_dicom(dcm, frame_pixel_data, i))
+        return frames
+    return [dcm]
 
 
 def rescale_to_byte(array):
@@ -484,6 +648,28 @@ def rescale_to_byte(array):
     return image_equalized.reshape(array.shape).astype("uint8")
 
 
+def expand_data_range(data, valid_range=None, target_type=np.uint8):
+    """Takes a dataset and expands its data range to fill the value range possible in the target type.
+    For example, if you have the data [1, 2, 3] and need it to fill the absolute values in uint16, you get
+    [0, 32767, 65,535]
+
+    Args:
+        data (np.array|np.ma.MaskedArray): dataset containing pixel values
+        valid_range (tuple, optional): tuple of values to use as the minimum and maximum of the dataset range.
+            If None, we use the datasets' minimum and maximum.
+        target_type (np.dtype): Numpy datatype to target in the expansion
+
+    Returns:
+        np.array: expanded range
+    """
+    try:
+        dtype_max = np.iinfo(target_type).max
+    except:
+        dtype_max = np.finfo(target_type).max
+    lower, upper = (data.min(), data.max()) if valid_range is None else valid_range
+    return (((data - lower) / (upper - lower)) * dtype_max).astype(target_type)
+
+
 def detect_circle(img, dx):
     normalised_img = cv.normalize(
         src=img,
@@ -495,15 +681,410 @@ def detect_circle(img, dx):
     )
     detected_circles = cv.HoughCircles(
         normalised_img,
-        cv.HOUGH_GRADIENT,
+        cv.HOUGH_GRADIENT_ALT,
         1,
-        param1=50,
-        param2=30,
-        minDist=int(10 / dx),  # used to be 180 / dx
-        minRadius=int(5 / dx),
-        maxRadius=int(16 / dx),
+        param1=300,
+        param2=0.9,
+        minDist=int(10 / dx),
+        minRadius=int(5 / (2 * dx)),
+        maxRadius=int(16 / (2 * dx)),
     )
+    if detected_circles is None:
+        detected_circles = cv.HoughCircles(
+            normalised_img,
+            cv.HOUGH_GRADIENT,
+            1,
+            param1=50,
+            param2=30,
+            minDist=int(10 / dx),  # used to be 180 / dx
+            minRadius=int(5 / dx),
+            maxRadius=int(16 / dx),
+        )
+    # debug_image_sample(normalised_img)
     return detected_circles
+
+
+def detect_centroid(img, dx, dy):
+    """Attempt to detect circle locations using cv2.HoughCircles().
+
+    We do the following preprocessing of the input to improve accuracy:
+
+        #. Blur image with a boxcard kernel to help the Laplacian accentuate the circular features.
+            It boosts the center accuracy by ~3% in the worst case I tested.
+        #. Compute laplacian of the image to extract edges.
+        #. Normalize to 8 bit.
+        #. Attempt circle detection with HughesCircle Transform from OpenCV.
+
+    These preprocessing steps improve the circle contours, which are then fed into the Hough Transform.
+    By the way, we try the Hough Transform with cv.HOUGH_GRADIENT_ALT first. Failing that, we try the default Hough
+    Transform mode. Also, we use 2 separate sets of parameter for each transform until we hopefully detect the phantom.
+
+    Args:
+        img (np.ndarray): pixel array containing the data to perform circle detection on
+        dx (float): The coordinates of the point to rotate
+        dy (float, optional): The amplitude threshold for peak identification. Defaults to 1.
+
+    Returns:
+        np.ndarray: Flattened array of tuples. tuples follow the form (x, y, r)
+
+    """
+    img_smoothed = cv.blur(img, (5, 5))
+    img_grad = cv.Laplacian(img_smoothed, cv.CV_64F)
+    img_grad_8u = cv.normalize(
+        src=img_grad,
+        dst=None,
+        alpha=0,
+        beta=255,
+        norm_type=cv.NORM_MINMAX,
+        dtype=cv.CV_8U,
+    )
+
+    try:
+        detected_circles = cv.HoughCircles(
+            img_grad_8u,
+            cv.HOUGH_GRADIENT_ALT,
+            1,
+            param1=300,
+            param2=0.9,
+            minDist=int(180 / dy),
+            minRadius=int(180 / (2 * dy)),
+            maxRadius=int(200 / (2 * dx)),
+        )
+        if detected_circles is None:
+            detected_circles = cv.HoughCircles(
+                img_grad_8u,
+                cv.HOUGH_GRADIENT,
+                1,
+                param1=50,
+                param2=30,
+                minDist=int(180 / dy),
+                minRadius=int(180 / (2 * dy)),
+                maxRadius=int(200 / (2 * dx)),
+            )
+    except AttributeError as e:
+        detected_circles = cv.HoughCircles(
+            img_grad_8u,
+            cv.HOUGH_GRADIENT_ALT,
+            1,
+            param1=300,
+            param2=0.9,
+            minDist=int(180 / dy),
+            minRadius=80,
+            maxRadius=200,
+        )
+        if detected_circles is None:
+            detected_circles = cv.HoughCircles(
+                img_grad_8u,
+                cv.HOUGH_GRADIENT,
+                1,
+                param1=50,
+                param2=30,
+                minDist=int(180 / dy),
+                minRadius=80,
+                maxRadius=200,
+            )
+    return detected_circles.flatten()
+
+
+def compute_radius_from_area(area, voxel_resolution, conversion_value=10):
+    """Calculates the radius of an ROI given an area. The radius is in pixel count. Meaning, if we want to get the
+    radius for a 200cm2 ROI in a 0.5mm in-plane resolution, we call this function `with area = 200`, `voxel_resolution
+    = 0.5`, and `conversion_value = 10`. This will yield a radius in mm which immediately gets divided by the
+    resolution to yield the radius in pixel count units.
+
+    Args:
+        area (int): Area of ROI that will be generated with the radius calculated in this function
+        voxel_resolution (float): voxel/pixel resolution as given by the PixelSpacing attribute in the DICOM header.
+            This is typically in millimeter units.
+        conversion_value (int): Value to use to convert the radius from area units (cm, etc) to mm.
+
+    Returns:
+        int: Integer radius length.
+    """
+    return np.ceil(np.divide(np.sqrt(np.divide(area, np.pi)) * conversion_value, voxel_resolution)).astype(int)
+
+
+def create_cross_mask(img, length, x_coord, y_coord):
+    """Generates a mask for an roi at the given coordinates
+
+    Args:
+        img (np.ndarray|np.ma.MaskedArray): pixel array containing the data where to generate roi
+        radius (int): Integer radius of the circular roi
+        x_coord (int): x coordinate of the center of the roi
+        y_coord (int): y coordinate of the center of the roi
+
+    Returns:
+        np.ma.MaskedArray: Masked Array containing data for area of interest and zeros everywhere else.
+    """
+    grid = np.zeros(img.shape, dtype=np.bool_)
+
+    height = int(length / 2)
+    half_length = int(length / 2)
+    half_height = int(height / 2)
+    quarter_height = int(height / 4)
+
+    x_start = int(x_coord - quarter_height)
+    y_start = int(y_coord - half_length)
+    grid[y_start: y_start + length, x_start: x_start + half_height] = True
+
+    x_start = int(x_coord - half_length)
+    y_start = int(y_coord - quarter_height)
+    grid[y_start: y_start + half_height, x_start: x_start + length] = True
+    return grid
+
+
+def create_rectangular_mask(img, width, height, x_coord, y_coord):
+    """Generates a mask for an roi at the given coordinates
+
+    Args:
+        img (np.ndarray|np.ma.MaskedArray): pixel array containing the data where to generate roi
+        width (int): Integer radius of the circular roi
+        height (int): Integer radius of the circular roi
+        x_coord (int): x coordinate of the center of the roi
+        y_coord (int): y coordinate of the center of the roi
+
+    Returns:
+        np.ma.MaskedArray: Masked Array containing data for area of interest and zeros everywhere else.
+    """
+    grid = np.zeros(img.shape, dtype=np.bool_)
+
+    half_width = int(width / 2)
+    half_height = int(height / 2)
+
+    x_start = int(x_coord - half_width)
+    y_start = int(y_coord - half_height)
+    grid[y_start: y_start + height, x_start: x_start + width] = True
+    return grid
+
+
+def create_circular_mask(img, radius, x_coord, y_coord):
+    """Generates a mask for an roi at the given coordinates
+
+    Args:
+        img (np.ndarray|np.ma.MaskedArray): pixel array containing the data where to generate roi
+        radius (int): Integer radius of the circular roi
+        x_coord (int): x coordinate of the center of the roi
+        y_coord (int): y coordinate of the center of the roi
+
+    Returns:
+        np.ma.MaskedArray: Masked Array containing data for area of interest and zeros everywhere else.
+    """
+    height, width = img.shape
+    y_grid, x_grid = np.ogrid[:height, :width]
+    return (x_grid - x_coord) ** 2 + (y_grid - y_coord) ** 2 <= radius ** 2
+
+
+def create_circular_kernel(radius):
+    """Generate ROI kernel that can be used during convolutions. This is for generating circular kernels.
+
+    Args:
+        radius (int): Integer radius of the circular roi
+
+    Returns:
+        np.ndarray: Arrays of 1s and 0s comprising the circular kernel to use for convolution.
+    """
+    diameter = (radius * 2) + 1
+    kernel_arr = np.zeros((diameter, diameter), dtype=np.bool_)
+    return create_circular_mask(kernel_arr, radius, radius, radius).astype(np.int_)
+
+
+def create_circular_mean_kernel(radius):
+    """Generate ROI kernel that can be used during convolutions. This is for generating circular kernels.
+    Uses :py:func:`create_roi_kernel` to generate the initial kernel mask.
+
+    avg_kernel = kernel / kernel.sum()
+
+    Convoluting against this kernel should yield
+
+    Args:
+        radius (int): Integer radius of the circular roi
+
+    Returns:
+        np.ndarray: Arrays of 1s and 0s comprising the circular kernel to use for convolution.
+    """
+    mask = create_circular_kernel(radius)
+    return mask / mask.sum()
+
+
+def create_cross_roi_at(img, width, x_coord, y_coord):
+    """Generates a masked array delimiting the area of interest. It assists numpy in determining what data to use in
+    math operations.
+
+    Args:
+        img (np.ndarray|np.ma.MaskedArray): pixel array containing the data where to generate roi
+        radius (int): Integer radius of the circular roi
+        x_coord (int): x coordinate of the center of the roi
+        y_coord (int): y coordinate of the center of the roi
+
+    Returns:
+        np.ma.MaskedArray: Masked Array containing data for area of interest and zeros everywhere else.
+    """
+    mask = create_cross_mask(img, width, x_coord, y_coord)
+    masked_img = np.ma.masked_array(img.copy(), mask=~mask, fill_value=0)
+    return masked_img
+
+
+def create_rectangular_roi_at(img, width, height, x_coord, y_coord):
+    """Generates a masked array delimiting the area of interest. It assists numpy in determining what data to use in
+    math operations.
+
+    Args:
+        img (np.ndarray|np.ma.MaskedArray): pixel array containing the data where to generate roi
+        width (int): Integer radius of the circular roi
+        height (int): Integer radius of the circular roi
+        x_coord (int): x coordinate of the center of the roi
+        y_coord (int): y coordinate of the center of the roi
+
+    Returns:
+        np.ma.MaskedArray: Masked Array containing data for area of interest and zeros everywhere else.
+    """
+    mask = create_rectangular_mask(img, width, height, x_coord, y_coord)
+    masked_img = np.ma.masked_array(img.copy(), mask=~mask, fill_value=0)
+    return masked_img
+
+
+def create_circular_roi_at(img, radius, x_coord, y_coord):
+    """Generates a masked array delimiting the area of interest. It assists numpy in determining what data to use in
+    math operations.
+
+    Args:
+        img (np.ndarray|np.ma.MaskedArray): pixel array containing the data where to generate roi
+        radius (int): Integer radius of the circular roi
+        x_coord (int): x coordinate of the center of the roi
+        y_coord (int): y coordinate of the center of the roi
+
+    Returns:
+        np.ma.MaskedArray: Masked Array containing data for area of interest and zeros everywhere else.
+    """
+    mask = create_circular_mask(img, radius, x_coord, y_coord)
+    masked_img = np.ma.masked_array(img.copy(), mask=~mask, fill_value=0)
+    return masked_img
+
+
+def create_circular_roi_with_numpy_index(img, radius, argx):
+    """Wrapper around :py:func:`create_roi_at` meant to use flat element indices and return an roi centered around
+    this element.
+
+    Args:
+        img (np.ndarray): pixel array containing the data where to generate roi
+        radius (int): Integer radius of the circular roi
+        argx (int): index to nd.array element if the array was flattened. Example, value from argmax().
+
+    Returns:
+        np.ma.MaskedArray: Masked Array containing data for area of interest and zeros everywhere else.
+    """
+    x_coord, y_coord = detect_roi_center(img, argx)
+    return create_circular_roi_at(img, radius, x_coord, y_coord), x_coord, y_coord
+
+
+def detect_roi_center(img, argx):
+    """Finds the x and y coordinates of the center of an roi given the flat index in the numpy array!
+
+    Args:
+        img (np.ndarray): pixel array containing the data where to generate roi
+        argx (int): index to nd.array element if the array was flattened. Example, value from argmax().
+
+    Returns:
+        x_coord (int): x coordinate of the center of the roi
+        y_coord (int): y coordinate of the center of the roi
+    """
+    height, width = img.shape
+    y, x = np.divmod(argx, width)  # returns x //y, x % y per docs but x is found with x % y
+    return x, y
+
+
+def wait_on_parallel_results(fxn, arg_list=[]):
+    """Parallelises a function into n number of jobs. It uses Python's multiprocessing Pool to spawn several processes
+    that accept each job instance and processes it. The main use in this project is as a way to keep the report writing
+    as fast as possible when we have multiple images to write to disk.
+
+    Args:
+        fxn (function): function symbol to execute on arguments
+        arg_list (list of tuple): List of tuples. Each tuple has the list of parameters to pass to function. Therefore,
+            each tuple symbolizes a job we need to process using the specified function.
+
+    Returns:
+        list: List of values returned by each job.
+    """
+    with Pool() as pool:
+        results = []
+        result_handles = []
+        for args in arg_list:
+            result_handles.append(pool.apply_async(fxn, args))
+
+        pool.close()
+        pool.join()
+
+        for r in result_handles:
+            results.append(r.get())
+        return results
+
+
+def debug_image_sample(img, out_path=None):
+    """Uses :py:class:`DebugSnapshotShow` to display the current image snapshot.
+    Use this function to force a display of an intermediate numpy image array to visually inspect results.
+
+    Args:
+        img (np.ndarray): pixel array containing the data to display
+        out_path (str): file path where you would like to save a copy of the image
+
+    """
+    if len(img):
+        snapshot = DebugSnapshotShow(img).image
+        if not out_path is None:
+            snapshot.save(out_path, format="PNG", dpi=(300, 300))
+
+
+def debug_plot_sample(img, plot_indx=0):
+    """Uses :py:class:`DebugSnapshotShow` to display the current image snapshot.
+    Use this function to force a display of an intermediate numpy image array to visually inspect results.
+
+    Args:
+        img (np.ndarray): pixel array containing the data to display
+        out_path (str): file path where you would like to save a copy of the image
+
+    """
+    if len(img):
+        import matplotlib.pyplot as plt
+        plt.plot(img)
+        plt.savefig(f'/tmp/hazen_debug_plot_{plot_indx}.png')
+
+
+def debug_image_sample_circles(img, circles=[], out_path=None):
+    """Uses :py:class:`DebugSnapshotShow` to display the current image snapshot.
+    Use this function to force a display of an intermediate numpy image array to visually inspect results.
+
+    Args:
+        img (np.ndarray): pixel array containing the data to display
+        out_path (str): file path where you would like to save a copy of the image
+
+    """
+    for circle in circles[-1]:
+        logger.info(f'Center {circle[0]}, {circle[1]}')
+        center = (int(circle[0]), int(circle[1]))
+        cv.circle(img, center, int(circle[2]), (0, 255, 0), 1)
+    debug_image_sample(img, out_path)
+
+
+class DebugSnapshotShow:
+    """
+    This class manages presentation of an image (file path or instance of PIL.Image. This class is used as if it were
+    a function.
+    See the `Pillow ImageShow Documentation <https://pillow.readthedocs.io/en/stable/reference/ImageShow.html>`_.
+    You will need to install Pillow/PIL library and dependencies separately.
+    This class is meant to assist during debugging of image processing steps.
+    """
+
+    def __init__(self, image_instance):
+        from PIL import Image, ImageShow
+        if isinstance(image_instance, str):
+            image_instance = Image.open(image_instance)
+        elif isinstance(image_instance, np.ndarray) or isinstance(image_instance, np.ma.MaskedArray):
+            image_instance = expand_data_range(image_instance, target_type=np.uint8)
+            image_instance = Image.fromarray(image_instance)
+        presenter = ImageShow.EogViewer()
+        presenter.show_image(image_instance)
+        self.image = image_instance
 
 
 class Rod:

@@ -44,7 +44,6 @@ import logging
 import importlib
 
 from docopt import docopt
-from pydicom import dcmread
 from hazenlib.logger import logger
 from hazenlib.utils import get_dicom_files, is_enhanced_dicom
 from hazenlib._version import __version__
@@ -134,6 +133,7 @@ def main():
     report_dir = arguments["--output"] if arguments["--output"] else None
     verbose = arguments["--verbose"]
 
+    logger.info(f"Hazen version: {__version__}")
     logger.debug("The following files were identified as valid DICOMs:")
     files = get_dicom_files(arguments["<folder>"])
     logger.debug(
@@ -186,7 +186,7 @@ def main():
             # Slice Position task, all ACR tasks except SNR
             # may be enhanced, may be multi-frame
             fns = [os.path.basename(fn) for fn in files]
-            print("Processing", fns)
+            logger.info(f"Processing {fns}")
             task = init_task(selected_task, files, report, report_dir, verbose=verbose)
             result = task.run()
 

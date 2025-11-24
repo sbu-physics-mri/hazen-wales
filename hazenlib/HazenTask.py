@@ -6,6 +6,7 @@ import pathlib
 from pydicom import dcmread
 
 from hazenlib.logger import logger
+from hazenlib.utils import scrub, REGEX_SCRUBNAME
 
 
 class HazenTask:
@@ -55,10 +56,10 @@ class HazenTask:
         Args:
             dcm (pydicom.Dataset): DICOM image object
             properties (list, optional): list of DICOM header field names supported by pydicom
-                that shuld be used to generate sereis identifier. Defaults to None.
+                that should be used to generate series identifier. Defaults to None.
 
         Returns:
-            str: contatenation of the specified DICOM header property values
+            str: concatenation of the specified DICOM header property values
         """
         if properties is None:
             properties = ["SeriesDescription", "SeriesNumber", "InstanceNumber"]
@@ -72,5 +73,7 @@ class HazenTask:
                 str(dcm.get(field)) for field in ["SeriesDescription", "SeriesNumber"]
             ]
 
-        img_desc = "_".join(metadata).replace(" ", "_")
-        return img_desc
+        join_char = "_"
+        img_desc = join_char.join(metadata).replace(" ", join_char)
+        # Let's make sure dirty names do not contaminate the file names or any other string operations.
+        return scrub(img_desc, REGEX_SCRUBNAME, join_char).strip(join_char).replace(join_char * 2, join_char)

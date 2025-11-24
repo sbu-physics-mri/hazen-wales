@@ -79,10 +79,10 @@ class ACRGhosting(HazenTask):
         r_large = np.ceil(80 / self.ACR_obj.dx).astype(int)
         dims = img.shape
 
-        mask = self.ACR_obj.get_mask_image(img)
         (centre_x, centre_y), _ = self.ACR_obj.find_phantom_center(
             img, self.ACR_obj.dx, self.ACR_obj.dy
         )
+        mask = self.ACR_obj.get_mask_image(img, (centre_x, centre_y))
 
         nx = np.linspace(1, dims[0], dims[0])
         ny = np.linspace(1, dims[1], dims[1])

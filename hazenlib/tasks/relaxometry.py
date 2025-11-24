@@ -216,7 +216,7 @@ class Relaxometry(HazenTask):
         if calc in ["T1", "t1"]:
             image_stack = T1ImageStack(self.dcm_list)
             try:
-                template_dcm = pydicom.read_file(
+                template_dcm = pydicom.dcmread(
                     TEMPLATE_VALUES[f"plate{plate_number}"][relax_str]["filename"]
                 )
             except KeyError:
@@ -229,7 +229,7 @@ class Relaxometry(HazenTask):
         elif calc in ["T2", "t2"]:
             image_stack = T2ImageStack(self.dcm_list)
             try:
-                template_dcm = pydicom.read_file(
+                template_dcm = pydicom.dcmread(
                     TEMPLATE_VALUES[f"plate{plate_number}"][relax_str]["filename"]
                 )
             except KeyError:
@@ -524,7 +524,7 @@ def pixel_rescale(dcm):
 
         return (dcm.pixel_array - si) / ss
     else:
-        return pydicom.pixel_data_handlers.util.apply_modality_lut(dcm.pixel_array, dcm)
+        return pydicom.pixels.apply_modality_lut(dcm.pixel_array, dcm)
 
 
 class ROITimeSeries:

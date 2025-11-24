@@ -33,6 +33,7 @@ import skimage.morphology
 
 from hazenlib.HazenTask import HazenTask
 from hazenlib.ACRObject import ACRObject
+from hazenlib import logger
 
 
 class ACRGeometricAccuracy(HazenTask):
@@ -118,10 +119,10 @@ class ACRGeometricAccuracy(HazenTask):
         """
         img_dcm = self.ACR_obj.slice_stack[slice_index]
         img = img_dcm.pixel_array
-        mask = self.ACR_obj.get_mask_image(img)
         cxy, _ = self.ACR_obj.find_phantom_center(img, self.ACR_obj.dx, self.ACR_obj.dy)
+        mask = self.ACR_obj.get_mask_image(img, cxy)
 
-        length_dict = self.ACR_obj.measure_orthogonal_lengths(mask, slice_index)
+        length_dict = self.ACR_obj.measure_orthogonal_lengths(mask, cxy)
         if slice_index == 4:
             sw_dict, se_dict = self.diagonal_lengths(mask, cxy, 4)
 
@@ -273,7 +274,7 @@ class ACRGeometricAccuracy(HazenTask):
         eff_res = np.sqrt(np.mean(np.square((self.ACR_obj.dx, self.ACR_obj.dy))))
         img_rotate = skimage.transform.rotate(img, 45, center=(cxy[0], cxy[1]))
 
-        length_dict = self.ACR_obj.measure_orthogonal_lengths(img_rotate, slice_index)
+        length_dict = self.ACR_obj.measure_orthogonal_lengths(img_rotate, cxy)
         extent_h = length_dict["Horizontal Extent"]
 
         origin = (cxy[0], cxy[1])

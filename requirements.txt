@@ -1,6 +1,6 @@
 # After making changes for core components please update install_requires in setup.cfg as well
-pydicom==2.4.1
-numpy==1.26.0
+pydicom==3.0.1
+numpy==2.2.4
 matplotlib==3.7.2
 pytest==7.4.2
 docopt==0.6.2
