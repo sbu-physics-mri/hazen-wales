@@ -383,9 +383,6 @@ class ACRSpatialResolution(HazenTask):
         logger.info(f"Pixel Resolution => {dx, dy}")
         logger.info(f"ROI width        => {width}")
 
-        # Windowing step
-        blurred = self.ACR_obj.filter_with_gaussian(presentation)
-
         # Generate preprocessed ROIs
         task_args = []
         roi_coords = []
