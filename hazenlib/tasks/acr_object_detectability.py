@@ -33,7 +33,7 @@ ACR Algorithm
         settings for best visibility of the low contrast objects. This will usually require a fairly narrow window
         width and careful adjustment of the level to best distinguish the objects from the background.
     #. Count the number of complete spokes. Begin counting with the spoke having the largest diameter
-        disks; this spoke is at 12 o’clock or slightly to the right of 12 o’clock, and is referred to as spoke 1.
+        disks; this spoke is at 12 o clock or slightly to the right of 12 o clock, and is referred to as spoke 1.
         Count clockwise from spoke 1 until a spoke is reached where one or more of the disks is not
         discernible from the background. A spoke is complete only if all three disks are discernible. Count
         complete spokes, not individual disks.
@@ -52,9 +52,9 @@ Nominal Field  ACR T1 LCD       ACR T2 LCD
 Strength       Limit           Limit
                (total spokes)  (total spokes)
 _____________  _______________ ______________
-<1.5T          ≥7              ≥7
-1.5T - <3T     ≥30             ≥25
-3T             ≥37             ≥37
+<1.5T           7               7
+1.5T - <3T      30              25
+3T              37              37
 
 Notes
 _____
@@ -79,22 +79,23 @@ TL;DR; I definitely need to return to this task and try a cleaner approach using
 Created by Luis M. Santos, M.D.
 luis.santos2@nih.gov
 
-02/12/2025
+12/02/2025
 """
-
-import sys
+# Python imports
 import os
+import sys
 import traceback
 
+# Module imports
 import cv2
 import numpy as np
-from matplotlib.pyplot import subplots as plt_subplots
-
-from hazenlib.HazenTask import HazenTask
-from hazenlib.ACRObject import ACRObject
 from hazenlib import logger
-from hazenlib.utils import compute_radius_from_area, create_circular_roi_at, expand_data_range, \
-    wait_on_parallel_results
+from hazenlib.ACRObject import ACRObject
+from hazenlib.HazenTask import HazenTask
+from hazenlib.utils import (compute_radius_from_area, create_circular_roi_at,
+                            expand_data_range, wait_on_parallel_results)
+from hazenlib.types import Measurement
+from matplotlib.pyplot import subplots as plt_subplots
 
 
 class ACRObjectDetectability(HazenTask):
@@ -162,22 +163,38 @@ class ACRObjectDetectability(HazenTask):
             self.ACR_obj.slice_stack[10],
         ]
         # Initialise results dictionary
-        results = self.init_result_dict()
-        results["file"] = [self.img_desc(sl) for sl in slices]
+        results = self.init_result_dict(
+            files=tuple([self.img_desc(sl) for sl in slices]),
+        )
 
-        try:
-            r = self.get_spokes_and_scores(slices)
-            results.update(r["meta"])
-        except Exception as e:
-            logger.error(
-                f"Could not calculate the number of spokes for the Low Contrast Object Detectability Task "
-                f"because of : {e}"
+        r = self.get_spokes_and_scores(slices)
+
+        if not len(r["meta"]["measurement"]):
+            msg = "No low contrast object detection measurements made"
+            logger.error(msg)
+            raise ValueError(msg)
+
+        for measurement, score in r["meta"]["measurement"].items():
+            subtype = (
+                f"slice {measurement}"
+                if isinstance(measurement, int)
+                else "total"
             )
-            traceback.print_exc(file=sys.stdout)
+
+            m = Measurement(
+                name="LowContrastObjectDetectability",
+                value=score,
+                type="measured",
+                subtype=subtype,
+                description=(
+                    f"Field Strength = {r['meta']['field_strength']}T"
+                ),
+            )
+            results.add_measurement(m)
 
         # only return reports if requested
         if self.report:
-            results["report_image"] = self.report_files
+            results.add_report_image(self.report_files)
 
         return results
 
