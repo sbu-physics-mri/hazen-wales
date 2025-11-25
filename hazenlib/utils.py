@@ -112,11 +112,14 @@ def has_pixel_array(filename) -> bool:
         dcm = pydicom.dcmread(filename)
         # while enhanced DICOMs have a pixel_array, it's shape is in the format
         # (# frames, x_dim, y_dim)
-        img = dcm.pixel_array
-        return True
-    except:
+        _ = dcm.pixel_array
+
+    except AttributeError:
         logger.debug("%s does not contain image data", filename)
         return False
+
+    else:
+        return True
 
 
 def is_enhanced_dicom(dcm: pydicom.Dataset) -> bool:
