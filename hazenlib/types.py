@@ -138,7 +138,6 @@ class Result(JsonSerializableMixin):
     task: str
     desc: str = ""
     files: str | Sequence[str] | None = None
-    desc: str = ""
 
     def __post_init__(self) -> None:
         """Initialize the measurements, report_images and metadata."""
@@ -170,7 +169,6 @@ class Result(JsonSerializableMixin):
             paths = [image_path]
         self._report_images += paths
 
-
     def get_measurement(
             self,
             name: str | None = None,
@@ -184,7 +182,7 @@ class Result(JsonSerializableMixin):
             m
             for m in self.measurements
             if (
-                    m.name == name
+                    (name is None or m.name == name)
                     and (measurement_type is None or m.type == measurement_type)
                     and (subtype is None or m.subtype == subtype)
                     and (description is None or m.description in description)
@@ -204,6 +202,14 @@ class Result(JsonSerializableMixin):
         base["metadata"]  = self.metadata.to_dict()
 
         return base
+
+
+    def __repr__(self) -> str:
+        """Wrap around the to_dict method."""
+        attrs = ", ".join(
+            f"{key}={value!r}" for key, value in self.to_dict().items()
+        )
+        return f"{self.__class__.__name__}({attrs})"
 
 
 #############################
