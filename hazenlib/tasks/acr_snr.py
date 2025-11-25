@@ -262,10 +262,7 @@ class ACRSNR(HazenTask):
         Returns:
             list of np.array: subsets of the original pixel array.
         """
-        if type(dcm) == np.ndarray:
-            data = dcm
-        else:
-            data = dcm.pixel_array
+        data = dcm if isinstance(dcm, np.ndarray) else dcm.pixel_array
 
         sample = [None] * 5
         # for array indexing: [row, column] format
