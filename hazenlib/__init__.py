@@ -40,17 +40,16 @@ relaxometry Task options:
 
 import importlib
 import inspect
-import json
 import logging
 import os
-import pkgutil
 import sys
 
 from docopt import docopt
-from hazenlib.logger import logger
-from hazenlib.utils import get_dicom_files, is_enhanced_dicom
+
 from hazenlib._version import __version__
 from hazenlib.formatters import write_result
+from hazenlib.logger import logger
+from hazenlib.utils import get_dicom_files
 
 """Hazen is designed to measure the same parameters from multiple images.
     While some tasks require a set of multiple images (within the same folder),
@@ -73,7 +72,7 @@ single_image_tasks = [
 
 
 def init_task(selected_task, files, report, report_dir, **kwargs):
-    """Initialise object of the correct HazenTask class
+    """Initialise object of the correct HazenTask class.
 
     Args:
         selected_task (string): name of task script/module to load
@@ -84,14 +83,15 @@ def init_task(selected_task, files, report, report_dir, **kwargs):
 
     Returns:
         an object of the specified HazenTask class
+
     """
     task_module = importlib.import_module(f"hazenlib.tasks.{selected_task}")
 
     try:
         task = getattr(task_module, selected_task.capitalize())(
-            input_data=files, report=report, report_dir=report_dir, **kwargs
+            input_data=files, report=report, report_dir=report_dir, **kwargs,
         )
-    except:
+    except AttributeError as err:
         class_list = [
             cls.__name__
             for _, cls in inspect.getmembers(
@@ -101,7 +101,7 @@ def init_task(selected_task, files, report, report_dir, **kwargs):
         ]
         if len(class_list) == 1:
             task = getattr(task_module, class_list[0])(
-                input_data=files, report=report, report_dir=report_dir, **kwargs
+                input_data=files, report=report, report_dir=report_dir, **kwargs,
             )
         else:
             msg = (
@@ -109,7 +109,7 @@ def init_task(selected_task, files, report, report_dir, **kwargs):
                 " {class_list}"
             )
             logger.error(msg)
-            raise Exception(msg)
+            raise ValueError(msg) from err
 
     return task
 
