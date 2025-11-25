@@ -322,13 +322,14 @@ def get_TR(dcm: pydicom.Dataset, *, strict: bool = False) -> float:
 
 
 def get_rows(dcm: pydicom.Dataset) -> float:
-    """Get the Rows field from the DICOM header
+    """Get the Rows field from the DICOM header.
 
     Args:
         dcm (pydicom.Dataset): DICOM image object
 
     Returns:
         float: value of the Rows field from the DICOM header, or defaults to 256
+
     """
     try:
         rows = dcm.Rows
@@ -345,13 +346,14 @@ def get_rows(dcm: pydicom.Dataset) -> float:
 
 
 def get_columns(dcm: pydicom.Dataset) -> float:
-    """Get the Columns field from the DICOM header
+    """Get the Columns field from the DICOM header.
 
     Args:
         dcm (pydicom.Dataset): DICOM image object
 
     Returns:
         float: value of the Columns field from the DICOM header, or defaults to 256
+
     """
     try:
         columns = dcm.Columns
@@ -366,13 +368,14 @@ def get_columns(dcm: pydicom.Dataset) -> float:
 
 
 def get_pe_direction(dcm: pydicom.Dataset):
-    """Get the PhaseEncodingDirection field from the DICOM header
+    """Get the PhaseEncodingDirection field from the DICOM header.
 
     Args:
         dcm (pydicom.Dataset): DICOM image object
 
     Returns:
         str: value of the InPlanePhaseEncodingDirection field from the DICOM header
+
     """
     if is_enhanced_dicom(dcm):
         return (
@@ -440,7 +443,9 @@ def get_datatype_max(dtype=np.uint8):
 
 
 def get_datatype_min(dtype=np.uint8):
-    """Get min value of the numpy datatype range. This is the machine min and not the data's min used value.
+    """Get min value of the numpy datatype range.
+
+    This is the machine min and not the data's min used value.
     For example, a np.uint8 has a machine range of 0 to 255.
 
     Args:
@@ -448,10 +453,11 @@ def get_datatype_min(dtype=np.uint8):
 
     Returns:
         int|float: min machine value of data type
+
     """
     try:
         return np.iinfo(dtype).min
-    except:
+    except ValueError:
         return np.finfo(dtype).min
 
 
