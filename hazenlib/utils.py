@@ -53,13 +53,13 @@ def dcmread(*args, **kwargs) -> pydicom.dataset.FileDataset:
 
     except pydicom.errors.InvalidDicomError:
         logger.warning(
-            "Couldn't read DICOM, trying with strict=True"
+            "Couldn't read DICOM, trying with force=True"
             "\nargs:\n%s\n\nkwargs:\n%s",
             args,
             kwargs,
         )
-        _ = kwargs.pop("strict", True)
-        return pydicom.dcmread(*args, strict=True, **kwargs)
+        _ = kwargs.pop("force", True)
+        return pydicom.dcmread(*args, force=True, **kwargs)
 
 
 def scrub(dirtyString, matchCharacters, join_str='_'):
