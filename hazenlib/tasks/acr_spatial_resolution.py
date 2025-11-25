@@ -148,7 +148,7 @@ class ACRSpatialResolution(HazenTask):
             logger.exception(
                 "Could not calculate the spatial resolution for %s"
                 " because of : %s",
-                self.img_desc(mtf_dcm),
+                self.img_desc(dcm),
                 e,
             )
             traceback.print_exc(file=sys.stdout)
