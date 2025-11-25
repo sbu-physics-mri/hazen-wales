@@ -83,8 +83,6 @@ luis.santos2@nih.gov
 """
 # Python imports
 import os
-import sys
-import traceback
 
 # Module imports
 import cv2
