@@ -715,25 +715,34 @@ def rescale_to_byte(array):
     return image_equalized.reshape(array.shape).astype("uint8")
 
 
-def expand_data_range(data, valid_range=None, target_type=np.uint8):
-    """Takes a dataset and expands its data range to fill the value range possible in the target type.
-    For example, if you have the data [1, 2, 3] and need it to fill the absolute values in uint16, you get
+def expand_data_range(
+    data: np.array | np.ma.MaskedArray,
+    valid_range: tuple | None = None,
+    target_type: np.dtype = np.uint8,
+) -> np.array | np.ma.MaskedArray:
+    """Take a dataset and expands its data range to fill the value range possible in the target type.
+
+    For example, if you have the data [1, 2, 3]
+    and need it to fill the absolute values in uint16, you get:
     [0, 32767, 65,535]
 
     Args:
-        data (np.array|np.ma.MaskedArray): dataset containing pixel values
-        valid_range (tuple, optional): tuple of values to use as the minimum and maximum of the dataset range.
+        data : dataset containing pixel values
+        valid_range : tuple of values to use as the minimum and maximum
+            of the dataset range.
             If None, we use the datasets' minimum and maximum.
-        target_type (np.dtype): Numpy datatype to target in the expansion
+        target_type : Numpy datatype to target in the expansion
 
     Returns:
         np.array: expanded range
+
     """
-    try:
-        dtype_max = np.iinfo(target_type).max
-    except:
-        dtype_max = np.finfo(target_type).max
-    lower, upper = (data.min(), data.max()) if valid_range is None else valid_range
+    dtype_max = get_datatype_max(target_type)
+    lower, upper = (
+        (data.min(), data.max())
+        if valid_range is None
+        else valid_range
+    )
     return (((data - lower) / (upper - lower)) * dtype_max).astype(target_type)
 
 
