@@ -249,7 +249,6 @@ class ACRObjectDetectability(HazenTask):
 
     def detect_spoke(self, img, center, slice_num, spoke):
         spot_radius = int(np.ceil(self.SPOKE_RADII[spoke] / self.ACR_obj.dx))
-        patch_radius = int(np.ceil(self.ORIG_SPOKE_RADII[spoke] * 1.5 / self.ACR_obj.dx))
         spot_separation = self.DOT_SEPARATION / self.ACR_obj.dx
         angle = self.START_ANGLE - (spoke * self.DOT_ANGLE) - (self.SLICE_ANGLE_OFFSET * slice_num)
 
