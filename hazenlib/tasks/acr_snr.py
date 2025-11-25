@@ -13,10 +13,16 @@ Created by Neil Heraghty (Adapted by Yassine Azma, yassine.azma@rmh.nhs.uk)
 method for measurement of signal-to-noise ratio in MRI. Physics in Medicine
 & Biology, 58(11), 3775.
 """
+# Typing imports
 from __future__ import annotations
 
-import contextlib
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import pydicom
+
 # Python imports
+import contextlib
 import os
 import sys
 import traceback
@@ -26,14 +32,14 @@ from typing import Any
 # Module imports
 import hazenlib.utils
 import numpy as np
+import pydicom
 from hazenlib.ACRObject import ACRObject
 from hazenlib.HazenTask import HazenTask
 from hazenlib.logger import logger
 from hazenlib.types import Measurement, Result
-from scipy import ndimage
-
 # Local imports
 from hazenlib.utils import dcmread
+from scipy import ndimage
 
 
 class ACRSNR(HazenTask):
