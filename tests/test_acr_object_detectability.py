@@ -23,11 +23,11 @@ class TestACRObjectDetectability(unittest.TestCase):
         self.results = self.acr_object_detectability.run()
 
     def test_slice_8_score(self):
-        slice_8 = self.results['measurement'][8]
+        slice_8 = self.results.get_measurement(subtype="slice 8")[0].value
         assert slice_8 == self.SCORE_8
 
     def test_total_score(self):
-        total_score = self.results['measurement']['total_score']
+        total_score = self.results.get_measurement(subtype="total")[0].value
         assert total_score == self.TOTAL_SCORE
 
 
