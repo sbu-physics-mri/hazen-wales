@@ -289,9 +289,6 @@ class Ghosting(HazenTask):
                 # signal is in bottom half
                 eligible_rows = range(slice_radius, upper_row - padding_from_box)
                 eligible_columns = range(left_column, right_column)
-                ghost_slice = np.array(
-                    range(slice_radius, upper_row - padding_from_box), dtype=np.intp
-                )[:, np.newaxis], np.array(range(left_column, right_column))
 
         return eligible_columns, eligible_rows
 
