@@ -24,8 +24,8 @@ class TestACRGeometricAccuracySiemens(unittest.TestCase):
 
     ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "Siemens")
     L1 = (191.41, 187.5)
-    L5 = (191.41, 187.5, 191.41, 190.43)
-    distortion_metrics = (-0.06, 2.5, 0.93)
+    L5 = (191.41, 187.5, 191.41, 191.41)
+    distortion_metrics = (0.11, 2.5 , 0.97)
 
     def setUp(self) -> None:
         """Set up the test object."""
@@ -101,8 +101,8 @@ class TestACRGeometricAccuracySiemensMagnetomSkyraT1(
         pathlib.Path(TEST_DATA_DIR) / "acr" / "Siemens_MagnetomSkyra_3T_T1"
     )
     L1 = (192.38, 192.38)
-    L5 = (191.41, 191.41, 190.43, 190.43)
-    distortion_metrics = (1.41, 2.38, 0.42)
+    L5 = (191.41, 191.41, 191.41, 191.41)
+    distortion_metrics = (1.73, 2.38, 0.24)
 
 
 class TestACRGeometricAccuracySiemensMagnetomSkyraT2(
@@ -138,8 +138,8 @@ class TestACRGeometricAccuracySiemensSolaFit(TestACRGeometricAccuracySiemens):
     """Test Data for the Siemens Sola Fit dataset."""
 
     ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "SiemensSolaFit")
-    L1 = 190.43, 190.43
-    L5 = 189.45, 190.43, 191.41, 191.41
+    L1 = (190.43, 190.43)
+    L5 = (189.45, 190.43, 191.41, 191.41)
     distortion_metrics = (0.59, 1.41, 0.35)
 
 
@@ -152,8 +152,8 @@ class TestACRGeometricAccuracyGE(TestACRGeometricAccuracySiemens):
     """Test Data for the GE dataset."""
 
     ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "GE")
-    L1 = (190.42, 188.9)
-    L5 = (190.42, 189.41, 190.42, 189.41)
+    L1 = (190.93, 188.9)
+    L5 = (190.42, 189.41, 190.43, 189.41)
     distortion_metrics = (-0.17, 1.1, 0.32)
 
 
@@ -205,9 +205,10 @@ class TestACRGeometricAccuracyGESignaT2(TestACRGeometricAccuracyGESignaT1):
     """Test Data for the GE Signa 3T T2 dataset."""
 
     ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "GE_Signa_3T_T2")
-    L5 = (190.44, 188.48, 189.46, 191.41)
-    distortion_metrics = (-0.21, 1.52, 0.49)
-    L1 = 190.93, 188.9
+    L1 = (189.46, 189.46)
+    L5 = (190.44, 188.48, 191.41, 191.41)
+    distortion_metrics = (-0.06, 1.52, 0.56)
+
 
 ###########
 # Philips #
