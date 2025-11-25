@@ -897,7 +897,7 @@ class ACRObject:
         try:
             non_zero_data = data[np.nonzero(data)]
             return np.percentile(non_zero_data, percentile)
-        except:
+        except (IndexError, ValueError, TypeError):
             return 0
 
     @staticmethod
