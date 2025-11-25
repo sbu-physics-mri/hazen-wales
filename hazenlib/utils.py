@@ -355,7 +355,8 @@ def get_columns(dcm: pydicom.Dataset) -> float:
     """
     try:
         columns = dcm.Columns
-    except:
+
+    except AttributeError:
         columns = 256
         logger.warning(
             "Could not find matrix size (columns). Using default value of %i",
