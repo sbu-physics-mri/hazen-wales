@@ -332,7 +332,9 @@ def get_rows(dcm: pydicom.Dataset) -> float:
     """
     try:
         rows = dcm.Rows
-    except:
+
+    except AttributeError:
+
         rows = 256
         logger.warning(
             "Could not find Number of matrix rows. Using default value of %i",
