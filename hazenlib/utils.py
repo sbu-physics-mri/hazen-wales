@@ -269,7 +269,8 @@ def get_pixel_size(
             )
         else:
             dx, dy = dcm.PixelSpacing
-    except:
+
+    except AttributeError as err:
         logger.warning("Could not find PixelSpacing")
         if "ge" in manufacturer:
             fov = get_field_of_view(dcm)
@@ -278,7 +279,7 @@ def get_pixel_size(
         else:
             msg = "Manufacturer not recognised"
             logger.error(msg)
-            raise Exception(msg)
+            raise ValueError(msg) from err
 
     if swap_indexes:
         return dy, dx
