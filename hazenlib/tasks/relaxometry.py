@@ -140,6 +140,7 @@ from hazenlib.data.relaxometry_params import (MAX_RICIAN_NOISE,
 from hazenlib.HazenTask import HazenTask
 from hazenlib.logger import logger
 from hazenlib.types import Measurement, Metadata
+from hazenlib.utils import dcmread
 from scipy.interpolate import UnivariateSpline
 from scipy.special import i0e, ive
 
@@ -217,7 +218,7 @@ class Relaxometry(HazenTask):
         if calc in ["T1", "t1"]:
             image_stack = T1ImageStack(self.dcm_list)
             try:
-                template_dcm = pydicom.dcmread(
+                template_dcm = dcmread(
                     TEMPLATE_VALUES[f"plate{plate_number}"][relax_str]["filename"]
                 )
             except KeyError:
@@ -230,7 +231,7 @@ class Relaxometry(HazenTask):
         elif calc in ["T2", "t2"]:
             image_stack = T2ImageStack(self.dcm_list)
             try:
-                template_dcm = pydicom.dcmread(
+                template_dcm = dcmread(
                     TEMPLATE_VALUES[f"plate{plate_number}"][relax_str]["filename"]
                 )
             except KeyError:

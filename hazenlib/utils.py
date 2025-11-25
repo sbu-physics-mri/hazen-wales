@@ -42,6 +42,26 @@ matplotlib.use("Agg")
 REGEX_SCRUBNAME = '\\^\\\\`\\{\\}\\[\\]\\(\\)\\!\\$\'\\/\\ \\_\\:\\,\\-\\&\\=\\.\\*\\+\\;\\#'  #: Regex to match for these dirty characters.
 
 
+def dcmread(*args, **kwargs) -> pydicom.dataset.FileDataset:
+    """Thin wrapper around pydicom.dcmread.
+
+    Provide default arguments and error handling.
+
+    """
+    try:
+        return pydicom.dcmread(*args, **kwargs)
+
+    except pydicom.errors.InvalidDicomError:
+        logger.warning(
+            "Couldn't read DICOM, trying with strict=True"
+            "\nargs:\n%s\n\nkwargs:\n%s",
+            args,
+            kwargs,
+        )
+        _ = kwargs.pop("strict", True)
+        return pydicom.dcmread(*args, strict=True, **kwargs)
+
+
 def scrub(dirtyString, matchCharacters, join_str='_'):
     """
     This function provides the core functionality for scrubbing strings for bad characters. This is the most useful
@@ -109,7 +129,7 @@ def has_pixel_array(filename) -> bool:
     """
 
     try:
-        dcm = pydicom.dcmread(filename)
+        dcm = dcmread(filename)
         # while enhanced DICOMs have a pixel_array, it's shape is in the format
         # (# frames, x_dim, y_dim)
         _ = dcm.pixel_array

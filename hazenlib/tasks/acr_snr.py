@@ -26,12 +26,14 @@ from typing import Any
 # Module imports
 import hazenlib.utils
 import numpy as np
-import pydicom
 from hazenlib.ACRObject import ACRObject
 from hazenlib.HazenTask import HazenTask
 from hazenlib.logger import logger
 from hazenlib.types import Measurement, Result
 from scipy import ndimage
+
+# Local imports
+from hazenlib.utils import dcmread
 
 
 class ACRSNR(HazenTask):
@@ -124,7 +126,7 @@ class ACRSNR(HazenTask):
                 for f in os.listdir(self.subtract)
                 if os.path.isfile(os.path.join(self.subtract, f))
             ]
-            data2 = [pydicom.dcmread(dicom) for dicom in filepaths]
+            data2 = [dcmread(dicom) for dicom in filepaths]
             snr_dcm2 = ACRObject(data2).slice_stack[6]
 
             logger.debug(
