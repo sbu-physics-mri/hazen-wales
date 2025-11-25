@@ -34,6 +34,7 @@ dev = [
     "flake8>=7.3.0",
     "pytest>=8.4.1",
     "pytest-cov>=6.2.1",
+    "ruff>=0.14.6",
     "sphinx>=7.4.7",
     "sphinx-rtd-theme>=3.0.2",
     "sphinxcontrib-bibtex>=2.6.5",
