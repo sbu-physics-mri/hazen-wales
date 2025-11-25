@@ -1,19 +1,39 @@
+"""A utility module for medical imaging analysis.
+
+Providing:
+
+- robust DICOM metadata extraction
+- image processing
+- ROI detection functions.
+
+Supports multi-frame and vendor-specific DICOM formats
+(GE, Siemens, Philips, Toshiba),
+includes string scrubbing for security,
+circular/shape detection via OpenCV,
+parallel processing helpers, and debugging tools.
+
+Designed for automated phantom QA in MRI workflows.
+
+"""
+
+from __future__ import annotations
+
+# Python imports
 import copy
 import os
 import re
+from collections import defaultdict
 from multiprocessing import Pool
 
+# Module imports
 import cv2 as cv
-import pydicom
 import imutils
 import matplotlib
 import numpy as np
-
-from collections import defaultdict
-
-from scipy.ndimage import uniform_filter
+import pydicom
 from skimage import filters
 
+# Local imports
 import hazenlib.exceptions as exc
 from hazenlib.logger import logger
 
@@ -576,63 +596,77 @@ def compute_dicom_frame_size(dcm):
     return initial_frame_length * bytes_per_pixel
 
 
-def new_dicom(dcm, frame_pixel_data, i):
-    """Crude method for spawning a new copy of the input slice with the header patched for consumption.
-    This function will patch elements related to enhanced multiframe dicom into the root of the header.
-    I attempt the bare minimum patching needed for the proper functioning of the downstream tasks.
+def new_dicom(
+    dcm: pydicom.dataset.FileDataset,
+    pixel_data: np.ndarray,
+    instance_number: int | None = None,
+) -> pydicom.dataset.FileDataset:
+    """Return a new DICOM with updated pixel data.
 
+    Return a copy of dcm but with updated pixel data.
+    Ensures Photometric Interpretation and Bits Stored
+    are correct.
 
     Args:
-        dcm (pydicom.dataset.FileDataset): DICOM Dataset
-        frame_pixel_data (bytes|bytearray): Pixels meant for this new DICOM slice
-        i (int): index of slice in header contents of original slice
+        dcm : The original DICOM to copy.
+        pixel_data : The updated pixel data.
+        instance_number : If not None, used set the instance number.
+            Defaults to None.
 
     Returns:
-        pydicom.dataset.FileDataset: new DICOM slice
+        new_dcm : A new dicom instance with the updated pixel data.
+
     """
     new_dcm = copy.deepcopy(dcm)
-    new_dcm.PixelData = frame_pixel_data
-    new_dcm.InstanceNumber = i + 1
 
-    subheader = new_dcm.PerFrameFunctionalGroupsSequence[i]
-
-    frame_voi = subheader.FrameVOILUTSequence[-1]
-    new_dcm.WindowCenter = dcm.get('WindowCenter', frame_voi.get('WindowCenter', None))
-    new_dcm.WindowWidth = dcm.get('WindowWidth', frame_voi.get('WindowWidth', None))
-
-    pixel_value_transformation = subheader.PixelValueTransformationSequence[-1]
-    new_dcm.RescaleIntercept = dcm.get('RescaleIntercept', pixel_value_transformation.get('RescaleIntercept', 1))
-    new_dcm.RescaleSlope = dcm.get('RescaleSlope', pixel_value_transformation.get('RescaleSlope', 1))
-    new_dcm.RescaleType = dcm.get('RescaleType', pixel_value_transformation.get('RescaleType', 1))
-    new_dcm.VOILUTFunction = dcm.get('VOILUTFunction', pixel_value_transformation.get('VOILUTFunction', 'linear'))
+    # Extract single frame pixel data
+    new_dcm.set_pixel_data(
+        pixel_data,
+        dcm[(0x0028,0x0004)].value, # Photometric Interpretation
+        dcm[(0x0028,0x0101)].value, # Bits Stored
+    )
 
     return new_dcm
 
 
-def split_dicom(dcm):
-    """Crude method for uncatenating an Enhanced DICOM Multiframe object. If the input is enhanced, we assume that it
-    is a multiframe dicom and split it into constituent frames. We return this list.
+
+def split_dicom(
+    dcm: pydicom.dataset.FileDataset,
+) -> list[pydicom.dataset.FileDataset]:
+    """Split a multiframe DICOM into individual single-frame DICOMs.
+
+    If the input is enhanced, we assume that it is a multiframe dicom
+    and split it into constituent frames. We return this list.
 
     Otherwise, return a list whose single element is the given dicom
 
     Args:
-        dcm (pydicom.dataset.FileDataset): DICOM Dataset
+        dcm : DICOM Dataset
 
     Returns:
-        float|int: byte count of a single frame
+        dcm_list : List of DICOM datasets
+
     """
-    if is_enhanced_dicom(dcm):
-        frames = []
-        pixel_data = dcm.PixelData
-        frame_size = compute_dicom_frame_size(dcm)
-        frame_count = len(pixel_data) // frame_size
-        logger.info(frame_size)
-        for i in range(frame_count):
-            offset = i * frame_size
-            frame_pixel_data = pixel_data[offset:offset + frame_size]
-            frames.append(new_dicom(dcm, frame_pixel_data, i))
-        return frames
-    return [dcm]
+    # In the case of non-enhanced DICOM - just wrap in a list
+    if not is_enhanced_dicom(dcm):
+        return [dcm]
+
+    frame_count = dcm.NumberOfFrames
+    single_frames = []
+
+    for frame_idx in range(frame_count):
+        try:
+            pixel_data = dcm.pixel_array[frame_idx, :, :]
+
+        # Case for (2D) sagittal localizer stored as an enhanced DICOM
+        except IndexError:
+            pixel_data = dcm.pixel_array
+
+        single_frames.append(
+            new_dicom(dcm, pixel_data, instance_number=frame_idx + 1),
+        )
+
+    return single_frames
 
 
 def rescale_to_byte(array):
