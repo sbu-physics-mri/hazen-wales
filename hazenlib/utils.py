@@ -427,7 +427,9 @@ def get_field_of_view(dcm: pydicom.Dataset):
     return fov
 
 def get_datatype_max(dtype=np.uint8):
-    """Get max value of the numpy datatype range. This is the machine max and not the data's max used value.
+    """Get max value of the numpy datatype range.
+
+    This is the machine max and not the data's max used value.
     For example, a np.uint8 has a machine range of 0 to 255.
 
     Args:
@@ -435,10 +437,11 @@ def get_datatype_max(dtype=np.uint8):
 
     Returns:
         int|float: max machine value of data type
+
     """
     try:
         return np.iinfo(dtype).max
-    except:
+    except ValueError:
         return np.finfo(dtype).max
 
 
