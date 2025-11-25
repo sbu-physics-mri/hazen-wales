@@ -51,8 +51,6 @@ from hazenlib.logger import logger
 from hazenlib.utils import get_dicom_files, is_enhanced_dicom
 from hazenlib._version import __version__
 from hazenlib.formatters import write_result
-from hazenlib.logger import logger
-from hazenlib.utils import get_dicom_files
 
 """Hazen is designed to measure the same parameters from multiple images.
     While some tasks require a set of multiple images (within the same folder),

@@ -114,9 +114,7 @@ from hazenlib.ACRObject import ACRObject
 from hazenlib.HazenTask import HazenTask
 from hazenlib.logger import logger
 from hazenlib.types import Measurement, Result
-from hazenlib.utils import (debug_image_sample, debug_plot_sample,
-                            get_image_orientation)
-from scipy.signal import peak_widths
+from hazenlib.utils import (get_image_orientation)
 
 
 class ACRSliceThickness(HazenTask):

@@ -802,7 +802,7 @@ def detect_centroid(img, dx, dy):
                 minRadius=int(180 / (2 * dy)),
                 maxRadius=int(200 / (2 * dx)),
             )
-    except AttributeError as e:
+    except AttributeError:
         detected_circles = cv.HoughCircles(
             img_grad_8u,
             cv.HOUGH_GRADIENT_ALT,
@@ -1072,7 +1072,7 @@ def debug_image_sample(img, out_path=None):
     """
     if len(img):
         snapshot = DebugSnapshotShow(img).image
-        if not out_path is None:
+        if out_path is not None:
             snapshot.save(out_path, format="PNG", dpi=(300, 300))
 
 

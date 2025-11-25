@@ -82,7 +82,6 @@ import numpy as np
 from hazenlib.HazenTask import HazenTask
 from hazenlib.ACRObject import ACRObject
 from hazenlib import logger
-from hazenlib.utils import debug_image_sample
 
 
 class ACRSagittalGeometricAccuracy(HazenTask):

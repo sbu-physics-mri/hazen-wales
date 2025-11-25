@@ -67,11 +67,7 @@ import os
 import sys
 import traceback
 
-import cv2
 import numpy as np
-import scipy
-import skimage.measure
-import skimage.morphology
 from hazenlib.ACRObject import ACRObject
 from hazenlib.HazenTask import HazenTask
 from hazenlib.logger import logger

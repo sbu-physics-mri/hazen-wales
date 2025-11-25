@@ -77,7 +77,7 @@ class Ghosting(HazenTask):
 
         if ghost is None or phantom is None or noise is None:
             raise Exception(
-                f"At least one of ghost, phantom and noise ROIs is empty or null"
+                "At least one of ghost, phantom and noise ROIs is empty or null"
             )
 
         ghost_mean = np.mean(ghost)
@@ -86,7 +86,7 @@ class Ghosting(HazenTask):
 
         if phantom_mean < ghost_mean or phantom_mean < noise_mean:
             raise Exception(
-                f"The mean phantom signal is lower than the ghost or the noise signal. This can't be the case "
+                "The mean phantom signal is lower than the ghost or the noise signal. This can't be the case "
             )
 
         return 100 * abs(ghost_mean - noise_mean) / phantom_mean

@@ -35,7 +35,7 @@ import skimage.measure
 
 from hazenlib.HazenTask import HazenTask
 from hazenlib.ACRObject import ACRObject
-from hazenlib.utils import logger, debug_image_sample, debug_plot_sample
+from hazenlib.utils import logger
 
 
 class LegacySlicePosition(HazenTask):

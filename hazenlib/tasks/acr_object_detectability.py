@@ -88,14 +88,13 @@ import traceback
 
 import cv2
 import numpy as np
-import scipy.stats
 from matplotlib.pyplot import subplots as plt_subplots
 
 from hazenlib.HazenTask import HazenTask
 from hazenlib.ACRObject import ACRObject
 from hazenlib import logger
 from hazenlib.utils import compute_radius_from_area, create_circular_roi_at, expand_data_range, \
-    wait_on_parallel_results, debug_image_sample
+    wait_on_parallel_results
 
 
 class ACRObjectDetectability(HazenTask):
