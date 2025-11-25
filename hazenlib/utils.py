@@ -286,14 +286,19 @@ def get_pixel_size(
     return dx, dy
 
 
-def get_TR(dcm: pydicom.Dataset) -> float:
-    """Get the RepetitionTime field from the DICOM header
+def get_TR(dcm: pydicom.Dataset, *, strict: bool = False) -> float:
+    """Get the RepetitionTime field from the DICOM header.
 
     Args:
-        dcm (pydicom.Dataset): DICOM image object
+        dcm : DICOM image object
 
     Returns:
-        float: value of the RepetitionTime field from the DICOM header, or defaults to 1000
+        return value : RepetitionTime field from the DICOM header.
+            If not found and strict is False, defaults to 1000.
+
+    Raises:
+        AttributeError : If strict is True and no Reptition is found.
+
     """
     # TODO: explore what type of DICOM files do not have RepetitionTime in DICOM header
     try:
@@ -305,8 +310,13 @@ def get_TR(dcm: pydicom.Dataset) -> float:
             )
         else:
             TR = dcm.RepetitionTime
-    except:
-        logger.warning("Could not find Repetition Time. Using default value of 1000 ms")
+
+    except AttributeError as err:
+        msg = "Could not find Repetition Time"
+        if strict:
+            raise AttributeError(msg) from err
+
+        logger.warning("%s. Using default value of 1000 ms", msg)
         TR = 1000
     return TR
 
