@@ -822,7 +822,7 @@ class ImageStack:
         plt.title("Template")
         plt.axis("off")
 
-        ax = plt.subplot(2, 2, 2)
+        plt.subplot(2, 2, 2)
         self.plot_rois(new_fig=False)
         plt.title("Image")
 
