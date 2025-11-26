@@ -64,6 +64,7 @@ Implemented for Hazen by Alex Drysdale: alexander.drysdale@wales.nhs.uk
 from __future__ import annotations
 
 import copy
+import os
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -86,7 +87,7 @@ import statsmodels.api as sm
 from hazenlib.ACRObject import ACRObject
 from hazenlib.HazenTask import HazenTask
 from hazenlib.types import (FailedStatsModel, LCODTemplate, Measurement,
-                            P_HazenTask, Result)
+                            P_HazenTask, Result, StatsParameters)
 from hazenlib.utils import get_pixel_size
 from matplotlib.patches import Circle
 
@@ -96,67 +97,31 @@ class ACRLowContrastObjectDetectability(HazenTask):
     """Low Contrast Object Detectability (LCOD) class for the ACR phantom.
 
     Attributes
-        DOT_SEPARATION : Distance in mm from center to center of each circle
-                (12 to 14 mm).
         DOT_ANGLE : Angular separation between each spoke in radians
                 (36 degrees converted to radians).
         SLICE_ANGLE_OFFSET : Angular offset between each subsequent slice
                 in radians (9 degrees converted to radians).
         START_ANGLE : Starting angle for slice 0 in radians
                 (90 degrees converted to radians).
-        ORIG_SPOKE_RADII : Original radius values for each spoke (0-9) in mm,
-                representing the intended radial positions.
-        SPOKE_RADII : Radius used for each spoke spot in mm;
-                all spots in a given spoke have the same radius
-                (all set to 2.0 mm).
-        BINARIZATION_THRESHOLD : Binarization threshold percentages (as float)
-                for different object sizes in mm:
-                    - 1.5 mm: 97.8%
-                    - 3.0 mm: 97.5%
-        FIRST_SLICE_NUM : Index of the first slice to be analyzed (8).
 
     """
 
-    DOT_SEPARATION: float = 12.8
     DOT_ANGLE: float = np.deg2rad(36)
     SLICE_ANGLE_OFFSET: float = np.deg2rad(9)
     START_ANGLE: float = np.deg2rad(90)
-    ORIG_SPOKE_RADII: MappingProxyType = MappingProxyType(
-        {
-            0: 3.5,
-            1: 3.1945,
-            2: 2.889,
-            3: 2.5835,
-            4: 2.278,
-            5: 1.9725,
-            6: 1.667,
-            7: 1.3615,
-            8: 1.056,
-            9: 0.75,
-        },
-    )
-    SPOKE_RADII: MappingProxyType = MappingProxyType(
-        {
-            0: 2.0,
-            1: 2.0,
-            2: 2.0,
-            3: 2.0,
-            4: 2.0,
-            5: 2.0,
-            6: 2.0,
-            7: 2.0,
-            8: 2.0,
-            9: 2.0,
-        },
-    )
+
     BINARIZATION_THRESHOLD: MappingProxyType = MappingProxyType(
         {
             1.5: 97.8,
             3.0: 97.5,
         },
     )
-    FIRST_SLICE_NUM: int = 8
 
+    _RADIAL_PROFILE_LENGTH: int = 90
+
+    # Optimization parameters
+    _BUDGET: int  = 100
+    _OPTIMIZER: str = "NgIohTuned"
 
     def __init__(
             self, alpha: float = 0.0125, **kwargs: P_HazenTask.kwargs,
@@ -279,6 +244,28 @@ class ACRLowContrastObjectDetectability(HazenTask):
 
         return results
 
+    def _get_params_and_p_vals(
+            self, template: LCODTemplate, dcm: pydicom.Dataset,
+    ) -> StatsParameters:
+        """Get a list of parameters and associated p-values."""
+        sp = StatsParameters()
+
+        for spoke in template.spokes:
+            profile, (x_coords, y_coords), object_mask = spoke.profile(
+                self._preprocess(dcm),
+                size=self._RADIAL_PROFILE_LENGTH,
+                return_coords=True,
+                return_object_mask=True,
+            )
+            p_vals, params = self._analyze_profile(
+                profile,
+                object_mask,
+                report=False,
+            )
+            sp.p_vals.append(p_vals)
+            sp.params.append(params)
+
+        return sp
 
     def count_spokes(
         self,
@@ -300,27 +287,15 @@ class ACRLowContrastObjectDetectability(HazenTask):
         theta = template.theta
 
         # Pre-process
-        p_vals_all = []
-        params_all = []
-        for spoke in spokes:
-            profile, (x_coords, y_coords), object_mask = spoke.profile(
-                self._preprocess(dcm),
-                size=90,
-                return_coords=True,
-                return_object_mask=True,
-            )
-            p_vals, params = self._analyze_profile(profile, object_mask)
-
-            p_vals_all += list(p_vals)
-            params_all += list(params)
+        sp = self._get_params_and_p_vals(template, dcm)
 
         p_vals_fdr = statsmodels.stats.multitest.fdrcorrection(
-            p_vals_all,
+            sp.p_vals_all,
             alpha=alpha,
             method="indep",
             is_sorted=False,
-        )[0].reshape(-1, len(p_vals))
-        params_fdr = np.array(params_all).reshape(-1, len(params))
+        )[0].reshape(-1, len(sp.p_vals))
+        params_fdr = np.array(sp.params_all).reshape(-1, len(sp.params))
 
         # Check if the p-values pass the significance test
         spoke_can_pass = True
@@ -338,7 +313,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
                 # Figure and axes should be obtained from analyze profile
                 profile, (x_coords, y_coords), object_mask = spoke.profile(
                     dcm,
-                    size=90,
+                    size=self._RADIAL_PROFILE_LENGTH,
                     return_coords=True,
                     return_object_mask=True,
                 )
@@ -535,37 +510,30 @@ class ACRLowContrastObjectDetectability(HazenTask):
         return lcod_center
 
 
-
     def find_spokes(
         self,
         dcm: pydicom.Dataset,
         current_slice: int,
-        center_search_tolerance: float = 0.05,
+        center_search_tolerance: float = 0.00,
         *,
         random_state: np.random.RandomState | None = None,
     ) -> LCODTemplate:
         """Find the position of the spokes within the LCOD disk."""
-        # Optimisation parameters that are hard-coded
-        # to ensure standardisation.
-        optimiser: str = "MultiSQPPlus"
-        budget: int = 1000
         initial_rotation_offset = (
-            self.START_ANGLE +
+            self.START_ANGLE -
             self.SLICE_ANGLE_OFFSET * (11 - current_slice)
         )
-
-        def minimiser(cx: float, cy: float, theta: float) -> float:
-            template = LCODTemplate(cx, cy, theta)
-            return - np.sum(template.mask(dcm) * dcm.pixel_array)
 
         theta_0 = self.rotation + initial_rotation_offset
         theta_p = ng.p.Scalar(
             init=float(theta_0),
-            lower=theta_0 - 18,
-            upper=theta_0 + 18,
+            lower=theta_0 - 5,
+            upper=theta_0 + 5,
         )
 
-        if self.lcod_center is None:
+        # Finds the center if not already found
+        # and use optimizer if center_search_tolerance > 0
+        if self.lcod_center is None and center_search_tolerance > 0:
             cx_0, cy_0 = self.find_center()
 
             parametrization = ng.p.Instrumentation(
@@ -582,23 +550,40 @@ class ACRLowContrastObjectDetectability(HazenTask):
                 theta=theta_p,
             )
 
-        else:
+        elif self.lcod_center is None:
+            # Case for when LCOD center has not been found
+            # and center_search_tolerance is 0.
+            self.lcod_center = self.find_center()
             cx, cy = self.lcod_center
             parametrization = ng.p.Instrumentation(
                 cx=cx, cy=cy, theta=theta_p,
             )
 
+        # Only use optimisation on the first instance
+        else:
+            return LCODTemplate(*self.lcod_center, theta=theta_0)
+
+        def minimiser(cx: float, cy: float, theta: float) -> float:
+            eps = 1e-12
+            template = LCODTemplate(cx, cy, theta)
+
+            sp = self._get_params_and_p_vals(template, dcm)
+
+            # Return negative log of p (penalize high p-values)
+            return sum( - np.sum(np.log(p_vals) + eps) for p_vals in sp.p_vals)
 
         if random_state is not None:
             parametrization.random_state = random_state
 
-        opt = ng.optimizers.registry[optimiser](
+        opt = ng.optimizers.registry[self._OPTIMIZER](
             parametrization=parametrization,
-            budget=budget,
-            num_workers=4,
+            budget=self._BUDGET,
+            num_workers=max(os.cpu_count() - 1, 1),
         )
 
-        with futures.ThreadPoolExecutor(max_workers=opt.num_workers) as executor:
+        with futures.ThreadPoolExecutor(
+            max_workers=opt.num_workers,
+        ) as executor:
             recommendation = opt.minimize(
                 minimiser, executor=executor, batch_mode=False,
             )
@@ -619,19 +604,26 @@ class ACRLowContrastObjectDetectability(HazenTask):
             object_mask: np.ndarray,
             *,
             std_tol: float = 0.01,
-    ) -> tuple:
+            report: bool | None = None,
+    ) -> tuple[list, list]:
         """Analyze radial profile for low-contrast object detection.
 
         Args:
-            profile: Radial intensity profile
+            profile : Radial intensity profile
             object_mask : A 3 x N array containing boolean mask of each object.
-            std_tol: Tolerance for the standard deviation for
+            std_tol : Tolerance for the standard deviation for
                 detecting polynomial coefficients.
+            report : Overrides self.report.
 
         Returns:
             Tuple of (p-values, parameters).
 
         """
+        try:
+            report = self.report if report is None else report
+        except AttributeError:
+            report = False
+
         # De-trend with robust polynomial fitting
         if np.std(profile) > std_tol:
             x = np.linspace(0, 1, len(profile))
@@ -665,7 +657,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
             model = FailedStatsModel()
 
         # Reporting
-        if self.report:
+        if report:
             plt.clf()
             self.fig, self.axes = plt.subplots(2, 2, figsize=(16, 16))
 

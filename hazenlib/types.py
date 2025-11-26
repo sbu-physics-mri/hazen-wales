@@ -1,3 +1,4 @@
+
 """Types used for hazenlib."""
 
 from __future__ import annotations
@@ -220,8 +221,6 @@ class Result(JsonSerializableMixin):
 ########
 # LCOD #
 ########
-
-
 
 @dataclass
 class LowContrastObject:
@@ -448,6 +447,29 @@ class LCODTemplate:
                 if object_considered_for_mask:
                     mask |= is_object
         return mask
+
+@dataclass
+class StatsParameters:
+    """Dataclass for the stats parameters and associated p-values."""
+
+    p_vals: list[tuple] = field(default_factory=list)
+    params: list[tuple] = field(default_factory=list)
+
+    @property
+    def p_vals_all(self) -> list:
+        """All the p-values as a flat list."""
+        p_vals_all = []
+        for p in self.p_vals:
+            p_vals_all += p
+        return p_vals_all
+
+    @property
+    def params_all(self) -> list:
+        """All the parameters as a flat list."""
+        params_all = []
+        for p in self.params:
+            params_all += p
+        return params_all
 
 
 @dataclass(frozen=True)
