@@ -1,11 +1,10 @@
-import os
-import unittest
+"""Tests for the ACR Object Detectablity module."""
 import pathlib
-import pydicom
+import unittest
 
-from hazenlib.utils import get_dicom_files
 from hazenlib.tasks.acr_object_detectability import ACRObjectDetectability
-from hazenlib.ACRObject import ACRObject
+from hazenlib.utils import get_dicom_files
+
 from tests import TEST_DATA_DIR, TEST_REPORT_DIR
 
 
