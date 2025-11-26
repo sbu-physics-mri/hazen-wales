@@ -252,7 +252,11 @@ class TestFindSpokes(unittest.TestCase):
         """Test spoke finding algorithm."""
         seed = 26082025
         random_state = np.random.RandomState(seed)
-        template = self.task.find_spokes(self.dcm, random_state=random_state)
+        template = self.task.find_spokes(
+            self.dcm,
+            11,
+            random_state=random_state,
+        )
         spokes = template.spokes
         for spoke, spoke_true in zip(spokes, self.template.spokes):
             self.assertAlmostEqual(spoke.cx, spoke_true.cx, places=0)

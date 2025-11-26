@@ -73,6 +73,7 @@ if TYPE_CHECKING:
 import logging
 from concurrent import futures
 from pathlib import Path
+from types import MappingProxyType
 
 # Module imports
 import cv2
@@ -84,16 +85,78 @@ import statsmodels
 import statsmodels.api as sm
 from hazenlib.ACRObject import ACRObject
 from hazenlib.HazenTask import HazenTask
-from hazenlib.types import (
-    FailedStatsModel, LCODTemplate, Measurement, P_HazenTask, Result,
-)
+from hazenlib.types import (FailedStatsModel, LCODTemplate, Measurement,
+                            P_HazenTask, Result)
 from hazenlib.utils import get_pixel_size
 from matplotlib.patches import Circle
 
 logger = logging.getLogger(__name__)
 
 class ACRLowContrastObjectDetectability(HazenTask):
-    """Low Contrast Object Detectability (LCOD) class for the ACR phantom."""
+    """Low Contrast Object Detectability (LCOD) class for the ACR phantom.
+
+    Attributes
+        DOT_SEPARATION : Distance in mm from center to center of each circle
+                (12 to 14 mm).
+        DOT_ANGLE : Angular separation between each spoke in radians
+                (36 degrees converted to radians).
+        SLICE_ANGLE_OFFSET : Angular offset between each subsequent slice
+                in radians (9 degrees converted to radians).
+        START_ANGLE : Starting angle for slice 0 in radians
+                (90 degrees converted to radians).
+        ORIG_SPOKE_RADII : Original radius values for each spoke (0-9) in mm,
+                representing the intended radial positions.
+        SPOKE_RADII : Radius used for each spoke spot in mm;
+                all spots in a given spoke have the same radius
+                (all set to 2.0 mm).
+        BINARIZATION_THRESHOLD : Binarization threshold percentages (as float)
+                for different object sizes in mm:
+                    - 1.5 mm: 97.8%
+                    - 3.0 mm: 97.5%
+        FIRST_SLICE_NUM : Index of the first slice to be analyzed (8).
+
+    """
+
+    DOT_SEPARATION: float = 12.8
+    DOT_ANGLE: float = np.deg2rad(36)
+    SLICE_ANGLE_OFFSET: float = np.deg2rad(9)
+    START_ANGLE: float = np.deg2rad(90)
+    ORIG_SPOKE_RADII: MappingProxyType = MappingProxyType(
+        {
+            0: 3.5,
+            1: 3.1945,
+            2: 2.889,
+            3: 2.5835,
+            4: 2.278,
+            5: 1.9725,
+            6: 1.667,
+            7: 1.3615,
+            8: 1.056,
+            9: 0.75,
+        },
+    )
+    SPOKE_RADII: MappingProxyType = MappingProxyType(
+        {
+            0: 2.0,
+            1: 2.0,
+            2: 2.0,
+            3: 2.0,
+            4: 2.0,
+            5: 2.0,
+            6: 2.0,
+            7: 2.0,
+            8: 2.0,
+            9: 2.0,
+        },
+    )
+    BINARIZATION_THRESHOLD: MappingProxyType = MappingProxyType(
+        {
+            1.5: 97.8,
+            3.0: 97.5,
+        },
+    )
+    FIRST_SLICE_NUM: int = 8
+
 
     def __init__(
             self, alpha: float = 0.0125, **kwargs: P_HazenTask.kwargs,
@@ -141,6 +204,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
                     " each sequence",
                     self.ACR_obj.slice_stack[0]["MagneticFieldStrength"].value,
                 )
+                self.pass_threshold = 7
 
         # Only used in reporting
         self.fig = None
@@ -160,6 +224,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
         ]
 
         total_spokes = 0
+        # TODO(abdrysdale) : Use wait_on_parallel_results to collect results.
         for i, dcm in enumerate(self.ACR_obj.slice_stack[self.slice_range]):
             slice_no = 1 + self.slice_range.step * i + self.slice_range.start
             result = self.count_spokes(dcm, slice_no=slice_no, alpha=self.alpha)
@@ -228,14 +293,13 @@ class ACRLowContrastObjectDetectability(HazenTask):
 
         # Find the position of each spoke
         # (with the pixel coordinates of the each of the object centers)
-        template = self.find_spokes(dcm)
+        template = self.find_spokes(dcm, slice_no)
         spokes  = template.spokes
         cx, cy = (template.cx, template.cy)
         dx, dy = get_pixel_size(dcm)
         theta = template.theta
 
         # Pre-process
-
         p_vals_all = []
         params_all = []
         for spoke in spokes:
@@ -384,21 +448,24 @@ class ACRLowContrastObjectDetectability(HazenTask):
 
     def find_center(
         self,
-        crop_ratio: float = 0.7,
+        crop_ratio: float = 0.55,
     ) -> tuple[float]:
         """Find the center of the LCOD phantom."""
         if self.lcod_center is not None:
             return self.lcod_center
 
+        # Get ACR Phantom Center
         dcm = self.ACR_obj.slice_stack[0]
         (main_cx, main_cy), main_radius = self.ACR_obj.find_phantom_center(
             dcm.pixel_array, self.ACR_obj.dx, self.ACR_obj.dy,
         )
 
+        # Get cropped image of LCOD disk
         dcm = self.ACR_obj.slice_stack[-1]
         r = main_radius * crop_ratio
+        lcod_cy = main_cy + 5 / self.ACR_obj.dy
         cropped_image = dcm.pixel_array[
-            max(0, int(main_cy - r)):int(main_cy + r + 1),
+            max(0, int(lcod_cy - r)):int(lcod_cy + r + 1),
             max(0, int(main_cx - r)):int(main_cx + r + 1),
         ]
         cropped_image = (
@@ -409,11 +476,14 @@ class ACRLowContrastObjectDetectability(HazenTask):
         img_blur = cv2.GaussianBlur(cropped_image, (1, 1), 0)
         img_grad = img_blur.max() - img_blur
 
+        lcod_r = 45  # Radius of LCOD disc (mm)
         detected_circles = cv2.HoughCircles(
             img_grad,
             method=cv2.HOUGH_GRADIENT,
             dp=2,
             minDist=cropped_image.shape[0] // 2,
+            minRadius=int(lcod_r / self.ACR_obj.dy) - 2,
+            maxRadius=int(lcod_r / self.ACR_obj.dy) - 2,
         ).flatten()
 
         lcod_center = tuple(
@@ -469,6 +539,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
     def find_spokes(
         self,
         dcm: pydicom.Dataset,
+        current_slice: int,
         center_search_tolerance: float = 0.05,
         *,
         random_state: np.random.RandomState | None = None,
@@ -478,7 +549,10 @@ class ACRLowContrastObjectDetectability(HazenTask):
         # to ensure standardisation.
         optimiser: str = "MultiSQPPlus"
         budget: int = 1000
-        initial_rotation_offset: float = 25
+        initial_rotation_offset = (
+            self.START_ANGLE +
+            self.SLICE_ANGLE_OFFSET * (11 - current_slice)
+        )
 
         def minimiser(cx: float, cy: float, theta: float) -> float:
             template = LCODTemplate(cx, cy, theta)
