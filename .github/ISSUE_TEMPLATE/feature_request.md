@@ -2,10 +2,12 @@
 name: Feature request
 about: Suggest an idea for this project
 title: ''
-labels: enhancement
+labels: ''
 assignees: ''
 
 ---
+
+When adding attachments or information to this issue DO NOT upload any patient sensitive data. and ensure that all images are anonymised. If in doubt, DO NOT UPLOAD OR INCLUDE.
 
 **Is your feature request related to a problem? Please describe.**
 A clear and concise description of what the problem is. Ex. I'm always frustrated when [...]

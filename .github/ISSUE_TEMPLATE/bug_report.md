@@ -2,10 +2,12 @@
 name: Bug report
 about: Create a report to help us improve
 title: ''
-labels: bug
+labels: ''
 assignees: ''
 
 ---
+
+**When adding attachments or information to this issue DO NOT upload any patient sensitive data. and ensure that all images are anonymised. If in doubt, DO NOT UPLOAD OR INCLUDE.**
 
 **Describe the bug**
 A clear and concise description of what the bug is.
@@ -24,10 +26,8 @@ A clear and concise description of what you expected to happen.
 If applicable, add screenshots to help explain your problem.
 
 **Desktop (please complete the following information):**
- - OS: [e.g. macOS 12.1]
- - Python version [e.g. 3.6, 3.8]
- - Hazen version [e.g. 0.6.0]
- - Deployment [e.g. Docker, venv, web]
+ - OS: [e.g. iOS]
+ - Version [e.g. 22]
 
 **Additional context**
 Add any other context about the problem here.
