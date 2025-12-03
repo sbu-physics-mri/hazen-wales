@@ -462,7 +462,7 @@ class StatsParameters:
         """All the p-values as a flat list."""
         p_vals_all = []
         for p in self.p_vals:
-            p_vals_all += p
+            p_vals_all += list(p)
         return p_vals_all
 
     @property
@@ -470,7 +470,7 @@ class StatsParameters:
         """All the parameters as a flat list."""
         params_all = []
         for p in self.params:
-            params_all += p
+            params_all += list(p)
         return params_all
 
 
