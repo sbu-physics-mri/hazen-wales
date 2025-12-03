@@ -237,58 +237,13 @@ class TestLCODTemplateMask(unittest.TestCase):
             self.assertTrue(np.all(mask[p:, p:] == mask_shifted[:-p, :-p]))
 
 
-@unittest.skip("Skip find spokes test for now...")
-class TestFindSpokes(unittest.TestCase):
-    """Validate that ``find_spokes`` returns a correct set of spokes."""
-
-    def setUp(self) -> None:
-        """Set up the fake data and find spokes."""
-        dim = 256
-        self.dcm = DummyDICOM(shape=(dim, dim))
-
-        # Sets up a DummyDICOM image with spokes.
-        self.cx = dim * 0.52
-        self.cy = dim * 0.49
-        self.theta = 12
-
-        self.template = LCODTemplate(self.cx, self.cy, self.theta)
-        self.dcm.pixel_array = self.template.mask(self.dcm) * self.dcm.pixel_array
-
-
-        # By pass constructor - only need the attributes used by find_spokes
-        self.task = ACRLowContrastObjectDetectability.__new__(
-            ACRLowContrastObjectDetectability,
-        )
-        self.task.rotation = 0.0
-        self.task.find_center = lambda : (dim / 2, dim / 2)
-        self.task.lcod_center = None
-
-    def test_find_spokes(self) -> None:
-        """Test spoke finding algorithm."""
-        seed = 26082025
-        random_state = np.random.RandomState(seed)
-        template = self.task.find_spokes(
-            self.dcm,
-            11,
-            random_state=random_state,
-        )
-        spokes = template.spokes
-        for spoke, spoke_true in zip(spokes, self.template.spokes):
-            self.assertAlmostEqual(spoke.cx, spoke_true.cx, places=0)
-            self.assertAlmostEqual(spoke.cy, spoke_true.cy, places=0)
-            self.assertAlmostEqual(spoke.theta, spoke_true.theta, places=0)
-            for obj, obj_true in zip(spoke, spoke_true):
-                self.assertAlmostEqual(obj.x, obj_true.x, places=0)
-                self.assertAlmostEqual(obj.y, obj_true.y, places=0)
-
-
 class TestACRLowContrastObjectDetectability(unittest.TestCase):
     """Test Class for the LCOD task.
 
     Defaults to testing the slice scores.
     """
 
-    ACR_DATA = Path(TEST_DATA_DIR / "acr" / "SiemensMTF")
+    ACR_DATA = Path(TEST_DATA_DIR / "acr" / "GE_Artist_1.5T_T1")
     SCORES = (
         SliceScore(8, 7),
         SliceScore(9, 10),
@@ -331,12 +286,25 @@ class TestACRLowContrastObjectDetectability(unittest.TestCase):
         # self.assertEqual(total_score, correct_total_score)
 
 
-class TestACRLowContrastObjectDetectabilityGE(
+class TestACRLowContrastObjectDetectabilitySiemensAera(
         TestACRLowContrastObjectDetectability,
 ):
-    """Test class for GE data."""
+    """Test class for Siemens Aera data."""
 
-    ACR_DATA = Path(TEST_DATA_DIR / "acr" / "GE")
+    ACR_DATA = Path(TEST_DATA_DIR / "acr" / "Siemens_Aera_1.5T_T1")
+    SCORES = (
+        SliceScore(8, 0),
+        SliceScore(9, 2),
+        SliceScore(10, 8),
+        SliceScore(11, 7),
+    )
+
+class TestACRLowContrastObjectDetectabilitySiemensSkyra(
+        TestACRLowContrastObjectDetectability,
+):
+    """Test class for Siemens Skyra data."""
+
+    ACR_DATA = Path(TEST_DATA_DIR / "acr" / "Siemens_MagnetomSkyra_3T_T1")
     SCORES = (
         SliceScore(8, 0),
         SliceScore(9, 2),
