@@ -71,17 +71,17 @@ luis.santos2@nih.gov
 
 2/20/2025
 """
-
+# Python imports
 import os
 import sys
 import traceback
 
+# Module imports
 import numpy as np
-
-
-from hazenlib.HazenTask import HazenTask
-from hazenlib.ACRObject import ACRObject
 from hazenlib import logger
+from hazenlib.ACRObject import ACRObject
+from hazenlib.HazenTask import HazenTask
+from hazenlib.types import Measurement
 
 
 class ACRSagittalGeometricAccuracy(HazenTask):
@@ -104,17 +104,20 @@ class ACRSagittalGeometricAccuracy(HazenTask):
         img_desc = self.img_desc(dcm)
 
         # Initialise results dictionary
-        results = self.init_result_dict()
-        results["file"] = [
-            img_desc
-        ]
+        results = self.init_result_dict(desc=img_desc)
 
         try:
             lengths_1 = self.get_geometric_accuracy(dcm)
             logger.info(lengths_1)
-            results["measurement"][img_desc] = {
-                "Vertical distance": round(lengths_1, 2)
-            }
+            results.add_measurement(
+                Measurement(
+                    name="GeometricAccuracy",
+                    value=round(lengths_1, 2),
+                    subtype="Sagittal Localizer",
+                    unit="mm",
+                    description="Superior to Inferior",
+                ),
+            )
         except Exception as e:
             logger.error(
                 f"Could not calculate the geometric accuracy for {self.img_desc(self.ACR_obj.slice_stack[0])} because of : {e}"
@@ -123,7 +126,7 @@ class ACRSagittalGeometricAccuracy(HazenTask):
 
         # only return reports if requested
         if self.report:
-            results["report_image"] = self.report_files
+            results.add_report_image(self.report_files)
 
         return results
 
