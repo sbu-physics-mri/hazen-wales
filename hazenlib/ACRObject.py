@@ -7,6 +7,7 @@ if TYPE_CHECKING:
     import pydicom
 
 import sys
+from typing import Any
 
 import cv2
 import numpy as np
@@ -241,7 +242,7 @@ class ACRObject:
         logger.info(f"Centroid (x, y) => {centre_x}, {centre_y}")
 
         logger.info(
-            "Phantom center found at (%i,%i) with radius %f",
+            "Phantom center found at (%i,%i) with radius %s",
             centre_x, centre_y, radius,
         )
         return (centre_x, centre_y), radius
@@ -429,6 +430,20 @@ class ACRObject:
         intercept = dcm.get('RescaleIntercept', 1)
         center = dcm.get('WindowCenter', None)
         width = dcm.get('WindowWidth', None)
+
+        def get_from_frame_voi_lut_sequence(prop: str) -> Any:
+            return dcm[
+                (0x5200,0x9230) # Per-Frame Functional Groups Sequence
+            ][0][
+                (0x0028,0x9132) # Frame VOI LUT Sequence
+            ][0][prop].value
+
+        if center is None:
+            center = get_from_frame_voi_lut_sequence("WindowCenter")
+
+        if width is None:
+            width = get_from_frame_voi_lut_sequence("WindowWidth")
+
         voi_lut_function = dcm.get('VOILUTFunction', 'linear').lower()
         float_data = img.copy().astype(np.float32)  # Cast to float to maintain precision
         rescaled = ACRObject.rescale_data(float_data, slope, intercept)
