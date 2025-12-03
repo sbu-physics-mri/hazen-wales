@@ -250,7 +250,7 @@ class Spoke:
     dist: tuple[float] = (12.5, 25, 38.0)
 
     # Spoke length
-    length: float = 44.0
+    length: float = 42.0
 
     passed: bool = False
 
@@ -318,6 +318,7 @@ class Spoke:
 
         if return_coords:
             rtn.append((x_coords, y_coords))
+
         if return_object_mask:
             object_mask = np.zeros((size, len(self)), dtype=bool)
             r = np.linspace(0, self.length, size)
@@ -332,6 +333,7 @@ class Spoke:
 
         if len(rtn) == 1:
             return rtn[0]
+
         return tuple(rtn)
 
 
