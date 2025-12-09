@@ -1326,11 +1326,10 @@ class ShapeDetector:
         self.find_contours()
         self.detect()
 
-        if shape not in self.shapes.keys():
-            # print(self.shapes.keys())
+        if shape not in self.shapes:
             logger.error(
                 "No valid shape detected - got %s but expected one of %s",
-                shape, self.shape.keys(),
+                shape, self.shapes.keys(),
             )
             raise exc.ShapeDetectionError(shape)
 
