@@ -174,22 +174,23 @@ class ACRSliceThickness(HazenTask):
             results.add_measurement(
                 Measurement(
                     name="SliceWidth",
-                    type="measurement",
+                    type="measured",
                     subtype="slice width",
                     unit="mm",
                     value=round(thickness_results["thickness"], 2),
                 ),
             )
 
-            results.add_measurement(
-                Measurement(
-                    name="SliceWidth",
-                    type="measurement",
-                    subtype="Ramps",
-                    unit="mm",
-                    value=thickness_results["ramps"],
-                ),
-            )
+            for ramp in thickness_results["ramps"]:
+                results.add_measurement(
+                    Measurement(
+                        name="SliceWidth",
+                        type="measured",
+                        subtype="Ramps",
+                        unit="mm",
+                        value=thickness_results["ramps"][ramp]["width"],
+                    ),
+                )
 
         except Exception as e:
             logger.exception(
