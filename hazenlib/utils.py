@@ -187,18 +187,24 @@ def get_manufacturer(dcm: pydicom.Dataset) -> str:
 
 
 def get_average(dcm: pydicom.Dataset) -> float:
-    """Get the NumberOfAverages field from the DICOM header
+    """Get the NumberOfAverages field from the DICOM header.
 
     Args:
         dcm (pydicom.Dataset): DICOM image object
 
     Returns:
         float: value of the NumberOfAverages field from the DICOM header
+
     """
     if is_enhanced_dicom(dcm):
-        averages = (
-            dcm.SharedFunctionalGroupsSequence[0].MRAveragesSequence[0].NumberOfAverages
-        )
+        averages = dcm[
+            (0x5200, 0x9230)    # Per-Frame Functional Groups Sequence
+        ][0][
+            (0x0018, 0x9119)    # MR Averages Sequence
+        ][0][
+            (0x0018, 0x0083)    # Number of Averages
+        ].value
+
     else:
         averages = dcm.NumberOfAverages
 
