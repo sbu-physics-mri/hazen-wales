@@ -220,7 +220,17 @@ def get_bandwidth(dcm: pydicom.Dataset) -> float:
     Returns:
         float: value of the PixelBandwidth field from the DICOM header
     """
-    bandwidth = dcm.PixelBandwidth
+    try:
+        bandwidth = dcm.PixelBandwidth
+
+    except AttributeError:
+        bandwidth = dcm[
+            (0x5200, 0x9229)    # Shared Functional Groups Sequence
+        ][0][
+            (0x0018, 0x9006)    # MR Imaging Modifier Sequence
+        ][0][
+            (0x0018, 0x0095)    # Pixel Bandwidth
+        ].value
     return bandwidth
 
 
