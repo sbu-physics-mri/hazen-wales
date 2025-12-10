@@ -87,27 +87,47 @@ class ACRObject:
                 .EffectiveEchoTime
             )
 
-        match (TR, TE):
+        def is_close(value: float, target: float, rel_tol: float) -> bool:
+            return abs(value - target) / target <= rel_tol
 
-            case (200, 20):
-                return "Sagittal Localiser"
+        sequence_params = {
+            "Sagittal Localiser": (200, 20),
+            "T1": (500, 20),
+            "T2": (2000, 80),
+        }
+        rel_tol = 1e-9 if strict else 1e-2
 
-            case (500, 20):
-                return "T1"
+        for sequence, (tr, te) in sequence_params.items():
+            if (
+                is_close(TE, te, rel_tol=rel_tol)
+                and is_close(TR, tr, rel_tol=rel_tol)
+            ):
+                msgs = []
+                if te != TE:
+                    msgs.append(
+                        f"TE ({TE}) is within tolerance of {te} +- {rel_tol}%",
+                    )
+                if tr != TR:
+                    msgs.append(
+                        f"TR ({TR}) is within tolerance of {tr} +- {rel_tol}%",
+                    )
+                if msgs:
+                    logger.warning(
+                        "%s so sequence identified as %s"
+                        " but not with an exact match.",
+                        " and ".join(msgs),
+                        sequence,
+                    )
 
-            case (2000, 80):
-                return "T2"
+                return sequence
 
-        msg = f"Could not match acquisition type from TE ({TE}) and TR ({TR})"
-        if strict:
-            logger.error(msg)
-            return "Unknown"
-
-        if abs(TE - 500) < abs(TE - 2000):
-            logger.warning("%s assuming T1", msg)
-            return "T1"
-        logger.warning("%s assuming T2", msg)
-        return "T2"
+        sequence = "Unknown"
+        logger.error(
+            "Could not match acquisition type from TE (%f) and TR (%f)"
+            " setting acquisition type to %s",
+            TE, TR, sequence,
+        )
+        return sequence
 
 
     def sort_dcms(self, dcm_list):
