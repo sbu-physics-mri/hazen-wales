@@ -247,9 +247,9 @@ class Spoke:
     diameter: float
 
     # Distance from the center (mm)
-    dist: tuple[float] = (12.5, 25, 38.0)
+    dist: tuple[float] = (12.5, 25.0, 38.0)
 
-    # Spoke length
+    # Spoke length (mm)
     length: float = 42.0
 
     passed: bool = False
