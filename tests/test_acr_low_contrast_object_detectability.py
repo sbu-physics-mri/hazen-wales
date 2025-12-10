@@ -257,10 +257,40 @@ class TestACRLowContrastObjectDetectability(unittest.TestCase):
     def setUp(self) -> None:
         """Set up for the tests."""
         input_files = get_dicom_files(self.ACR_DATA)
+
+        # Get report flag from environment (default: False)
+        # To enable reports, you would run something like:
+
+        ###########
+        ## Linux ##
+        ###########
+
+        # HAZEN_REPORT=true pytest
+        # or:
+        # HAZEN_REPORT=1 python -m unittest
+
+        ###################
+        ## Windows (cmd) ##
+        ###################
+
+        # set HAZEN_REPORT=true && pytest
+        # or:
+        # set HAZEN_REPORT=1 && python -m unittestac
+
+        ##########################
+        ## Windows (powershell) ##
+        ##########################
+
+        # $env:HAZEN_REPORT="true"; pytest
+        # or:
+        # $env:HAZEN_REPORT="1"; python -m unittest
+        report_env = os.getenv("HAZEN_REPORT", "false").lower()
+        report = report_env in ("true", "1", "yes")
+
         self.acr_object_detectability = ACRLowContrastObjectDetectability(
             input_data=input_files,
             report_dir=Path(TEST_REPORT_DIR),
-            report=True,
+            report=report,
         )
         self.results = self.acr_object_detectability.run()
 
