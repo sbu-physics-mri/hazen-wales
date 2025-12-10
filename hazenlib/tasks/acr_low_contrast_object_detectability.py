@@ -280,7 +280,6 @@ class ACRLowContrastObjectDetectability(HazenTask):
             p_vals, params = self._analyze_profile(
                 profile,
                 object_mask,
-                report=False,
                 mask_padding=5,
             )
             sp.p_vals.append(p_vals)
@@ -382,7 +381,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
 
         return [s.passed for s in spokes]
 
-    def _update_lcod_center_with_optimiser(
+    def _improve_lcod_center_with_optimiser(
         self,
         cx: float,
         cy: float,
@@ -419,7 +418,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
 
         def minimiser(cx: float, cy: float) -> float:
             eps = 1e-12
-            alpha = 0.01  # Keep for FDR, but don't use as hard threshold
+            alpha = 0.01
 
             total_log_pvalue = 0.0
             total_effect_size = 0.0
@@ -473,12 +472,13 @@ class ACRLowContrastObjectDetectability(HazenTask):
             )
             _, values = recommendation.value
 
-        self.lcod_center = values["cx"], values["cy"]
-        return self.lcod_center
+        return (values["cx"], values["cy"])
 
     def find_center(
         self,
         crop_ratio: float = 0.55,
+        *,
+        use_optimiser: bool = False,
     ) -> tuple[float]:
         """Find the center of the LCOD phantom."""
         if self.lcod_center is not None:
@@ -526,17 +526,25 @@ class ACRLowContrastObjectDetectability(HazenTask):
         except AttributeError:
             logger.warning("Failed to find LCOD center, using defaults.")
             detected_circles = (main_cx, lcod_cy, lcod_r_init)
-            raise
+            lcod_center = detected_circles[:2]
 
-        lcod_center = tuple(
-            (dc + offset) * dv
-            for dc, offset, dv in zip(
-                detected_circles[:2],
-                (offset_x, offset_y),
-                (self.ACR_obj.dx, self.ACR_obj.dy),
+        else:
+            lcod_center = tuple(
+                (dc + offset) * dv
+                for dc, offset, dv in zip(
+                        detected_circles[:2],
+                        (offset_x, offset_y),
+                        (self.ACR_obj.dx, self.ACR_obj.dy),
+                )
             )
-        )
+
+        self.lcod_center = lcod_center
         lcod_r = detected_circles[2]
+
+        if use_optimiser:
+            self.lcod_center = self._improve_lcod_center_with_optimiser(
+                *lcod_center,
+            )
 
         if self.report:
             fig, axes = plt.subplots(2, 2, constrained_layout=True)
@@ -583,12 +591,28 @@ class ACRLowContrastObjectDetectability(HazenTask):
             axes[0, 1].add_patch(circle)
             axes[0, 1].set_title("Cropped Image")
 
-            # Inverse
-            axes[1, 0].imshow(img_grad)
-            axes[1, 0].set_title("Inverse")
-
-            # Detected
+            # Initial guess
             cx, cy = detected_circles[:2]
+            circle = Circle(
+                (cx / self.ACR_obj.dx, cy / self.ACR_obj.dy),
+                lcod_r / self.ACR_obj.dx,
+                fill=False,
+                edgecolor="blue",
+                linewidth=2,
+            )
+            axes[1, 0].imshow(cropped_image, cmap="gray")
+            axes[1, 0].scatter(
+                detected_circles[0],
+                detected_circles[1],
+                marker="x",
+                color="blue",
+            )
+            axes[1, 0].add_patch(circle)
+            axes[1, 0].set_title("Detected Circle")
+
+            # Final guess
+            cx = self.lcod_center[0] - offset_x
+            cy = self.lcod_center[1] - offset_y
             circle = Circle(
                 (cx / self.ACR_obj.dx, cy / self.ACR_obj.dy),
                 lcod_r / self.ACR_obj.dx,
@@ -598,13 +622,15 @@ class ACRLowContrastObjectDetectability(HazenTask):
             )
             axes[1, 1].imshow(cropped_image, cmap="gray")
             axes[1, 1].scatter(
-                detected_circles[0],
-                detected_circles[1],
+                cx,
+                cy,
                 marker="x",
                 color="blue",
             )
             axes[1, 1].add_patch(circle)
-            axes[1, 1].set_title("Detected Circle")
+            axes[1, 1].set_title(
+                f"Detected Circle, optimiser used={use_optimiser}",
+            )
 
             fig.suptitle("LCOD Center Detection")
 
@@ -634,7 +660,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
         theta = self._current_slice_rotation(current_slice)
 
         if self.lcod_center is None:
-            cx_0, cy_0 = self.find_center()
+            cx_0, cy_0 = self.find_center(use_optimiser=True)
 
             logger.debug(
                 "Updated LCOD center: (%s) -> (%f, %f)",
@@ -1053,7 +1079,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
         )
 
         # Style
-        table.auto_set_font_size(renderer=False)
+        table.auto_set_font_size(False)  # noqa: FBT003
         table.set_fontsize(6)  # Smaller font for compactness
         table.scale(1, 1.8)
 
