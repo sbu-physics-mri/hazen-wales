@@ -294,18 +294,39 @@ class TestACRLowContrastObjectDetectability(unittest.TestCase):
         )
         self.results = self.acr_object_detectability.run()
 
-    def test_slice_score(self) -> None:
-        """Test the score for a slice."""
-        for score in self.SCORES:
-            result = self.results.get_measurement(
-                name="LowContrastObjectDetectability",
-                measurement_type="measured",
-                subtype=f"slice {score.index}",
-            )
-            self.assertEqual(len(result), 1)
+    def _score_testing(self, score: SliceScore) -> None:
+        result = self.results.get_measurement(
+            name="LowContrastObjectDetectability",
+            measurement_type="measured",
+            subtype=f"slice {score.index}",
+        )
+        self.assertEqual(len(result), 1)
 
-            slice_score = result[0].value
-            # self.assertEqual(slice_score, score.score)
+        slice_score = result[0].value
+        self.assertEqual(
+            slice_score,
+            score.score,
+            msg=(
+                f"{self.ACR_DATA} slice {score.index}\n"
+                f"Expected {score.score} but got {slice_score}"
+            ),
+        )
+
+    def test_slice_score_8(self) -> None:
+        """Test the score for slice 8."""
+        self._score_testing(self.SCORES[0])
+
+    def test_slice_score_9(self) -> None:
+        """Test the score for slice 9."""
+        self._score_testing(self.SCORES[1])
+
+    def test_slice_score_10(self) -> None:
+        """Test the score for slice 10."""
+        self._score_testing(self.SCORES[2])
+
+    def test_slice_score_11(self) -> None:
+        """Test the score for slice 11."""
+        self._score_testing(self.SCORES[3])
 
 
     def test_total_score(self) -> None:
