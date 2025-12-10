@@ -60,9 +60,12 @@ Implementation overview:
 
 Implemented for Hazen by Alex Drysdale: alexander.drysdale@wales.nhs.uk
 """
+
 # Typing
 from __future__ import annotations
 
+import os
+from concurrent import futures
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -76,20 +79,31 @@ from types import MappingProxyType
 
 # Module imports
 import cv2
+import matplotlib as mpl
+import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
+import nevergrad as ng
 import numpy as np
 import scipy as sp
+import skimage.transform
 import statsmodels
 import statsmodels.api as sm
 from hazenlib.ACRObject import ACRObject
 from hazenlib.HazenTask import HazenTask
-from hazenlib.types import (FailedStatsModel, LCODTemplate, Measurement,
-                            P_HazenTask, Result, StatsParameters)
-from hazenlib.utils import get_pixel_size
+from hazenlib.types import (
+    FailedStatsModel,
+    LCODTemplate,
+    Measurement,
+    P_HazenTask,
+    Result,
+    SpokeReportData,
+    StatsParameters,
+)
+from matplotlib.gridspec import GridSpec
 from matplotlib.patches import Circle
 
-
 logger = logging.getLogger(__name__)
+
 
 class ACRLowContrastObjectDetectability(HazenTask):
     """Low Contrast Object Detectability (LCOD) class for the ACR phantom.
@@ -104,6 +118,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
 
     SLICE_ANGLE_OFFSET: float = 9
     START_ANGLE: float = 0
+    LCOD_DISC_SIZE: float = 43  # mm
 
     BINARIZATION_THRESHOLD: MappingProxyType = MappingProxyType(
         {
@@ -112,11 +127,20 @@ class ACRLowContrastObjectDetectability(HazenTask):
         },
     )
 
+    _DETREND_POLYNOMIAL_ORDER: int = 2
+    _STD_TOL: float = 0.01
+
     _RADIAL_PROFILE_LENGTH: int = 90
     _ALPHA: float = 0.05
+    _OPTIMIZER: str = "TBPSA"
+    _BUDGET: int = 100
+
+    OBJECT_RIBBON_COLORS = ("#1E88E5", "#FFC107", "#004D40")
 
     def __init__(
-            self, alpha: float | None = None, **kwargs: P_HazenTask.kwargs,
+        self,
+        alpha: float | None = None,
+        **kwargs: P_HazenTask.kwargs,
     ) -> None:
         """Initialise the LCOD object."""
         # TODO(abdrysdale) : Validate and remove this warning.
@@ -149,7 +173,9 @@ class ACRLowContrastObjectDetectability(HazenTask):
         # acquisitions where:
         # @ 1.5T, N =  7
         # @ 3.0T, N = 37
-        match float(self.ACR_obj.slice_stack[0]["MagneticFieldStrength"].value):
+        match float(
+            self.ACR_obj.slice_stack[0]["MagneticFieldStrength"].value,
+        ):
             case 3.0:
                 self.pass_threshold = 37
             case 1.5:
@@ -164,9 +190,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
                 self.pass_threshold = 7
 
         # Only used in reporting
-        self.fig = None
-        self.axes = None
-
+        self.slice_report_data = {}
 
     def run(self) -> Result:
         """Run the LCOD analysis."""
@@ -184,11 +208,13 @@ class ACRLowContrastObjectDetectability(HazenTask):
         # TODO(abdrysdale) : Use wait_on_parallel_results to collect results.
         for i, dcm in enumerate(self.ACR_obj.slice_stack[self.slice_range]):
             slice_no = 1 + self.slice_range.step * i + self.slice_range.start
-            result = self.count_spokes(dcm, slice_no=slice_no, alpha=self.alpha)
+            result = self.count_spokes(
+                dcm, slice_no=slice_no, alpha=self.alpha,
+            )
             try:
                 num_spokes = min(i for i, r in enumerate(result) if not r)
-            except (IndexError):
-                num_spokes = result.size
+            except ValueError:
+                num_spokes = len(result)
 
             # Add individual spoke measurements for debugging
             # and further analysis
@@ -237,50 +263,36 @@ class ACRLowContrastObjectDetectability(HazenTask):
         return results
 
     def _get_params_and_p_vals(
-            self, template: LCODTemplate, dcm: pydicom.Dataset,
+        self,
+        template: LCODTemplate,
+        dcm: pydicom.Dataset,
     ) -> StatsParameters:
         """Get a list of parameters and associated p-values."""
         sp = StatsParameters()
-
         for spoke in template.spokes:
             profile, (x_coords, y_coords), object_mask = spoke.profile(
-                self._preprocess(dcm),
+                dcm,
                 size=self._RADIAL_PROFILE_LENGTH,
                 return_coords=True,
                 return_object_mask=True,
             )
+
             p_vals, params = self._analyze_profile(
                 profile,
                 object_mask,
                 report=False,
+                mask_padding=5,
             )
             sp.p_vals.append(p_vals)
             sp.params.append(params)
 
         return sp
 
-    def count_spokes(
+    def _fdrcorrection(
         self,
-        raw: pydicom.Dataset,
-        slice_no: int = -1,
-        alpha: float = 0.05,
-    ) -> np.ndarray:
-        """Count the number of spokes using polar coordinate transformation."""
-        # TODO(@abdrysdale): Apply smoothing before spoke detection
-        # https://github.com/sbu-physics-mri/hazen-wales/issues/18
-        dcm = self._preprocess(raw)
-
-        # Find the position of each spoke
-        # (with the pixel coordinates of the each of the object centers)
-        template = self.find_spokes(slice_no)
-        spokes  = template.spokes
-        cx, cy = (template.cx, template.cy)
-        dx, dy = get_pixel_size(dcm)
-        theta = template.theta
-
-        # Pre-process
-        sp = self._get_params_and_p_vals(template, dcm)
-
+        sp: StatsParameters,
+        alpha: float,
+    ) -> tuple[np.ndarray]:
         p_vals_fdr = statsmodels.stats.multitest.fdrcorrection(
             sp.p_vals_all,
             alpha=alpha,
@@ -289,141 +301,180 @@ class ACRLowContrastObjectDetectability(HazenTask):
         )[0].reshape(-1, len(sp.p_vals[-1]))
         params_fdr = np.array(sp.params_all).reshape(-1, len(sp.params[-1]))
 
-        # Check if the p-values pass the significance test
-        spoke_can_pass = True
-        for spoke_number, spoke in enumerate(spokes):
+        return (p_vals_fdr, params_fdr)
 
+    def count_spokes(
+        self,
+        raw: pydicom.Dataset,
+        slice_no: int = -1,
+        alpha: float = 0.05,
+    ) -> np.ndarray:
+        """Count spokes with optional report data capture."""
+        dcm = self._preprocess(raw)
+        template = self.find_spokes(slice_no)
+        spokes = template.spokes
+
+        # Get analysis data
+        sp = StatsParameters()
+        report_data = [] if self.report else None
+
+        for spoke_id, spoke in enumerate(spokes):
+            profile, (x_coords, y_coords), object_mask = spoke.profile(
+                dcm,
+                size=self._RADIAL_PROFILE_LENGTH,
+                return_coords=True,
+                return_object_mask=True,
+            )
+
+            # Analyze profile
+            if self.report:
+                p_vals, params, detrended, trend = self._analyze_profile(
+                    profile,
+                    object_mask,
+                    return_intermediate=True,
+                )
+                # Store data for reporting
+                report_data.append(
+                    SpokeReportData(
+                        spoke_id=spoke_id,
+                        profile=profile,
+                        detrended=detrended,
+                        trend=trend,
+                        object_mask=object_mask,
+                        x_coords=x_coords,
+                        y_coords=y_coords,
+                        p_vals=p_vals,
+                        params=params,
+                        detected=[],  # Will be filled after FDR correction
+                        objects=spoke.objects,
+                    ),
+                )
+            else:
+                p_vals, params = self._analyze_profile(profile, object_mask)
+
+            sp.p_vals.append(p_vals)
+            sp.params.append(params)
+
+        # FDR correction
+        p_vals_fdr, params_fdr = self._fdrcorrection(sp, alpha=alpha)
+
+        # Update detection status
+        for spoke_number, spoke in enumerate(spokes):
             for i, obj in enumerate(spoke):
                 obj.detected = (
                     p_vals_fdr[spoke_number, i]
                     and params_fdr[spoke_number, i] > 0
                 )
-            spoke.passed = all(obj.detected for obj in spoke) and spoke_can_pass
-            spoke_can_pass = spoke.passed
+            spoke.passed = all(obj.detected for obj in spoke)
 
+            # Update report data with detection status
             if self.report:
-                # Figure and axes should be obtained from analyze profile
-                profile, (x_coords, y_coords), object_mask = spoke.profile(
-                    dcm,
-                    size=self._RADIAL_PROFILE_LENGTH,
-                    return_coords=True,
-                    return_object_mask=True,
-                )
-                self._analyze_profile(profile, object_mask)
+                report_data[spoke_number].detected = [
+                    obj.detected for obj in spoke
+                ]
+                report_data[spoke_number].p_vals = sp.p_vals[spoke_number]
+                report_data[spoke_number].params = sp.params[spoke_number]
 
-                self.fig.suptitle(
-                    f"Slice {slice_no}, Spoke {spoke_number},"
-                    fr" Passed={spoke.passed} ($\alpha$={self.alpha})",
-                )
-
-                # Low contrast slice (no mask)
-                vmin, vmax = self._window(raw)
-                self.axes[0, 0].imshow(
-                    raw.pixel_array, cmap="gray", vmin=vmin, vmax=vmax,
-                )
-                self.axes[0, 0].scatter(cx / dx, cy / dy, marker="o", c="y")
-                self.axes[0, 0].scatter(
-                    spoke.cx / dx, spoke.cy / dy, marker="o", c="r", s=0.05,
-                )
-                self.axes[0, 0].scatter(
-                    x_coords, y_coords, marker="x", c="r", s=0.01,
-                )
-
-
-                vmin, vmax = self._window(dcm)
-                self.axes[1, 0].imshow(
-                    dcm.pixel_array, cmap="gray", vmin=vmin, vmax=vmax,
-                )
-                self.axes[1, 0].imshow(
-                    template.mask(dcm),
-                    alpha=template.mask(dcm) * 0.1,
-                )
-                self.axes[1, 0].scatter(cx / dx, cy / dy, marker="o", c="y")
-                self.axes[1, 0].scatter(
-                    spoke.cx / dx, spoke.cy / dy, marker="o", c="r", s=0.05,
-                )
-                self.axes[1, 0].scatter(
-                    x_coords, y_coords, marker="x", c="r", s=0.01,
-                )
-
-                data_path = Path(self.dcm_list[0].filename).parent.name
-                img_path = (
-                    Path(self.report_path) /
-                    (
-                        f"spokes_{data_path}_slice_{str(slice_no).zfill(2)}"
-                        f"_spoke_{str(spoke_number).zfill(2)}"
-                        f"_{self.img_desc(dcm)}.png"
-                    )
-                )
-                self.fig.savefig(img_path, dpi=150)
-                self.report_files.append(img_path)
-
-                self.fig = None
-                self.axes = None
-                plt.close()
-
-        # Generate report if requested
+        # Store report data if reporting enabled
         if self.report:
-            fig, axes = plt.subplots(1, 1, figsize=(8, 8))
-
-            # Use intensity scaling
-            vmin, vmax = self._window(dcm)
-
-            axes.imshow(
-                dcm.pixel_array, cmap="gray", alpha=1, vmin=vmin, vmax=vmax,
-            )
-
-            template = LCODTemplate(cx, cy, theta)
-
-            # Draw radial-profile lines
-            for spoke in template.spokes:
-                _, (x_coords, y_coords) = spoke.profile(
-                    dcm,
-                    size=self._RADIAL_PROFILE_LENGTH,
-                    return_coords=True,
-                    return_object_mask=False,
-                )
-                axes.scatter(
-                    x_coords, y_coords, marker="x", c="r", s=0.01,
-                )
-
-            # Highlight detected spokes
-            mask = template.mask(
-                dcm,
-                subset="passed",
-                warn_if_object_out_of_bounds=True,
-            )
-            axes.imshow(mask, alpha=0.3 * mask, cmap="Greens")
-
-            # Highlight undetected spokes
-            mask = template.mask(
-                dcm,
-                subset="failed",
-                warn_if_object_out_of_bounds=True,
-            )
-            axes.imshow(mask, alpha=0.3 * mask, cmap="Reds")
-
-            axes.scatter(cx / dx, cy / dy, marker="x", color="red", s=100)
-            axes.set_title(
-                f"Slice {slice_no}"
-                f" Detected Spokes {int(np.sum(s.passed for s in spokes))}/10",
-                fontsize=14,
-            )
-            axes.set_xlabel("Pixel")
-            axes.set_ylabel("Pixel")
-
-            data_path = Path(self.dcm_list[0].filename).parent.name
-            img_path = (
-                Path(self.report_path) /
-                f"spokes_{data_path}_{self.img_desc(dcm)}_slice_{slice_no}.png"
-            )
-            fig.savefig(img_path, dpi=150)
-            plt.close()
-
-            self.report_files.append(img_path)
+            self.slice_report_data[slice_no] = report_data
+            self.generate_slice_report(dcm, slice_no, report_data)
 
         return [s.passed for s in spokes]
 
+    def _update_lcod_center_with_optimiser(
+        self,
+        cx: float,
+        cy: float,
+        center_search_tolerance: float = 0.05,
+    ) -> None:
+        cx, cy = float(cx), float(cy)
+
+        parametrization = ng.p.Instrumentation(
+            cx=ng.p.Scalar(
+                init=cx,
+                lower=cx * (1 - center_search_tolerance),
+                upper=cx * (1 + center_search_tolerance),
+            ),
+            cy=ng.p.Scalar(
+                init=cy,
+                lower=cy * (1 - center_search_tolerance),
+                upper=cy * (1 + center_search_tolerance),
+            ),
+        )
+
+        # Use all LCOD slices for center finding.
+        dcm_list = [
+            self._preprocess(dcm)
+            for dcm in self.ACR_obj.slice_stack[self.slice_range]
+        ]
+        theta_list = [
+            self._current_slice_rotation(cs)
+            for cs in range(
+                self.slice_range.start,
+                self.slice_range.stop,
+                self.slice_range.step,
+            )
+        ]
+
+        def minimiser(cx: float, cy: float) -> float:
+            eps = 1e-12
+            alpha = 0.01  # Keep for FDR, but don't use as hard threshold
+
+            total_log_pvalue = 0.0
+            total_effect_size = 0.0
+            n_objects = 0
+
+            for dcm, theta in zip(dcm_list, theta_list):
+                template = LCODTemplate(cx, cy, theta)
+                sp = self._get_params_and_p_vals(template, dcm)
+                p_vals_fdr, params_fdr = self._fdrcorrection(sp, alpha=alpha)
+
+                # Sum across all objects
+                for spoke_number, spoke in enumerate(template.spokes):
+                    for i, _ in enumerate(spoke):
+                        # Penalize high p-values continuously
+                        # Add small epsilon to avoid log(0)
+                        p_val = p_vals_fdr[spoke_number, i]
+                        total_log_pvalue += -np.log(p_val + eps)
+
+                        # Reward large positive effects
+                        param = params_fdr[spoke_number, i]
+                        total_effect_size += max(  # Only positive effects
+                            0,
+                            param,
+                        )
+
+                        n_objects += 1
+
+            # Combine metrics: want low p-values AND high effect sizes
+            # Normalize by number of objects
+            avg_log_pvalue = total_log_pvalue / n_objects
+            avg_effect_size = total_effect_size / n_objects
+
+            # Primary objective: maximize -log(p) (lower p = higher value)
+            # Secondary objective: maximize effect size
+            # Combine with weighted sum (tune weights as needed)
+            return -(avg_log_pvalue + 0.5 * avg_effect_size)
+
+        opt = ng.optimizers.registry[self._OPTIMIZER](
+            parametrization=parametrization,
+            budget=self._BUDGET,
+            num_workers=max(os.cpu_count() - 1, 1),
+        )
+
+        with futures.ThreadPoolExecutor(
+            max_workers=opt.num_workers,
+        ) as executor:
+            recommendation = opt.minimize(
+                minimiser,
+                executor=executor,
+                batch_mode=False,
+            )
+            _, values = recommendation.value
+
+        self.lcod_center = values["cx"], values["cy"]
+        return self.lcod_center
 
     def find_center(
         self,
@@ -436,7 +487,9 @@ class ACRLowContrastObjectDetectability(HazenTask):
         # Get ACR Phantom Center
         dcm = self.ACR_obj.slice_stack[0]
         (main_cx, main_cy), main_radius = self.ACR_obj.find_phantom_center(
-            dcm.pixel_array, self.ACR_obj.dx, self.ACR_obj.dy,
+            dcm.pixel_array,
+            self.ACR_obj.dx,
+            self.ACR_obj.dy,
         )
 
         # Get cropped image of LCOD disk
@@ -447,19 +500,20 @@ class ACRLowContrastObjectDetectability(HazenTask):
         offset_y = max(0, int(lcod_cy - r))
         offset_x = max(0, int(main_cx - r))
         cropped_image = dcm.pixel_array[
-            offset_y:int(lcod_cy + r + 1),
-            offset_x:int(main_cx + r + 1),
+            offset_y : int(lcod_cy + r + 1),
+            offset_x : int(main_cx + r + 1),
         ]
         cropped_image = (
             (cropped_image - cropped_image.min())
-            * 255.0 / (cropped_image.max() - cropped_image.min())
+            * 255.0
+            / (cropped_image.max() - cropped_image.min())
         ).astype(np.uint8)
 
         # Pre-processing for circle detection
         img_blur = cv2.GaussianBlur(cropped_image, (5, 5), 0)
         img_grad = img_blur.max() - img_blur
 
-        lcod_r_init = 43  # Radius of LCOD disc (mm)
+        lcod_r_init = self.LCOD_DISC_SIZE  # mm
         try:
             detected_circles = cv2.HoughCircles(
                 img_grad,
@@ -503,7 +557,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
                 lcod_r_init / self.ACR_obj.dx,
                 fill=False,
                 edgecolor="red",
-                linewidth=1,
+                linewidth=0.5,
             )
             axes[0, 0].add_patch(circle)
             axes[0, 0].set_title("Initial Estimate")
@@ -565,19 +619,32 @@ class ACRLowContrastObjectDetectability(HazenTask):
 
         return lcod_center
 
+    def _current_slice_rotation(self, current_slice: int) -> float:
+        rotation_offset = self.START_ANGLE + self.SLICE_ANGLE_OFFSET * abs(
+            current_slice - 8,
+        )
+        return self.rotation + rotation_offset
 
-    def find_spokes(self, current_slice: int) -> LCODTemplate:
+    def find_spokes(
+        self,
+        current_slice: int,
+    ) -> LCODTemplate:
         """Find the position of the spokes within the LCOD disk."""
         # Rotation offset
-        rotation_offset = (
-            self.START_ANGLE
-            + self.SLICE_ANGLE_OFFSET * abs(current_slice - 8)
-        )
-        theta = self.rotation + rotation_offset
+        theta = self._current_slice_rotation(current_slice)
 
         if self.lcod_center is None:
-            self.lcod_center = self.find_center()
+            cx_0, cy_0 = self.find_center()
+
             logger.debug(
+                "Updated LCOD center: (%s) -> (%f, %f)",
+                self.lcod_center,
+                cx_0,
+                cy_0,
+            )
+            self.lcod_center = cx_0, cy_0
+
+            logger.info(
                 "Template generated for slice %i:"
                 "\nCenter:\t%s"
                 "\nRotation:\t%f (initial: %f + offset: %f)",
@@ -585,55 +652,45 @@ class ACRLowContrastObjectDetectability(HazenTask):
                 self.lcod_center,
                 theta,
                 self.rotation,
-                rotation_offset,
+                theta - self.rotation,
             )
 
         cx, cy = self.lcod_center
 
         return LCODTemplate(cx, cy, theta)
 
-
     def _analyze_profile(
-            self,
-            profile: np.ndarray,
-            object_mask: np.ndarray,
-            *,
-            std_tol: float = 0.01,
-            report: bool | None = None,
-    ) -> tuple[list, list]:
-        """Analyze radial profile for low-contrast object detection.
-
-        Args:
-            profile : Radial intensity profile
-            object_mask : A 3 x N array containing boolean mask of each object.
-            std_tol : Tolerance for the standard deviation for
-                detecting polynomial coefficients.
-            report : Overrides self.report.
-
-        Returns:
-            Tuple of (p-values, parameters).
-
-        """
-        try:
-            report = self.report if report is None else report
-        except AttributeError:
-            report = False
+        self,
+        profile: np.ndarray,
+        object_mask: np.ndarray,
+        *,
+        mask_padding: int = 2,
+        return_intermediate: bool = False,
+    ) -> tuple:
+        """Analyze radial profile with optional intermediate returns."""
+        # Apply binary dilation (mask padding)
+        footprint_n = mask_padding * 2 + 1
+        object_mask = skimage.morphology.binary_dilation(
+            object_mask,
+            footprint=np.array(
+                [[0] * footprint_n, [1] * footprint_n, [0] * footprint_n],
+            ).T,
+        )
 
         # De-trend with robust polynomial fitting
-        if np.std(profile) > std_tol:
+        if np.std(profile) > self._STD_TOL:
             x = np.linspace(0, 1, len(profile))
-            # Use lower order polynomial for stability
-            coeffs = np.polyfit(x, profile, 2)
+            coeffs = np.polyfit(x, profile, self._DETREND_POLYNOMIAL_ORDER)
             trend = np.polyval(coeffs, x)
         else:
             trend = np.zeros_like(profile)
 
         detrended = profile - trend
-
-        # Simple smoothing
         kernel = np.ones(3) / 3
         smoothed = np.convolve(
-            detrended - np.mean(detrended), kernel, mode="same",
+            detrended - np.mean(detrended),
+            kernel,
+            mode="same",
         ).reshape((profile.size, 1))
 
         # Prepare GLM
@@ -643,104 +700,446 @@ class ACRLowContrastObjectDetectability(HazenTask):
         try:
             model = sm.GLM(smoothed, data).fit()
         except ValueError:
-            logger.exception(
-                "Fit could not be obtained from data"
-                " - failing object detection",
-            )
-            # We return ones for the pvalues and params
-            # to indicate a profile detection failure.
+            logger.exception("Fit could not be obtained - failing detection")
             model = FailedStatsModel()
 
-        # Reporting
-        if report:
-            plt.clf()
-            self.fig, self.axes = plt.subplots(2, 2, figsize=(16, 16))
-
-            x = np.arange(profile.size)
-
-            self.axes[0, 1].plot(x, profile, label="Profile")
-
-            for i in range(3):
-                self.axes[0, 1].plot(
-                    x[object_mask[:, i]],
-                    profile[object_mask[:, i]],
-                    label=f"Object {i+1}",
-                )
-            self.axes[0, 1].plot(x, trend, label="Trend", linestyle="dashed")
-            self.axes[0, 1].legend()
-            self.axes[0, 1].set_title("Radial Profile")
-
-            self.axes[1, 1].plot(x, smoothed, label="De-trended")
-            for i in range(3):
-                obj_indexes = object_mask[:, i]
-                self.axes[1, 1].plot(
-                    x[obj_indexes],
-                    smoothed[obj_indexes],
-                    label=f"Object {i+1}",
-                )
-
-                idx_max = np.argmax(smoothed[obj_indexes])
-                y_max = smoothed[obj_indexes][idx_max] * 0.95
-                x_max = x[obj_indexes][idx_max]
-                x_text = x_max - (np.max(x) - np.min(x)) * 0.05
-                y_text = (
-                    (np.min(smoothed) + np.min(smoothed[obj_indexes])) / 2
-                )
-                self.axes[1, 1].annotate(
-                    f"p = {model.pvalues[i]:.4f}",
-                    (x_max, y_max),    # Annotation
-                    (x_text, y_text),   # Text
-                    arrowprops={
-                        "arrowstyle": "->", "connectionstyle": "arc",
-                    },
-                )
-            self.axes[1, 1].legend()
-            self.axes[1, 1].set_title("De-trended profile")
-
+        if return_intermediate:
+            return model.pvalues[:3], model.params[:3], detrended, trend
         return model.pvalues[:3], model.params[:3]
 
+    # Add the report generation method
+    def generate_slice_report(
+        self,
+        dcm: pydicom.Dataset,
+        slice_no: int,
+        report_data: list[SpokeReportData],
+    ) -> None:
+        """Generate comprehensive report for a single slice."""
+        fig = plt.figure(figsize=(20, 15))
+        gs = GridSpec(3, 4, figure=fig, hspace=0.2, wspace=0.2)
 
-    @staticmethod
-    def _window(dcm: pydicom.FileDataset) -> tuple[float]:
+        # Main image (top-left, spans 1 row and 1 column)
+        ax_main = fig.add_subplot(gs[0, 0])
+        self._plot_main_image(ax_main, dcm, report_data, slice_no)
+
+        # Profile plots for each spoke
+        n_spokes = len(report_data)
+        for i, spoke_data in enumerate(report_data):
+            if i > n_spokes:  # Limit to available grid space (11 slots max)
+                break
+
+            # Calculate grid position (skip main image at [0,0])
+            row = (i + 1) // 4
+            col = (i + 1) % 4
+
+            # Create broken axis within this grid cell
+            self._create_broken_axis_plot(fig, gs[row, col], spoke_data)
+
+        # Summary table (bottom row, last column)
+        ax_table = fig.add_subplot(gs[2, 3])
+        self._plot_summary_table(ax_table, report_data)
+
+        legend_elements = [
+            mpatches.Patch(
+                facecolor=self.OBJECT_RIBBON_COLORS[0],
+                alpha=0.4,
+                label="Inner Object",
+            ),
+            mpatches.Patch(
+                facecolor=self.OBJECT_RIBBON_COLORS[1],
+                alpha=0.4,
+                label="Middle Object",
+            ),
+            mpatches.Patch(
+                facecolor=self.OBJECT_RIBBON_COLORS[2],
+                alpha=0.4,
+                label="Outer Object",
+            ),
+        ]
+        ax_main.legend(
+            handles=legend_elements,
+            loc="lower left",
+            fontsize=6,
+            framealpha=0.9,
+        )
+
+        # Save figure
+        data_path = Path(self.dcm_list[0].filename).parent.name
+        img_path = (
+            Path(self.report_path) / f"lcod_slice_{slice_no}_{data_path}.png"
+        )
+        fig.savefig(img_path, dpi=150, bbox_inches="tight")
+        plt.close(fig)
+        self.report_files.append(img_path)
+
+    def _plot_main_image(
+        self,
+        ax: plt.Axes,
+        dcm: pydicom.Dataset,
+        report_data: list[SpokeReportData],
+        slice_no: int,
+    ) -> None:
+        """Plot cropped image focused on LCOD object region."""
+        px_x, px_y = self.ACR_obj.dx, self.ACR_obj.dy
+
+        # Calculate bounds of all objects across all spokes
+        all_x_coords = [
+            obj.x for spoke_data in report_data for obj in spoke_data.objects
+        ]
+        all_y_coords = [
+            obj.y for spoke_data in report_data for obj in spoke_data.objects
+        ]
+
+        # Determine crop region with 10% margin
+        min_x, max_x = min(all_x_coords), max(all_x_coords)
+        min_y, max_y = min(all_y_coords), max(all_y_coords)
+        margin_x = (max_x - min_x) * 0.1
+        margin_y = (max_y - min_y) * 0.1
+
+        # Convert to pixel coordinates
+        x_min = int(max(0, (min_x - margin_x) / px_x))
+        x_max = int(min(dcm.pixel_array.shape[1], (max_x + margin_x) / px_x))
+        y_min = int(max(0, (min_y - margin_y) / px_y))
+        y_max = int(min(dcm.pixel_array.shape[0], (max_y + margin_y) / px_y))
+
+        # Crop image
+        cropped_img = dcm.pixel_array[y_min:y_max, x_min:x_max]
+
+        vmin, vmax = self._window(dcm)
+        # Display cropped region
+        ax.imshow(
+            cropped_img,
+            cmap="gray",
+            vmin=vmin,
+            vmax=vmax,
+        )
+
+        # Adjust drawing coordinates for crop offset
+        offset_x = x_min * px_x
+        offset_y = y_min * px_y
+
+        # Draw overlays
+        for spoke_data in report_data:
+            if (
+                spoke_data.x_coords is not None
+                and spoke_data.y_coords is not None
+            ):
+                ax.plot(
+                    (spoke_data.x_coords - x_min),
+                    (spoke_data.y_coords - y_min),
+                    "y-",
+                    linewidth=1.5,
+                    alpha=0.8,
+                )
+
+            for obj, detected in zip(spoke_data.objects, spoke_data.detected):
+                color = "green" if detected else "red"
+                circle = Circle(
+                    ((obj.x - offset_x) / px_x, (obj.y - offset_y) / px_y),
+                    (obj.diameter / 2) / px_x,
+                    fill=False,
+                    edgecolor=color,
+                    linewidth=0.5,
+                )
+                ax.add_patch(circle)
+
+        ax.set_title(f"Slice {slice_no}", fontsize=10, fontweight="bold")
+        ax.axis("off")
+
+        # Add legend
+        detected_patch = mpatches.Patch(color="green", label="Detected")
+        not_detected_patch = mpatches.Patch(color="red", label="Not Detected")
+        ax.legend(
+            handles=[detected_patch, not_detected_patch],
+            loc="upper right",
+            fontsize=6,
+        )
+
+    def _create_broken_axis_plot(
+        self,
+        fig: plt.Figure,
+        gs_cell: mpl.gridspec.SubplotSpec,
+        spoke_data: SpokeReportData,
+    ) -> None:
+        """Create broken axis plot with prominent object ribbons."""
+        cell_bbox = gs_cell.get_position(fig)
+        top_height = cell_bbox.height * 0.5
+        bottom_height = cell_bbox.height * 0.5
+
+        ax_top = fig.add_axes(
+            [
+                cell_bbox.x0,
+                cell_bbox.y0 + bottom_height,
+                cell_bbox.width,
+                top_height,
+            ],
+        )
+        ax_bottom = fig.add_axes(
+            [cell_bbox.x0, cell_bbox.y0, cell_bbox.width, bottom_height],
+            sharex=ax_top,
+        )
+
+        x = np.arange(len(spoke_data.profile))
+
+        # Plot profiles
+        ax_top.plot(
+            x,
+            spoke_data.profile,
+            "k-",
+            label="Original",
+            linewidth=1,
+            zorder=3,
+        )
+        ax_top.plot(
+            x, spoke_data.trend, "g--", label="Trend", linewidth=0.8, zorder=3,
+        )
+        ax_bottom.plot(x, spoke_data.detrended, "k-", linewidth=1, zorder=3)
+
+        # Set y-limits
+        orig_min, orig_max = (
+            np.min(spoke_data.profile),
+            np.max(spoke_data.profile),
+        )
+        det_min, det_max = (
+            np.min(spoke_data.detrended),
+            np.max(spoke_data.detrended),
+        )
+        orig_range = orig_max - orig_min
+        det_range = det_max - det_min
+        ax_top.set_ylim(
+            orig_min - 0.05 * orig_range, orig_max + 0.05 * orig_range,
+        )
+        ax_bottom.set_ylim(
+            det_min - 0.05 * det_range,
+            det_max + 0.05 * det_range,
+        )
+
+        # Style axes
+        ax_top.spines["bottom"].set_visible(False)
+        ax_top.xaxis.tick_top()
+        ax_top.tick_params(labeltop=False, labelsize=6)
+        ax_bottom.spines["top"].set_visible(False)
+        ax_bottom.xaxis.tick_bottom()
+        ax_bottom.tick_params(labelbottom=True, labelsize=6)
+
+        # Diagonal break markers
+        d = 0.5
+        kwargs = {
+            "marker": [(-1, -d), (1, d)],
+            "markersize": 8,
+            "linestyle": "none",
+            "color": "k",
+            "mec": "k",
+            "mew": 1,
+            "clip_on": False,
+        }
+        ax_top.plot([0, 1], [0, 0], transform=ax_top.transAxes, **kwargs)
+        ax_bottom.plot([0, 1], [1, 1], transform=ax_bottom.transAxes, **kwargs)
+
+        # **Enhanced vertical ribbons for objects**
+        n_objects = spoke_data.object_mask.shape[1]
+        for obj_idx in range(n_objects):
+            obj_mask = spoke_data.object_mask[
+                :, obj_idx,
+            ]  # Get mask for this object
+            color = self.OBJECT_RIBBON_COLORS[obj_idx]
+
+            obj_indices = np.where(obj_mask)[0]
+            if len(obj_indices) > 0:
+                # Expand region for prominence (20% padding)
+                pad = max(1, len(obj_indices) // 5)
+                start = max(0, obj_indices[0] - pad)
+                end = min(len(x), obj_indices[-1] + pad)
+
+                # Draw prominent vertical ribbons (behind profile lines)
+                ax_top.axvspan(start, end, alpha=0.45, color=color, zorder=0)
+                ax_bottom.axvspan(
+                    start, end, alpha=0.45, color=color, zorder=0,
+                )
+
+                # Add subtle edge
+                ax_top.axvline(
+                    start, color=color, alpha=0.7, linewidth=0.5, zorder=1,
+                )
+                ax_top.axvline(
+                    end, color=color, alpha=0.7, linewidth=0.5, zorder=1,
+                )
+                ax_bottom.axvline(
+                    start, color=color, alpha=0.7, linewidth=0.5, zorder=1,
+                )
+                ax_bottom.axvline(
+                    end, color=color, alpha=0.7, linewidth=0.5, zorder=1,
+                )
+
+                # Annotate p-value at object center
+                mid_x = int(np.mean(obj_indices))
+                mid_y = spoke_data.detrended[mid_x] + spoke_data.trend[mid_x]
+                ax_bottom.annotate(
+                    f"p={spoke_data.p_vals[obj_idx]:.3f}",
+                    xy=(mid_x, mid_y),
+                    xytext=(3, 3),
+                    textcoords="offset points",
+                    fontsize=5,
+                    ha="left",
+                    bbox={
+                        "boxstyle": "round,pad=0.2",
+                        "facecolor": "yellow",
+                        "alpha": 0.85,
+                        "edgecolor": "none",
+                    },
+                    zorder=4,
+                )
+
+        # Labels
+        ax_bottom.set_xlabel("Profile Position", fontsize=7)
+        ax_top.set_ylabel("Original", fontsize=7)
+        ax_bottom.set_ylabel("Detrended", fontsize=7)
+
+        # Title
+        status = "PASS" if all(spoke_data.detected) else "FAIL"
+        n_detected = sum(spoke_data.detected)
+        ax_top.set_title(
+            f"Spoke {spoke_data.spoke_id + 1}:"
+            f" {n_detected}/{len(spoke_data.detected)} {status}",
+            fontsize=8,
+            fontweight="bold",
+        )
+
+        ax_top.grid(visible=True, alpha=0.3)
+        ax_bottom.grid(visible=True, alpha=0.3)
+
+    def _plot_summary_table(
+        self,
+        ax: plt.Axes,
+        report_data: list[SpokeReportData],
+    ) -> None:
+        """Plot condensed summary table (one row per spoke)."""
+        ax.axis("off")
+
+        # One row per spoke, objects shown as columns
+        table_data = []
+        headers = [
+            "Spoke",
+            "O1 p-val",
+            "O1 param",
+            "O2 p-val",
+            "O2 param",
+            "O3 p-val",
+            "O3 param",
+        ]
+
+        for spoke_data in report_data:
+            row = [f"{spoke_data.spoke_id}"]
+            for p_val, param in zip(spoke_data.p_vals, spoke_data.params):
+                # Compact formatting
+                p_str = (
+                    f"{p_val:.2e}"
+                    if p_val < 1e-3     # noqa: PLR2004
+                    else f"{p_val:.4f}"
+                )
+                param_str = f"{param:.3f}"
+                row.extend([p_str, param_str])
+
+            table_data.append(row)
+
+        # Create table
+        cw = 0.16
+        table = ax.table(
+            cellText=table_data,
+            colLabels=headers,
+            cellLoc="center",
+            loc="center",
+            colWidths=[0.10, cw, cw, cw, cw, cw, cw],
+        )
+
+        # Style
+        table.auto_set_font_size(renderer=False)
+        table.set_fontsize(6)  # Smaller font for compactness
+        table.scale(1, 1.8)
+
+        # Header styling
+        for i, _ in enumerate(headers):
+            table[(0, i)].set_facecolor("#4472C4")
+            table[(0, i)].set_text_props(weight="bold", color="white")
+
+        # Color cells: light green for pass, light red for fail
+        f_color = "#FAADAD"
+        p_color = "#C6E0B4"
+        for i, spoke_data in enumerate(report_data):
+            for j in range(3):  # For each of 3 objects
+                is_fail = spoke_data.p_vals[j] > self._ALPHA
+                color = f_color if is_fail else p_color
+                table[(i + 1, j * 2 + 1)].set_facecolor(color)  # p-value cell
+
+                is_fail = spoke_data.params[j] <= 0
+                color = f_color if is_fail else p_color
+                table[(i + 1, j * 2 + 2)].set_facecolor(
+                    color,
+                )  # parameter cell
+
+    def _window(
+        self,
+        dcm: pydicom.FileDataset,
+        idx: int | None = None,
+        squeeze: float = 2,
+    ) -> tuple[float]:
         """Return vmin, vmax values based on simple window method."""
-        mean_val = np.mean(dcm.pixel_array)
-        n = 3
-        std_val = np.std(dcm.pixel_array)
-        vmin = max(0, mean_val - n * std_val)
-        vmax = mean_val + n * std_val
-        return (vmin, vmax)
+        (cx, cy) = self.lcod_center
+        r = (self.LCOD_DISC_SIZE - squeeze) * self.ACR_obj.dx
+        y_grid, x_grid = np.meshgrid(
+            np.arange(0, dcm.pixel_array.shape[0]),
+            np.arange(0, dcm.pixel_array.shape[1]),
+        )
 
+        mask = (y_grid - cy) ** 2 + (x_grid - cx) ** 2 <= r**2
+
+        try:
+            vdata = (
+                dcm.pixel_array * mask[None, :, :]
+                if idx is None
+                else dcm.pixel_array[idx, :, :] * mask
+            )
+        except IndexError:
+            vdata = dcm.pixel_array * mask
+
+        return (np.min(vdata[vdata != 0]), np.max(vdata))
 
     @staticmethod
     def _preprocess(
         dcm: pydicom.FileDataset,
-        threshold_min: float = 0.05,
-        threshold_max: float = 0.65,
+        threshold: tuple[float] = (0.05, 0.65),
         threshold_step: float = 0.001,
-        lower: float = 0.1,
-        upper: float = 0.2,
+        bounds: tuple[float] = (0.1, 0.2),
     ) -> pydicom.FileDataset:
         """Preprocess the DICOM."""
         processed = copy.deepcopy(dcm)
         data = processed.pixel_array
 
-        fdata = data / np.max(data)    # Normalise
+        # Normalise
+        fdata = data / np.max(data)
 
         # Threshold
+        threshold_min, threshold_max = threshold
+        lower, upper = bounds
         structure = np.ones((3, 3), dtype=int)
         for thr in np.arange(threshold_min, threshold_max, threshold_step):
             ret, thresh = cv2.threshold(fdata, thr, 1, 0)
-            labelled, ncomponents = sp.ndimage.measurements.label(
-                thresh, structure,
+            labelled, ncomponents = sp.ndimage.label(
+                thresh,
+                structure,
             )
             thresh_inner = labelled == np.max(labelled)
             if lower < np.sum(thresh_inner != 0) / np.sum(fdata != 0) < upper:
                 break
-        data *= thresh_inner
+
+        # Erode the circular mask
+        data *= skimage.morphology.erosion(
+            thresh_inner,
+        )
 
         processed.set_pixel_data(
             data,
-            dcm[(0x0028,0x0004)].value, # Photometric Interpretation
-            dcm[(0x0028,0x0101)].value, # Bits Stored
+            dcm[(0x0028, 0x0004)].value,  # Photometric Interpretation
+            dcm[(0x0028, 0x0101)].value,  # Bits Stored
         )
         return processed
