@@ -413,24 +413,25 @@ class LCODTemplate:
                 )
                 # Compare actual to measured area to check if object is on the
                 # grid.
-                mask_area = 2 * np.sum(is_object) * (dx * dy)
-                obj_area = np.pi * (obj.diameter / 2) ** 2
-                if warn_if_object_out_of_bounds and not np.isclose(
-                    mask_area, obj_area, rtol=1e-1, atol=dx * dy,
-                ):
-                    logger.warning(
-                        "Object %d in spoke %d is out of bounds.\n"
-                        "File: %s\n"
-                        "Object area:\t%f\nMask area:\t%f\n"
-                        "Object:\n\tCenter: (%f, %f)\n\tDiameter: %f\n"
-                        "Image:\n\tPixel size: (%f, %f)\n\tShape: (%d, %d)",
-                        oidx,
-                        sidx,
-                        dcm.filename,
-                        obj_area, mask_area,
-                        obj.x, obj.y, obj.diameter,
-                        dx, dy, *mask.shape,
-                    )
+                if warn_if_object_out_of_bounds:
+                    mask_area = 2 * np.sum(is_object) * (dx * dy)
+                    obj_area = np.pi * (obj.diameter / 2) ** 2
+                    if not np.isclose(
+                            mask_area, obj_area, rtol=1e-1, atol=dx * dy,
+                    ):
+                        logger.warning(
+                            "Object %d in spoke %d is out of bounds.\n"
+                            "File: %s\n"
+                            "Object area:\t%f\nMask area:\t%f\n"
+                            "Object:\n\tCenter: (%f, %f)\n\tDiameter: %f\n"
+                            "Image:\n\tPixel size: (%f, %f)\n\tShape: (%d, %d)",
+                            oidx,
+                            sidx,
+                            dcm.filename,
+                            obj_area, mask_area,
+                            obj.x, obj.y, obj.diameter,
+                            dx, dy, *mask.shape,
+                        )
                 match subset:
                     case "all":
                         object_considered_for_mask = True
