@@ -488,3 +488,19 @@ class FailedStatsModel:
     def params(self) -> np.ndarray:
         """Return the p-values - all ones."""
         return np.ones(3)
+
+@dataclass
+class SpokeReportData:
+    """Container for spoke analysis data used in reporting."""
+
+    spoke_id: int
+    profile: np.ndarray
+    detrended: np.ndarray
+    trend: np.ndarray
+    object_mask: np.ndarray
+    x_coords: np.ndarray | None
+    y_coords: np.ndarray | None
+    p_vals: np.ndarray
+    params: np.ndarray
+    detected: list[bool]
+    objects: list[Any]  # Object info from template
