@@ -4,7 +4,8 @@
 
 from __future__ import annotations
 
-# Python imporst
+# Python imports
+import os
 import unittest
 from dataclasses import dataclass
 from pathlib import Path
@@ -12,14 +13,14 @@ from typing import Any
 
 # Module imports
 import numpy as np
-
-# Local imports
 from hazenlib.tasks.acr_low_contrast_object_detectability import \
     ACRLowContrastObjectDetectability
 from hazenlib.types import LCODTemplate, LowContrastObject, Spoke
 from hazenlib.utils import get_dicom_files
 
+# Local imports
 from tests import TEST_DATA_DIR, TEST_REPORT_DIR
+
 
 @dataclass
 class DummyDICOMEntry:
@@ -110,7 +111,9 @@ class TestLCODTemplateSpokes(unittest.TestCase):
 
         for i, (spoke, diameter) in enumerate(zip(spokes, self.template.diameters)):
             # Expected angle: theta + i * (360 / N)
-            expected_theta = self.template.theta + i * (360 / len(self.template.diameters))
+            expected_theta = (
+                self.template.theta + i * (360 / len(self.template.diameters))
+            )
             self.assertAlmostEqual(spoke.theta, expected_theta)
 
             # Diameter stored in Spoke is twice the radius
@@ -283,7 +286,7 @@ class TestACRLowContrastObjectDetectability(unittest.TestCase):
             subtype="total",
         )[0].value
         correct_total_score = sum(s.score for s in self.SCORES)
-        # self.assertEqual(total_score, correct_total_score)
+        self.assertEqual(total_score, correct_total_score)
 
 
 class TestACRLowContrastObjectDetectabilitySiemensAera(
