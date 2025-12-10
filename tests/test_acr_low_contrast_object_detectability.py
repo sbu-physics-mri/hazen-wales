@@ -364,6 +364,31 @@ class TestACRLowContrastObjectDetectabilitySiemensSkyra(
         SliceScore(9, 2),
         SliceScore(10, 8),
         SliceScore(11, 7),
+
+class TestACRLowContrastObjectDetectabilitySiemensSolaFit(
+        TestACRLowContrastObjectDetectability,
+):
+    """Test class for Siemens Sola Fit."""
+
+    ACR_DATA = Path(TEST_DATA_DIR / "acr" / "SiemensSolaFit")
+    SCORES = (
+        SliceScore(8, 2),
+        SliceScore(9, 6),
+        SliceScore(10, 6),
+        SliceScore(11, 6),
+    )
+
+class TestACRLowContrastObjectDetectabilityPhilipsAchieva(
+        TestACRLowContrastObjectDetectability,
+):
+    """Test class for Philips Achieva data."""
+
+    ACR_DATA = Path(TEST_DATA_DIR / "acr" / "PhilipsAchieva")
+    SCORES = (
+        SliceScore(8, 10),
+        SliceScore(9, 10),
+        SliceScore(10, 10),
+        SliceScore(11, 10),
     )
 
 
