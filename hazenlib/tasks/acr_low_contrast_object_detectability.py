@@ -162,10 +162,8 @@ class ACRLowContrastObjectDetectability(HazenTask):
 
         # Initialise ACR object
         self.ACR_obj = ACRObject(self.dcm_list)
-        self.rotation = np.int64(
-            self.ACR_obj.determine_rotation(
+        self.rotation = self.ACR_obj.determine_rotation(
                 self.ACR_obj.slice_stack[0].pixel_array,
-            ),
         )
         self.lcod_center = None
 
@@ -280,7 +278,6 @@ class ACRLowContrastObjectDetectability(HazenTask):
             p_vals, params = self._analyze_profile(
                 profile,
                 object_mask,
-                mask_padding=5,
             )
             sp.p_vals.append(p_vals)
             sp.params.append(params)
@@ -385,20 +382,20 @@ class ACRLowContrastObjectDetectability(HazenTask):
         self,
         cx: float,
         cy: float,
-        center_search_tolerance: float = 0.05,
+        center_search_tolerance: float = 5,     # mm
     ) -> None:
         cx, cy = float(cx), float(cy)
 
         parametrization = ng.p.Instrumentation(
             cx=ng.p.Scalar(
                 init=cx,
-                lower=cx * (1 - center_search_tolerance),
-                upper=cx * (1 + center_search_tolerance),
+                lower=cx - center_search_tolerance,
+                upper=cx + center_search_tolerance,
             ),
             cy=ng.p.Scalar(
                 init=cy,
-                lower=cy * (1 - center_search_tolerance),
-                upper=cy * (1 + center_search_tolerance),
+                lower=cy - center_search_tolerance,
+                upper=cy + center_search_tolerance,
             ),
         )
 
@@ -416,10 +413,13 @@ class ACRLowContrastObjectDetectability(HazenTask):
             )
         ]
 
-        def minimiser(cx: float, cy: float) -> float:
+        def minimiser(
+            cx: float,
+            cy: float,
+            effect_scale: float = 0.01,
+        ) -> float:
             eps = 1e-12
-            alpha = 0.01
-
+    
             total_log_pvalue = 0.0
             total_effect_size = 0.0
             n_objects = 0
@@ -427,7 +427,9 @@ class ACRLowContrastObjectDetectability(HazenTask):
             for dcm, theta in zip(dcm_list, theta_list):
                 template = LCODTemplate(cx, cy, theta)
                 sp = self._get_params_and_p_vals(template, dcm)
-                p_vals_fdr, params_fdr = self._fdrcorrection(sp, alpha=alpha)
+                p_vals_fdr, params_fdr = self._fdrcorrection(
+                    sp, alpha=self._ALPHA,
+                )
 
                 # Sum across all objects
                 for spoke_number, spoke in enumerate(template.spokes):
@@ -454,7 +456,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
             # Primary objective: maximize -log(p) (lower p = higher value)
             # Secondary objective: maximize effect size
             # Combine with weighted sum (tune weights as needed)
-            return -(avg_log_pvalue + 0.5 * avg_effect_size)
+            return -(avg_log_pvalue + effect_scale * avg_effect_size)
 
         opt = ng.optimizers.registry[self._OPTIMIZER](
             parametrization=parametrization,
@@ -611,10 +613,10 @@ class ACRLowContrastObjectDetectability(HazenTask):
             axes[1, 0].set_title("Detected Circle")
 
             # Final guess
-            cx = self.lcod_center[0] - offset_x
-            cy = self.lcod_center[1] - offset_y
+            cx = self.lcod_center[0] / self.ACR_obj.dx - offset_x
+            cy = self.lcod_center[1] / self.ACR_obj.dy - offset_y
             circle = Circle(
-                (cx / self.ACR_obj.dx, cy / self.ACR_obj.dy),
+                (cx, cy),
                 lcod_r / self.ACR_obj.dx,
                 fill=False,
                 edgecolor="blue",
@@ -637,7 +639,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
             data_path = Path(self.dcm_list[0].filename).parent.name
             img_path = (
                 Path(self.report_path)
-                / f"center_{data_path}_{self.img_desc(dcm)}.png"
+                / f"{data_path}_center_{self.img_desc(dcm)}.png"
             )
             fig.savefig(img_path)
             plt.close()
@@ -690,7 +692,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
         profile: np.ndarray,
         object_mask: np.ndarray,
         *,
-        mask_padding: int = 2,
+        mask_padding: int = 5,
         return_intermediate: bool = False,
     ) -> tuple:
         """Analyze radial profile with optional intermediate returns."""
@@ -792,7 +794,8 @@ class ACRLowContrastObjectDetectability(HazenTask):
         # Save figure
         data_path = Path(self.dcm_list[0].filename).parent.name
         img_path = (
-            Path(self.report_path) / f"lcod_slice_{slice_no}_{data_path}.png"
+            Path(self.report_path)
+            / f"{data_path}_lcod_slice_{str(slice_no).zfill(2)}.png"
         )
         fig.savefig(img_path, dpi=150, bbox_inches="tight")
         plt.close(fig)
@@ -1055,7 +1058,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
         ]
 
         for spoke_data in report_data:
-            row = [f"{spoke_data.spoke_id}"]
+            row = [f"{spoke_data.spoke_id + 1}"]
             for p_val, param in zip(spoke_data.p_vals, spoke_data.params):
                 # Compact formatting
                 p_str = (
