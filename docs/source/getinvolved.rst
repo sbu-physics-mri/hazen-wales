@@ -55,7 +55,7 @@ Releasing
 * Dependencies are managed using ``uv`` and specified in ``pyproject.toml``
 * The ``uv.lock`` file is automatically maintained by ``uv`` and should be committed to the repository
 * Make sure all tests are passing
-* Update version in ``hazenlib/\_\_init\_\_.py``, remove ``dev``.
+* Update version in ``hazenlib/__init__.py``, remove ``dev``.
 * Update docs (we use ``sphinx-apidoc`` for autodocumentation of modules)
 
 
