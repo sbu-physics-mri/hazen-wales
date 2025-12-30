@@ -173,15 +173,16 @@ For a new release: <br>
 ## 5) Update Documentation
 
 Create rst files describing the structure of the hazen Python Package
+
 ```
 # in an active hazen virtual environment in the root of the project
 # the command below specifies that sphinx should look for scripts in the hazenlib folder
 # and output rst files into the docs/source folder
-sphinx-apidoc -o docs/source hazenlib
+uv run sphinx-apidoc -o docs/source hazenlib
 
 # next, from within the docs/ folder
 cd docs/
 # create/update the html files for the documentation
-make html  -f Makefile
+uv run make html  -f Makefile
 # opening the docs/source/index.html in a web browser allows a preview of the generated docs
 ```
