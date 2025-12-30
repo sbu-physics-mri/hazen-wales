@@ -75,7 +75,7 @@ class SlicePosition(HazenTask):
                 ),
             )
 
-        except Exception as e:
+        except Exception:
             raise
 
         # only return reports if requested
@@ -128,7 +128,7 @@ class SlicePosition(HazenTask):
         try:
             x, y, r = shape_detector.get_shape("circle")
 
-        except hazenlib.exceptions.MultipleShapesError as e:
+        except hazenlib.exceptions.MultipleShapesError:
             # logger.info(f'Warning: found multiple shapes: {list(shape_detector.shapes.keys())}')
             shape_detector.find_contours()
             shape_detector.detect()
