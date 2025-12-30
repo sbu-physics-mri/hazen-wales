@@ -100,26 +100,32 @@ luis.santos2@nih.gov
 
 """
 
+# Python Imports
 import os
 import sys
 import traceback
+
+# Module Imports
 import numpy as np
-
 import scipy
-import skimage.morphology
 import skimage.measure
-from scipy.signal import peak_widths
-
-from hazenlib.HazenTask import HazenTask
+import skimage.morphology
 from hazenlib.ACRObject import ACRObject
+from hazenlib.HazenTask import HazenTask
 from hazenlib.logger import logger
-from hazenlib.utils import get_image_orientation, debug_image_sample, debug_plot_sample
+from hazenlib.types import Measurement, Result
+from hazenlib.utils import (get_image_orientation)
 
 
 class ACRSliceThickness(HazenTask):
     """Slice width measurement class for DICOM images of the ACR phantom."""
 
     def __init__(self, **kwargs):
+        if kwargs.pop("verbose", None) is not None:
+            logger.warning(
+                "verbose is not a supported argument for %s",
+                type(self).__name__,
+            )
         super().__init__(**kwargs)
         # Initialise ACR object
         self.ACR_obj = ACRObject(self.dcm_list)
@@ -135,7 +141,7 @@ class ACRSliceThickness(HazenTask):
         self.WINDOW_ROI_HEIGHT = 5 / self.ACR_obj.dx     # Rectangle that captures enough of a population at the center to determine proper mean signal of slots.
         self.RAMP_PROFILE_SMOOTHING = 5 / self.ACR_obj.dx# Smoothing to apply on sampled line profile to remove local minimas within the slot.
 
-    def run(self) -> dict:
+    def run(self) -> Result:
         """Main function for performing slice width measurement
         using slice 1 from the ACR phantom image set.
 
@@ -159,13 +165,33 @@ class ACRSliceThickness(HazenTask):
             slice_thickness_dcm.PixelData = rotated_img.tobytes()
 
         # Initialise results dictionary
-        results = self.init_result_dict()
-        results["file"] = self.img_desc(slice_thickness_dcm)
+        results = self.init_result_dict(desc=self.ACR_obj.acquisition_type())
+        results.files = self.img_desc(slice_thickness_dcm)
 
         try:
             thickness_results = self.get_slice_thickness(slice_thickness_dcm)
-            results["measurement"] = {"slice width mm": round(thickness_results['thickness'], 2)}
-            results["ramps"] = thickness_results["ramps"]
+
+            results.add_measurement(
+                Measurement(
+                    name="SliceWidth",
+                    type="measured",
+                    subtype="slice width",
+                    unit="mm",
+                    value=round(thickness_results["thickness"], 2),
+                ),
+            )
+
+            for ramp in thickness_results["ramps"]:
+                results.add_measurement(
+                    Measurement(
+                        name="SliceWidth",
+                        type="measured",
+                        subtype="Ramps",
+                        unit="mm",
+                        value=thickness_results["ramps"][ramp]["width"],
+                    ),
+                )
+
         except Exception as e:
             logger.exception(
                 "Could not calculate the slice thickness for %s"
@@ -176,7 +202,7 @@ class ACRSliceThickness(HazenTask):
 
         # only return reports if requested
         if self.report:
-            results["report_image"] = self.report_files
+            results.add_report_image(self.report_files)
 
         return results
 

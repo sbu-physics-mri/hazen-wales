@@ -3,7 +3,7 @@ Welcome to the hazen Command Line Interface
 
 The following Tasks are available:
 - ACR phantom:
-acr_snr | acr_slice_position | acr_slice_thickness | acr_spatial_resolution | acr_uniformity | acr_ghosting | acr_geometric_accuracy
+acr_snr | acr_slice_position | acr_slice_thickness | acr_spatial_resolution | acr_uniformity | acr_ghosting | acr_geometric_accuracy | acr_low_contrast_object_detectability | acr_sagittal_geometric_accuracy | acr_object_detectability
 - MagNET Test Objects:
 snr | snr_map | slice_position | slice_width | spatial_resolution | uniformity | ghosting
 - Caliber phantom:
@@ -26,6 +26,8 @@ General Options: available for all Tasks
     --output=<path>              Provide a folder where report images are to be saved.
     --verbose                    Whether to provide additional metadata about the calculation in the result (slice position and relaxometry tasks)
     --log=<level>                Set the level of logging based on severity. Available levels are "debug", "warning", "error", "critical", with "info" as default.
+    --format <fmt>               Output format for test results. Choices: json (default),csv or tsv
+    --result=<path>              Path to the results path. If "-", default, will write to stdout.
 
 acr_snr & snr Task options:
     --measured_slice_width=<mm>  Provide a slice width to be used for SNR measurement, by default it is parsed from the DICOM (optional for acr_snr and snr)
@@ -36,17 +38,18 @@ relaxometry Task options:
     --plate_number=<n>           Which plate to use for measurement: 4 or 5 (required)
 """
 
-import os
-import sys
-import json
+import importlib
 import inspect
 import logging
-import importlib
+import os
+import sys
 
 from docopt import docopt
-from hazenlib.logger import logger
-from hazenlib.utils import get_dicom_files, is_enhanced_dicom
+
 from hazenlib._version import __version__
+from hazenlib.formatters import write_result
+from hazenlib.logger import logger
+from hazenlib.utils import get_dicom_files
 
 """Hazen is designed to measure the same parameters from multiple images.
     While some tasks require a set of multiple images (within the same folder),
@@ -69,7 +72,7 @@ single_image_tasks = [
 
 
 def init_task(selected_task, files, report, report_dir, **kwargs):
-    """Initialise object of the correct HazenTask class
+    """Initialise object of the correct HazenTask class.
 
     Args:
         selected_task (string): name of task script/module to load
@@ -80,14 +83,15 @@ def init_task(selected_task, files, report, report_dir, **kwargs):
 
     Returns:
         an object of the specified HazenTask class
+
     """
     task_module = importlib.import_module(f"hazenlib.tasks.{selected_task}")
 
     try:
         task = getattr(task_module, selected_task.capitalize())(
-            input_data=files, report=report, report_dir=report_dir, **kwargs
+            input_data=files, report=report, report_dir=report_dir, **kwargs,
         )
-    except:
+    except AttributeError as err:
         class_list = [
             cls.__name__
             for _, cls in inspect.getmembers(
@@ -97,7 +101,7 @@ def init_task(selected_task, files, report, report_dir, **kwargs):
         ]
         if len(class_list) == 1:
             task = getattr(task_module, class_list[0])(
-                input_data=files, report=report, report_dir=report_dir, **kwargs
+                input_data=files, report=report, report_dir=report_dir, **kwargs,
             )
         else:
             msg = (
@@ -105,7 +109,7 @@ def init_task(selected_task, files, report, report_dir, **kwargs):
                 " {class_list}"
             )
             logger.error(msg)
-            raise Exception(msg)
+            raise ValueError(msg) from err
 
     return task
 
@@ -126,12 +130,13 @@ def main():
         level = log_levels[arguments["--log"]]
         logging.getLogger().setLevel(level)
     else:
-        # logging.basicConfig()
         logging.getLogger().setLevel(logging.INFO)
 
     report = arguments["--report"]
     report_dir = arguments["--output"] if arguments["--output"] else None
     verbose = arguments["--verbose"]
+    fmt = arguments["--format"] if arguments["--format"] else "json"
+    result_file = arguments["--result"] if arguments["--result"] else "-"
 
     logger.info(f"Hazen version: {__version__}")
     logger.debug("The following files were identified as valid DICOMs:")
@@ -179,19 +184,27 @@ def main():
             for file in files:
                 task = init_task(selected_task, [file], report, report_dir)
                 result = task.run()
-                result_string = json.dumps(result, indent=2)
+                result_string = result.to_json()
                 print(result_string)
             return
-        else:
-            # Slice Position task, all ACR tasks except SNR
-            # may be enhanced, may be multi-frame
-            fns = [os.path.basename(fn) for fn in files]
-            logger.info(f"Processing {fns}")
-            task = init_task(selected_task, files, report, report_dir, verbose=verbose)
-            result = task.run()
+        # Slice Position task, all ACR tasks except SNR
+        # may be enhanced, may be multi-frame
+        fns = [os.path.basename(fn) for fn in files]
+        logger.info("Processing: %s", fns)
+        # Slice Position task, all ACR tasks except SNR
+        # may be enhanced, may be multi-frame
+        fns = [os.path.basename(fn) for fn in files]
+        logger.info(f"Processing {fns}")
+        task = init_task(selected_task, files, report, report_dir, verbose=verbose)
+        result = task.run()
 
-    result_string = json.dumps(result, indent=2)
-    print(result_string)
+        task = init_task(
+            selected_task, files, report, report_dir, verbose=verbose)
+        result = task.run()
+        write_result(result, fmt=fmt, path=result_file)
+        return
+
+    write_result(result, fmt=fmt, path=result_file)
 
 
 if __name__ == "__main__":

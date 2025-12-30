@@ -6,6 +6,7 @@ import cv2 as cv
 import numpy as np
 from hazenlib.HazenTask import HazenTask
 from hazenlib.logger import logger
+from hazenlib.types import Measurement, Result
 from hazenlib.utils import get_pe_direction, get_pixel_size, rescale_to_byte
 
 
@@ -19,7 +20,7 @@ class Ghosting(HazenTask):
         super().__init__(**kwargs)
         self.single_dcm = self.dcm_list[0]
 
-    def run(self) -> dict:
+    def run(self) -> Result:
         """Main function for performing ghosting measurement
 
         Returns:
@@ -30,11 +31,18 @@ class Ghosting(HazenTask):
             self.single_dcm,
             properties=["SeriesDescription", "EchoTime", "NumberOfAverages"],
         )
-        results["file"] = img_desc
+        results.files = img_desc
 
         try:
             ghosting_value = self.get_ghosting(self.single_dcm)
-            results["measurement"] = {"ghosting %": round(ghosting_value, 3)}
+            results.add_measurement(
+                Measurement(
+                    name="Ghosting",
+                    type="measured",
+                    unit="%",
+                    value=round(ghosting_value, 3),
+                ),
+            )
 
         except Exception as e:
             logger.exception(
@@ -46,7 +54,7 @@ class Ghosting(HazenTask):
 
         # only return reports if requested
         if self.report:
-            results["report_image"] = self.report_files
+            results.add_report_image(self.report_files)
 
         return results
 
@@ -69,7 +77,7 @@ class Ghosting(HazenTask):
 
         if ghost is None or phantom is None or noise is None:
             raise Exception(
-                f"At least one of ghost, phantom and noise ROIs is empty or null"
+                "At least one of ghost, phantom and noise ROIs is empty or null"
             )
 
         ghost_mean = np.mean(ghost)
@@ -78,7 +86,7 @@ class Ghosting(HazenTask):
 
         if phantom_mean < ghost_mean or phantom_mean < noise_mean:
             raise Exception(
-                f"The mean phantom signal is lower than the ghost or the noise signal. This can't be the case "
+                "The mean phantom signal is lower than the ghost or the noise signal. This can't be the case "
             )
 
         return 100 * abs(ghost_mean - noise_mean) / phantom_mean
@@ -254,17 +262,11 @@ class Ghosting(HazenTask):
                     right_column + padding_from_box, dcm.Columns - slice_radius
                 )
                 eligible_rows = range(upper_row, lower_row)
-                ghost_slice = np.array(
-                    range(right_column + padding_from_box, dcm.Columns - slice_radius),
-                    dtype=np.intp,
-                )[:, np.newaxis], np.array(range(upper_row, lower_row))
+
             else:
                 # signal is in right half
                 eligible_columns = range(slice_radius, left_column - padding_from_box)
                 eligible_rows = range(upper_row, lower_row)
-                ghost_slice = np.array(
-                    range(slice_radius, left_column - padding_from_box), dtype=np.intp
-                )[:, np.newaxis], np.array(range(upper_row, lower_row))
 
         else:
             if upper_row < dcm.Rows / 2:
@@ -273,17 +275,11 @@ class Ghosting(HazenTask):
                     lower_row + padding_from_box, dcm.Rows - slice_radius
                 )
                 eligible_columns = range(left_column, right_column)
-                ghost_slice = np.array(
-                    range(lower_row + padding_from_box, dcm.Rows - slice_radius),
-                    dtype=np.intp,
-                )[:, np.newaxis], np.array(range(left_column, right_column))
+
             else:
                 # signal is in bottom half
                 eligible_rows = range(slice_radius, upper_row - padding_from_box)
                 eligible_columns = range(left_column, right_column)
-                ghost_slice = np.array(
-                    range(slice_radius, upper_row - padding_from_box), dtype=np.intp
-                )[:, np.newaxis], np.array(range(left_column, right_column))
 
         return eligible_columns, eligible_rows
 

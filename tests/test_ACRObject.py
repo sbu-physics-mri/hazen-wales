@@ -1,9 +1,9 @@
 import os
 import unittest
-import pydicom
 import numpy as np
 
 from hazenlib.ACRObject import ACRObject
+from hazenlib.utils import dcmread
 from tests import TEST_DATA_DIR
 
 
@@ -18,7 +18,7 @@ class TestACRTools(unittest.TestCase):
 
     def setUp(self):
         self.Siemens_data = [
-            pydicom.dcmread(os.path.join(TEST_DATA_DIR, "acr", "Siemens", f"{i}"))
+            dcmread(os.path.join(TEST_DATA_DIR, "acr", "Siemens", f"{i}"))
             for i in os.listdir(os.path.join(TEST_DATA_DIR, "acr", "Siemens"))
         ]
 
@@ -59,7 +59,7 @@ class TestACRToolsGE(TestACRTools):
 
     def setUp(self):
         self.GE_data = [
-            pydicom.dcmread(os.path.join(TEST_DATA_DIR, "acr", "GE", f"{i}"))
+            dcmread(os.path.join(TEST_DATA_DIR, "acr", "GE", f"{i}"))
             for i in os.listdir(os.path.join(TEST_DATA_DIR, "acr", "GE"))
         ]
 
@@ -90,7 +90,7 @@ class TestACRToolsPhilips(TestACRTools):
 
     def setUp(self):
         self.Philips_data = [
-            pydicom.dcmread(os.path.join(TEST_DATA_DIR, "acr", "PhilipsAchieva", f"{i}"))
+            dcmread(os.path.join(TEST_DATA_DIR, "acr", "PhilipsAchieva", f"{i}"))
             for i in os.listdir(os.path.join(TEST_DATA_DIR, "acr", "PhilipsAchieva"))
         ]
 
@@ -116,7 +116,7 @@ class TestACRToolsSiemensSolaFit(TestACRTools):
 
     def setUp(self):
         self.Philips_data = [
-            pydicom.dcmread(os.path.join(TEST_DATA_DIR, "acr", "SiemensSolaFit", f"{i}"))
+            dcmread(os.path.join(TEST_DATA_DIR, "acr", "SiemensSolaFit", f"{i}"))
             for i in os.listdir(os.path.join(TEST_DATA_DIR, "acr", "SiemensSolaFit"))
         ]
 

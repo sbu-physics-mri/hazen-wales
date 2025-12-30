@@ -11,13 +11,14 @@ from math import pi
 
 import numpy as np
 import scipy.optimize as opt
+from hazenlib.HazenTask import HazenTask
+from hazenlib.logger import logger
+from hazenlib.types import Measurement
+from hazenlib.utils import Rod
 from matplotlib import pyplot as plt
 from scipy import ndimage
 from scipy.interpolate import interp1d
 from skimage.measure import regionprops
-
-from hazenlib.HazenTask import HazenTask
-from hazenlib.utils import Rod
 
 
 class SliceWidth(HazenTask):
@@ -38,9 +39,11 @@ class SliceWidth(HazenTask):
             dict: results are returned in a standardised dictionary structure specifying the task name, input DICOM Series Description + SeriesNumber + InstanceNumber, task measurement key-value pairs, optionally path to the generated images for visualisation
         """
         results = self.init_result_dict()
-        results["file"] = self.img_desc(self.single_dcm)
+        results.files = self.img_desc(self.single_dcm)
         try:
-            results["measurement"] = self.get_slice_width(self.single_dcm)
+            for measurement in self.get_slice_width(self.single_dcm):
+                results.add_measurement(measurement)
+
         except Exception as e:
             logger.exception(
                 "Could not calculate the slice_width for %s because of : %s",
@@ -51,7 +54,7 @@ class SliceWidth(HazenTask):
 
         # only return reports if requested
         if self.report:
-            results["report_image"] = self.report_files
+            results.add_report_image(self.report_files)
 
         return results
 
@@ -79,8 +82,8 @@ class SliceWidth(HazenTask):
             arr (np.array): DICOM pixel array
 
         Returns:
-            rods : array_like – centroid coordinates of rods
-            rods_initial : array_like  – initial guess at rods (center-of mass)
+            rods : array_like   centroid coordinates of rods
+            rods_initial : array_like    initial guess at rods (center-of mass)
 
         Notes:
             The rod indices are ordered as:
@@ -162,7 +165,7 @@ class SliceWidth(HazenTask):
             bbox["y_start"].append(rprop.bbox[1] - bbox["radius"])
             bbox["y_end"].append(rprop.bbox[3] + bbox["radius"])
 
-            # print(f'Rod {idx} – Bounding Box, x: ({bbox["x_start"][-1]}, {bbox["x_end"][-1]}), y: ({bbox["y_start"][-1]}, {bbox["y_end"][-1]})')
+            # print(f'Rod {idx}   Bounding Box, x: ({bbox["x_start"][-1]}, {bbox["x_end"][-1]}), y: ({bbox["y_start"][-1]}, {bbox["y_end"][-1]})')
 
         x0, y0, x0_im, y0_im = ([None] * 9 for i in range(4))
 
@@ -418,7 +421,6 @@ class SliceWidth(HazenTask):
 
         cos_theta_2 = np.cos(theta) ** 2
         sin_theta_2 = np.sin(theta) ** 2
-        cos_2_theta = np.cos(2 * theta)
         sin_2_theta = np.sin(2 * theta)
 
         sigma_x_2 = sigma_x**2
@@ -496,7 +498,7 @@ class SliceWidth(HazenTask):
                 cropped_data[0, w_crop - 1],
                 cropped_data[h_crop - 1, w_crop - 1],
             ]
-        )  # background – np.min(outside of rod within cropped_data)
+        )  # background   np.min(outside of rod within cropped_data)
         C = np.mean(
             [
                 cropped_data[0, 0],
@@ -504,7 +506,7 @@ class SliceWidth(HazenTask):
                 cropped_data[0, w_crop - 1],
                 cropped_data[h_crop - 1, w_crop - 1],
             ]
-        )  # background – np.min(outside of rod within cropped_data)
+        )  # background   np.min(outside of rod within cropped_data)
 
         # print("A:", A)
         # print("box_radius:", box_radius)
@@ -522,18 +524,11 @@ class SliceWidth(HazenTask):
         A = popt_single[0]
         x0 = popt_single[1]
         y0 = popt_single[2]
-        sigma_x = popt_single[3]
-        sigma_y = popt_single[4]
-        theta = popt_single[5]
         C = popt_single[6]
-
-        # print(f'results of 2d gaussian fitting: \n\tamplitude = {A_} \n\tx0 = {x0} \n\ty0 = {y0} \n\tsigma_x = {sigma_x} \n\tsigma_y = {sigma_y} \n\ttheta = {theta} \n\tC = {C} \n')
 
         # to get image coordinates need to add back on x_start and y_start
         x0_im = x0 + x_start
         y0_im = y0 + y_start
-
-        # print(f'Initial centre was ({rods[idx].x}, {rods[idx].y}). Refined centre is ({x0_im}, {y0_im})\n')
 
         return x0_im, y0_im, x0, y0
 
@@ -845,7 +840,7 @@ class SliceWidth(HazenTask):
 
         return trapezoid_fit_coefficients, baseline_fit_coefficients
 
-    def get_slice_width(self, dcm):
+    def get_slice_width(self, dcm) -> Measurement:
         """Calculates slice width using double wedge image
 
         Args:
@@ -949,24 +944,6 @@ class SliceWidth(HazenTask):
         term3 = 2.0 * np.sin(theta)
 
         slice_width_mm["combined"]["aapm_tilt"] = (term1**0.5 + term2) / term3
-        phantom_tilt = (
-            np.arctan(
-                slice_width_mm["combined"]["aapm_tilt"]
-                / slice_width_mm["bottom"]["aapm"]
-            )
-            + (theta / 2.0)
-            - pi / 2.0
-        )
-        phantom_tilt_deg = phantom_tilt * (180.0 / pi)
-
-        phantom_tilt_check = (
-            -np.arctan(
-                slice_width_mm["combined"]["aapm_tilt"] / slice_width_mm["top"]["aapm"]
-            )
-            - (theta / 2.0)
-            + pi / 2.0
-        )
-        phantom_tilt_check_deg = phantom_tilt_check * (180.0 / pi)
 
         # AAPM method directly incorporating phantom tilt and independent of geometric linearity
         theta = (180.0 - 2.0 * 11.3) * pi / 180.0
@@ -987,25 +964,6 @@ class SliceWidth(HazenTask):
         slice_width_mm["combined"]["aapm_tilt_corrected"] = (
             term1**0.5 + term2
         ) / term3
-        phantom_tilt = (
-            np.arctan(
-                slice_width_mm["combined"]["aapm_tilt_corrected"]
-                / slice_width_mm["bottom"]["aapm_corrected"]
-            )
-            + (theta / 2.0)
-            - pi / 2.0
-        )
-        phantom_tilt_deg = phantom_tilt * (180.0 / pi)
-
-        phantom_tilt_check = (
-            -np.arctan(
-                slice_width_mm["combined"]["aapm_tilt_corrected"]
-                / slice_width_mm["top"]["aapm_corrected"]
-            )
-            - (theta / 2.0)
-            + pi / 2.0
-        )
-        phantom_tilt_check_deg = phantom_tilt_check * (180.0 / pi)
 
         # calculate linearity in mm from distances in pixels
 
@@ -1097,22 +1055,63 @@ class SliceWidth(HazenTask):
         # deg): {phantom_tilt_deg}\n" f"Slice width AAPM geometry corrected (mm): {slice_width['combined'][
         # 'aapm_tilt_corrected']}")
 
-        distortion_values = {
-            "vertical mm": round(vert_distortion_mm, 2),
-            "horizontal mm": round(horz_distortion_mm, 2),
-        }
-
-        linearity_values = {
-            "vertical mm": round(vertical_linearity_mm, 2),
-            "horizontal mm": round(horizontal_linearity_mm, 2),
-        }
-
-        return {
-            "slice width mm": round(
-                slice_width_mm["combined"]["aapm_tilt_corrected"], 2
+        return [
+            Measurement(
+                name="SliceWidth",
+                type="measured",
+                subtype="slice width",
+                value=round(
+                    slice_width_mm["combined"]["aapm_tilt_corrected"],
+                    2,
+                ),
+                unit="mm",
             ),
-            "distortion values": distortion_values,
-            "linearity values": linearity_values,
-            "horizontal distances mm": horz_distances_mm,
-            "vertical distances mm": vert_distances_mm,
-        }
+            Measurement(
+                name="SliceWidth",
+                type="measured",
+                subtype="distortion",
+                description="Vertical",
+                value=round(vert_distortion_mm, 2),
+                unit="mm",
+            ),
+            Measurement(
+                name="SliceWidth",
+                type="measured",
+                subtype="distortion",
+                description="Horizontal",
+                value=round(horz_distortion_mm, 2),
+                unit="mm",
+            ),
+            Measurement(
+                name="SliceWidth",
+                type="measured",
+                subtype="linearity",
+                value=round(vertical_linearity_mm, 2),
+                unit="mm",
+                description="Vertical",
+            ),
+            Measurement(
+                name="SliceWidth",
+                type="measured",
+                subtype="linearity",
+                value=round(horizontal_linearity_mm, 2),
+                unit="mm",
+                description="Horizontal",
+            ),
+            Measurement(
+                name="SliceWidth",
+                type="measured",
+                subtype="distance",
+                value=horz_distances_mm,
+                unit="mm",
+                description="Horizontal",
+            ),
+            Measurement(
+                name="SliceWidth",
+                type="measured",
+                subtype="distance",
+                value=vert_distances_mm,
+                unit="mm",
+                description="Vertical",
+            ),
+        ]

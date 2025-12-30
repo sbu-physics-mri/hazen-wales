@@ -139,6 +139,8 @@ from hazenlib.data.relaxometry_params import (MAX_RICIAN_NOISE,
                                               TEMPLATE_VALUES, TERMINATION_EPS)
 from hazenlib.HazenTask import HazenTask
 from hazenlib.logger import logger
+from hazenlib.types import Measurement, Metadata
+from hazenlib.utils import dcmread
 from scipy.interpolate import UnivariateSpline
 from scipy.special import i0e, ive
 
@@ -216,7 +218,7 @@ class Relaxometry(HazenTask):
         if calc in ["T1", "t1"]:
             image_stack = T1ImageStack(self.dcm_list)
             try:
-                template_dcm = pydicom.dcmread(
+                template_dcm = dcmread(
                     TEMPLATE_VALUES[f"plate{plate_number}"][relax_str]["filename"]
                 )
             except KeyError:
@@ -229,7 +231,7 @@ class Relaxometry(HazenTask):
         elif calc in ["T2", "t2"]:
             image_stack = T2ImageStack(self.dcm_list)
             try:
-                template_dcm = pydicom.dcmread(
+                template_dcm = dcmread(
                     TEMPLATE_VALUES[f"plate{plate_number}"][relax_str]["filename"]
                 )
             except KeyError:
@@ -269,9 +271,16 @@ class Relaxometry(HazenTask):
         index_im = self.dcm_list[0]
         results = self.init_result_dict()
         output_key = "_".join([self.img_desc(index_im), str(plate_number), relax_str])
-        results["file"] = output_key
+        results.files = output_key
 
-        results["measurement"] = {"rms_frac_time_difference": round(RMS_frac_error, 3)}
+        results.add_measurement(
+            Measurement(
+                name="Relaxometry",
+                type="measured",
+                subtype="rms_frac_time_difference",
+                value=round(RMS_frac_error, 3),
+            ),
+        )
 
         if self.report:
             img_path = os.path.join(self.report_path, output_key)
@@ -333,7 +342,7 @@ class Relaxometry(HazenTask):
                 self.report_path, f"{output_key}_details.json"
             )
 
-            metadata = dict(
+            metadata = Metadata(
                 files=[im.filename for im in image_stack.images],
                 plate=plate_number,
                 relaxation_type=calc.upper(),
@@ -346,7 +355,7 @@ class Relaxometry(HazenTask):
                 frac_time_difference=frac_time_diff.tolist(),
             )
             # , output_graphics=output_files_path
-            results["additional data"] = metadata
+            results.metadata = metadata
 
             detailed_output["measurement details"] = {
                 "Echo Time": [im.EchoTime for im in image_stack.images],
@@ -365,14 +374,14 @@ class Relaxometry(HazenTask):
                 ],
                 "fit_equation": image_stack.fit_eqn_str,
             }
-            detailed_output["metadata"] = metadata
+            detailed_output["metadata"] = metadata.to_dict()
             json_object = json.dumps(detailed_output, indent=4)
             with open(detailed_outpath, "w") as f:
                 f.write(json_object)
             self.report_files.append(("further_details", detailed_outpath))
 
         if self.report:
-            results["report_image"] = self.report_files
+            results.add_report_image(self.report_files)
 
         # plt.show()
         return results
@@ -814,7 +823,7 @@ class ImageStack:
         plt.title("Template")
         plt.axis("off")
 
-        ax = plt.subplot(2, 2, 2)
+        plt.subplot(2, 2, 2)
         self.plot_rois(new_fig=False)
         plt.title("Image")
 

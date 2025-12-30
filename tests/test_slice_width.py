@@ -2,12 +2,11 @@ import unittest
 import pathlib
 
 import numpy as np
-import pydicom
 
 # import hazenlib.slice_width as hazen_slice_width
 from tests import TEST_DATA_DIR, TEST_REPORT_DIR
 from hazenlib.tasks.slice_width import SliceWidth
-from hazenlib.utils import get_dicom_files, Rod
+from hazenlib.utils import Rod
 import os
 
 
@@ -190,7 +189,7 @@ class TestSliceWidth(unittest.TestCase):
 
     def setUp(self):
         # self.file = str(self.SLICE_WIDTH_DATA / 'SLICEWIDTH' / 'ANNUALQA.MR.HEAD_GENERAL.tra.slice_width.IMA')
-        # self.dcm = pydicom.dcmread(self.file)
+        # self.dcm = dcmread(self.file)
         self.slice_width = SliceWidth(
             input_data=[
                 os.path.join(
@@ -404,7 +403,7 @@ class TestSliceWidth(unittest.TestCase):
 
     def test_slice_width(self):
         result = self.slice_width.run()
-        slice_width_mm = result["measurement"]["slice width mm"]
+        slice_width_mm = result.get_measurement(name="SliceWidth")[0].value
 
         print("\ntest_slice_width.py::TestSliceWidth::test_slice_width")
         print("new_release_value:", slice_width_mm)
@@ -728,4 +727,4 @@ class Test512Matrix(TestSliceWidth):
             report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR),
         )
         # self.file = str(TEST_DATA_DIR / 'slicewidth' / 'SLICEWIDTH' / '512_matrix')
-        # self.dcm = pydicom.dcmread(self.file)
+        # self.dcm = dcmread(self.file)

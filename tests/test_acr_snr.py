@@ -1,11 +1,11 @@
 import os
-import unittest
 import pathlib
-import pydicom
+import unittest
 
-from hazenlib.utils import get_dicom_files
-from hazenlib.tasks.acr_snr import ACRSNR
 from hazenlib.ACRObject import ACRObject
+from hazenlib.tasks.acr_snr import ACRSNR
+from hazenlib.utils import dcmread, get_dicom_files
+
 from tests import TEST_DATA_DIR, TEST_REPORT_DIR
 
 
@@ -52,7 +52,7 @@ class TestACRSNRSiemens(TestACRSNRGE):
         self.snr_dcm = self.acr_snr_task.ACR_obj.slice_stack[6]
         self.snr_dcm2 = ACRObject(
             [
-                pydicom.dcmread(
+                dcmread(
                     os.path.join(TEST_DATA_DIR, "acr", "Siemens2", f"{i}")
                 )
                 for i in os.listdir(os.path.join(TEST_DATA_DIR, "acr", "Siemens2"))

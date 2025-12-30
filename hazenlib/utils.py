@@ -1,25 +1,65 @@
+"""A utility module for medical imaging analysis.
+
+Providing:
+
+- robust DICOM metadata extraction
+- image processing
+- ROI detection functions.
+
+Supports multi-frame and vendor-specific DICOM formats
+(GE, Siemens, Philips, Toshiba),
+includes string scrubbing for security,
+circular/shape detection via OpenCV,
+parallel processing helpers, and debugging tools.
+
+Designed for automated phantom QA in MRI workflows.
+
+"""
+
+from __future__ import annotations
+
+# Python imports
 import copy
 import os
 import re
+from collections import defaultdict
 from multiprocessing import Pool
 
+# Module imports
 import cv2 as cv
-import pydicom
 import imutils
 import matplotlib
 import numpy as np
-
-from collections import defaultdict
-
-from scipy.ndimage import uniform_filter
+import pydicom
 from skimage import filters
 
+# Local imports
 import hazenlib.exceptions as exc
 from hazenlib.logger import logger
 
 matplotlib.use("Agg")
 
 REGEX_SCRUBNAME = '\\^\\\\`\\{\\}\\[\\]\\(\\)\\!\\$\'\\/\\ \\_\\:\\,\\-\\&\\=\\.\\*\\+\\;\\#'  #: Regex to match for these dirty characters.
+
+
+def dcmread(*args, **kwargs) -> pydicom.dataset.FileDataset:
+    """Thin wrapper around pydicom.dcmread.
+
+    Provide default arguments and error handling.
+
+    """
+    try:
+        return pydicom.dcmread(*args, **kwargs)
+
+    except pydicom.errors.InvalidDicomError:
+        logger.warning(
+            "Couldn't read DICOM, trying with force=True"
+            "\nargs:\n%s\n\nkwargs:\n%s",
+            args,
+            kwargs,
+        )
+        _ = kwargs.pop("force", True)
+        return pydicom.dcmread(*args, force=True, **kwargs)
 
 
 def scrub(dirtyString, matchCharacters, join_str='_'):
@@ -89,14 +129,17 @@ def has_pixel_array(filename) -> bool:
     """
 
     try:
-        dcm = pydicom.dcmread(filename)
+        dcm = dcmread(filename)
         # while enhanced DICOMs have a pixel_array, it's shape is in the format
         # (# frames, x_dim, y_dim)
-        img = dcm.pixel_array
-        return True
-    except:
+        _ = dcm.pixel_array
+
+    except AttributeError:
         logger.debug("%s does not contain image data", filename)
         return False
+
+    else:
+        return True
 
 
 def is_enhanced_dicom(dcm: pydicom.Dataset) -> bool:
@@ -144,18 +187,24 @@ def get_manufacturer(dcm: pydicom.Dataset) -> str:
 
 
 def get_average(dcm: pydicom.Dataset) -> float:
-    """Get the NumberOfAverages field from the DICOM header
+    """Get the NumberOfAverages field from the DICOM header.
 
     Args:
         dcm (pydicom.Dataset): DICOM image object
 
     Returns:
         float: value of the NumberOfAverages field from the DICOM header
+
     """
     if is_enhanced_dicom(dcm):
-        averages = (
-            dcm.SharedFunctionalGroupsSequence[0].MRAveragesSequence[0].NumberOfAverages
-        )
+        averages = dcm[
+            (0x5200, 0x9230)    # Per-Frame Functional Groups Sequence
+        ][0][
+            (0x0018, 0x9119)    # MR Averages Sequence
+        ][0][
+            (0x0018, 0x0083)    # Number of Averages
+        ].value
+
     else:
         averages = dcm.NumberOfAverages
 
@@ -171,7 +220,17 @@ def get_bandwidth(dcm: pydicom.Dataset) -> float:
     Returns:
         float: value of the PixelBandwidth field from the DICOM header
     """
-    bandwidth = dcm.PixelBandwidth
+    try:
+        bandwidth = dcm.PixelBandwidth
+
+    except AttributeError:
+        bandwidth = dcm[
+            (0x5200, 0x9229)    # Shared Functional Groups Sequence
+        ][0][
+            (0x0018, 0x9006)    # MR Imaging Modifier Sequence
+        ][0][
+            (0x0018, 0x0095)    # Pixel Bandwidth
+        ].value
     return bandwidth
 
 
@@ -223,14 +282,18 @@ def get_slice_thickness(dcm: pydicom.Dataset) -> float:
     return slice_thickness
 
 
-def get_pixel_size(dcm: pydicom.Dataset) -> (float, float):
+def get_pixel_size(
+        dcm: pydicom.Dataset, *, swap_indexes: bool = False,
+) -> (float, float):
     """Get the PixelSpacing field from the DICOM header
 
     Args:
         dcm (pydicom.Dataset): DICOM image object
+        swap_indexes : If True, will return (dy, dx) else (dx, dy)
 
     Returns:
         tuple of float: x and y values of the PixelSpacing field from the DICOM header
+
     """
     manufacturer = get_manufacturer(dcm)
     try:
@@ -242,7 +305,8 @@ def get_pixel_size(dcm: pydicom.Dataset) -> (float, float):
             )
         else:
             dx, dy = dcm.PixelSpacing
-    except:
+
+    except AttributeError as err:
         logger.warning("Could not find PixelSpacing")
         if "ge" in manufacturer:
             fov = get_field_of_view(dcm)
@@ -251,19 +315,26 @@ def get_pixel_size(dcm: pydicom.Dataset) -> (float, float):
         else:
             msg = "Manufacturer not recognised"
             logger.error(msg)
-            raise Exception(msg)
+            raise ValueError(msg) from err
 
+    if swap_indexes:
+        return dy, dx
     return dx, dy
 
 
-def get_TR(dcm: pydicom.Dataset) -> float:
-    """Get the RepetitionTime field from the DICOM header
+def get_TR(dcm: pydicom.Dataset, *, strict: bool = False) -> float:
+    """Get the RepetitionTime field from the DICOM header.
 
     Args:
-        dcm (pydicom.Dataset): DICOM image object
+        dcm : DICOM image object
 
     Returns:
-        float: value of the RepetitionTime field from the DICOM header, or defaults to 1000
+        return value : RepetitionTime field from the DICOM header.
+            If not found and strict is False, defaults to 1000.
+
+    Raises:
+        AttributeError : If strict is True and no Reptition is found.
+
     """
     # TODO: explore what type of DICOM files do not have RepetitionTime in DICOM header
     try:
@@ -275,24 +346,32 @@ def get_TR(dcm: pydicom.Dataset) -> float:
             )
         else:
             TR = dcm.RepetitionTime
-    except:
-        logger.warning("Could not find Repetition Time. Using default value of 1000 ms")
+
+    except AttributeError as err:
+        msg = "Could not find Repetition Time"
+        if strict:
+            raise AttributeError(msg) from err
+
+        logger.warning("%s. Using default value of 1000 ms", msg)
         TR = 1000
     return TR
 
 
 def get_rows(dcm: pydicom.Dataset) -> float:
-    """Get the Rows field from the DICOM header
+    """Get the Rows field from the DICOM header.
 
     Args:
         dcm (pydicom.Dataset): DICOM image object
 
     Returns:
         float: value of the Rows field from the DICOM header, or defaults to 256
+
     """
     try:
         rows = dcm.Rows
-    except:
+
+    except AttributeError:
+
         rows = 256
         logger.warning(
             "Could not find Number of matrix rows. Using default value of %i",
@@ -303,17 +382,19 @@ def get_rows(dcm: pydicom.Dataset) -> float:
 
 
 def get_columns(dcm: pydicom.Dataset) -> float:
-    """Get the Columns field from the DICOM header
+    """Get the Columns field from the DICOM header.
 
     Args:
         dcm (pydicom.Dataset): DICOM image object
 
     Returns:
         float: value of the Columns field from the DICOM header, or defaults to 256
+
     """
     try:
         columns = dcm.Columns
-    except:
+
+    except AttributeError:
         columns = 256
         logger.warning(
             "Could not find matrix size (columns). Using default value of %i",
@@ -323,13 +404,14 @@ def get_columns(dcm: pydicom.Dataset) -> float:
 
 
 def get_pe_direction(dcm: pydicom.Dataset):
-    """Get the PhaseEncodingDirection field from the DICOM header
+    """Get the PhaseEncodingDirection field from the DICOM header.
 
     Args:
         dcm (pydicom.Dataset): DICOM image object
 
     Returns:
         str: value of the InPlanePhaseEncodingDirection field from the DICOM header
+
     """
     if is_enhanced_dicom(dcm):
         return (
@@ -381,7 +463,9 @@ def get_field_of_view(dcm: pydicom.Dataset):
     return fov
 
 def get_datatype_max(dtype=np.uint8):
-    """Get max value of the numpy datatype range. This is the machine max and not the data's max used value.
+    """Get max value of the numpy datatype range.
+
+    This is the machine max and not the data's max used value.
     For example, a np.uint8 has a machine range of 0 to 255.
 
     Args:
@@ -389,15 +473,18 @@ def get_datatype_max(dtype=np.uint8):
 
     Returns:
         int|float: max machine value of data type
+
     """
     try:
         return np.iinfo(dtype).max
-    except:
+    except ValueError:
         return np.finfo(dtype).max
 
 
 def get_datatype_min(dtype=np.uint8):
-    """Get min value of the numpy datatype range. This is the machine min and not the data's min used value.
+    """Get min value of the numpy datatype range.
+
+    This is the machine min and not the data's min used value.
     For example, a np.uint8 has a machine range of 0 to 255.
 
     Args:
@@ -405,10 +492,11 @@ def get_datatype_min(dtype=np.uint8):
 
     Returns:
         int|float: min machine value of data type
+
     """
     try:
         return np.iinfo(dtype).min
-    except:
+    except ValueError:
         return np.finfo(dtype).min
 
 
@@ -504,6 +592,7 @@ def determine_orientation(dcm_list):
     # Get the number of images in the list,
     # assuming each have a unique position in one of the 3 directions
     expected = len(dcm_list)
+
     iop = [np.round(c) for c in get_image_IOP(dcm_list[0])]
     x = np.array([round(get_image_IPP(dcm)[0]) for dcm in dcm_list])
     y = np.array([round(get_image_IPP(dcm)[1]) for dcm in dcm_list])
@@ -569,63 +658,77 @@ def compute_dicom_frame_size(dcm):
     return initial_frame_length * bytes_per_pixel
 
 
-def new_dicom(dcm, frame_pixel_data, i):
-    """Crude method for spawning a new copy of the input slice with the header patched for consumption.
-    This function will patch elements related to enhanced multiframe dicom into the root of the header.
-    I attempt the bare minimum patching needed for the proper functioning of the downstream tasks.
+def new_dicom(
+    dcm: pydicom.dataset.FileDataset,
+    pixel_data: np.ndarray,
+    instance_number: int | None = None,
+) -> pydicom.dataset.FileDataset:
+    """Return a new DICOM with updated pixel data.
 
+    Return a copy of dcm but with updated pixel data.
+    Ensures Photometric Interpretation and Bits Stored
+    are correct.
 
     Args:
-        dcm (pydicom.dataset.FileDataset): DICOM Dataset
-        frame_pixel_data (bytes|bytearray): Pixels meant for this new DICOM slice
-        i (int): index of slice in header contents of original slice
+        dcm : The original DICOM to copy.
+        pixel_data : The updated pixel data.
+        instance_number : If not None, used set the instance number.
+            Defaults to None.
 
     Returns:
-        pydicom.dataset.FileDataset: new DICOM slice
+        new_dcm : A new dicom instance with the updated pixel data.
+
     """
     new_dcm = copy.deepcopy(dcm)
-    new_dcm.PixelData = frame_pixel_data
-    new_dcm.InstanceNumber = i + 1
 
-    subheader = new_dcm.PerFrameFunctionalGroupsSequence[i]
-
-    frame_voi = subheader.FrameVOILUTSequence[-1]
-    new_dcm.WindowCenter = dcm.get('WindowCenter', frame_voi.get('WindowCenter', None))
-    new_dcm.WindowWidth = dcm.get('WindowWidth', frame_voi.get('WindowWidth', None))
-
-    pixel_value_transformation = subheader.PixelValueTransformationSequence[-1]
-    new_dcm.RescaleIntercept = dcm.get('RescaleIntercept', pixel_value_transformation.get('RescaleIntercept', 1))
-    new_dcm.RescaleSlope = dcm.get('RescaleSlope', pixel_value_transformation.get('RescaleSlope', 1))
-    new_dcm.RescaleType = dcm.get('RescaleType', pixel_value_transformation.get('RescaleType', 1))
-    new_dcm.VOILUTFunction = dcm.get('VOILUTFunction', pixel_value_transformation.get('VOILUTFunction', 'linear'))
+    # Extract single frame pixel data
+    new_dcm.set_pixel_data(
+        pixel_data,
+        dcm[(0x0028,0x0004)].value, # Photometric Interpretation
+        dcm[(0x0028,0x0101)].value, # Bits Stored
+    )
 
     return new_dcm
 
 
-def split_dicom(dcm):
-    """Crude method for uncatenating an Enhanced DICOM Multiframe object. If the input is enhanced, we assume that it
-    is a multiframe dicom and split it into constituent frames. We return this list.
+
+def split_dicom(
+    dcm: pydicom.dataset.FileDataset,
+) -> list[pydicom.dataset.FileDataset]:
+    """Split a multiframe DICOM into individual single-frame DICOMs.
+
+    If the input is enhanced, we assume that it is a multiframe dicom
+    and split it into constituent frames. We return this list.
 
     Otherwise, return a list whose single element is the given dicom
 
     Args:
-        dcm (pydicom.dataset.FileDataset): DICOM Dataset
+        dcm : DICOM Dataset
 
     Returns:
-        float|int: byte count of a single frame
+        dcm_list : List of DICOM datasets
+
     """
-    if is_enhanced_dicom(dcm):
-        frames = []
-        pixel_data = dcm.PixelData
-        frame_size = compute_dicom_frame_size(dcm)
-        frame_count = len(pixel_data) // frame_size
-        logger.info(frame_size)
-        for i in range(frame_count):
-            offset = i * frame_size
-            frame_pixel_data = pixel_data[offset:offset + frame_size]
-            frames.append(new_dicom(dcm, frame_pixel_data, i))
-        return frames
-    return [dcm]
+    # In the case of non-enhanced DICOM - just wrap in a list
+    if not is_enhanced_dicom(dcm):
+        return [dcm]
+
+    frame_count = dcm.NumberOfFrames
+    single_frames = []
+
+    for frame_idx in range(frame_count):
+        try:
+            pixel_data = dcm.pixel_array[frame_idx, :, :]
+
+        # Case for (2D) sagittal localizer stored as an enhanced DICOM
+        except IndexError:
+            pixel_data = dcm.pixel_array
+
+        single_frames.append(
+            new_dicom(dcm, pixel_data, instance_number=frame_idx + 1),
+        )
+
+    return single_frames
 
 
 def rescale_to_byte(array):
@@ -648,25 +751,34 @@ def rescale_to_byte(array):
     return image_equalized.reshape(array.shape).astype("uint8")
 
 
-def expand_data_range(data, valid_range=None, target_type=np.uint8):
-    """Takes a dataset and expands its data range to fill the value range possible in the target type.
-    For example, if you have the data [1, 2, 3] and need it to fill the absolute values in uint16, you get
+def expand_data_range(
+    data: np.array | np.ma.MaskedArray,
+    valid_range: tuple | None = None,
+    target_type: np.dtype = np.uint8,
+) -> np.array | np.ma.MaskedArray:
+    """Take a dataset and expands its data range to fill the value range possible in the target type.
+
+    For example, if you have the data [1, 2, 3]
+    and need it to fill the absolute values in uint16, you get:
     [0, 32767, 65,535]
 
     Args:
-        data (np.array|np.ma.MaskedArray): dataset containing pixel values
-        valid_range (tuple, optional): tuple of values to use as the minimum and maximum of the dataset range.
+        data : dataset containing pixel values
+        valid_range : tuple of values to use as the minimum and maximum
+            of the dataset range.
             If None, we use the datasets' minimum and maximum.
-        target_type (np.dtype): Numpy datatype to target in the expansion
+        target_type : Numpy datatype to target in the expansion
 
     Returns:
         np.array: expanded range
+
     """
-    try:
-        dtype_max = np.iinfo(target_type).max
-    except:
-        dtype_max = np.finfo(target_type).max
-    lower, upper = (data.min(), data.max()) if valid_range is None else valid_range
+    dtype_max = get_datatype_max(target_type)
+    lower, upper = (
+        (data.min(), data.max())
+        if valid_range is None
+        else valid_range
+    )
     return (((data - lower) / (upper - lower)) * dtype_max).astype(target_type)
 
 
@@ -761,7 +873,7 @@ def detect_centroid(img, dx, dy):
                 minRadius=int(180 / (2 * dy)),
                 maxRadius=int(200 / (2 * dx)),
             )
-    except AttributeError as e:
+    except AttributeError:
         detected_circles = cv.HoughCircles(
             img_grad_8u,
             cv.HOUGH_GRADIENT_ALT,
@@ -1031,7 +1143,7 @@ def debug_image_sample(img, out_path=None):
     """
     if len(img):
         snapshot = DebugSnapshotShow(img).image
-        if not out_path is None:
+        if out_path is not None:
             snapshot.save(out_path, format="PNG", dpi=(300, 300))
 
 
@@ -1214,11 +1326,10 @@ class ShapeDetector:
         self.find_contours()
         self.detect()
 
-        if shape not in self.shapes.keys():
-            # print(self.shapes.keys())
+        if shape not in self.shapes:
             logger.error(
                 "No valid shape detected - got %s but expected one of %s",
-                shape, self.shape.keys(),
+                shape, self.shapes.keys(),
             )
             raise exc.ShapeDetectionError(shape)
 

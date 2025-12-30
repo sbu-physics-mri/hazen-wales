@@ -22,7 +22,7 @@ repeated for each of those series:
     #. If all 4 holes in any single row are distinguishable from one another, score the image as resolved right-to-left
         at this particular hole size.
 
-To be “distinguishable” or resolved, it is not necessary that image intensity drop to zero between the holes.
+To be  distinguishable  or resolved, it is not necessary that image intensity drop to zero between the holes.
 To be distinguishable a single window and level setting can be found such that **all 4 holes in at least one row**
 are recognizable as points of brighter signal intensity than the spaces between them. Figure 9a shows the typical
 appearance of well-resolved holes.
@@ -36,7 +36,7 @@ appearance of well-resolved holes.
         should check that any user selectable image filtering is either turned off, or at least set to the low end of the
         available filter settings.
 
-        Poor eddy current compensation can cause failure. The scanner’s service engineer should check and adjust the eddy
+        Poor eddy current compensation can cause failure. The scanner s service engineer should check and adjust the eddy
         current compensation if this problem is suspected
 
 Based on the above excerpt from the ACR Guidance Manual, we just need to find one row in which all 4 dots are high
@@ -66,11 +66,12 @@ luis.santos2@nih.gov
 import os
 import sys
 import traceback
-import numpy as np
 
-from hazenlib.HazenTask import HazenTask
+import numpy as np
 from hazenlib.ACRObject import ACRObject
+from hazenlib.HazenTask import HazenTask
 from hazenlib.logger import logger
+from hazenlib.types import Measurement, Result
 from hazenlib.utils import wait_on_parallel_results
 
 
@@ -87,10 +88,15 @@ class ACRSpatialResolution(HazenTask):
                             #: value by looking at pairs of rows in data
 
     def __init__(self, **kwargs):
+        if kwargs.pop("verbose", None) is not None:
+            logger.warning(
+                "verbose is not a supported argument for %s",
+                type(self).__name__,
+            )
         super().__init__(**kwargs)
         self.ACR_obj = ACRObject(self.dcm_list)
 
-    def run(self) -> dict:
+    def run(self) -> Result:
         """Main function for performing spatial resolution measurement
         using slice 1 from the ACR phantom image set
 
@@ -103,39 +109,55 @@ class ACRSpatialResolution(HazenTask):
         dcm = self.ACR_obj.slice_stack[0]
 
         # Initialise results dictionary
-        results = self.init_result_dict()
-        results["file"] = self.img_desc(dcm)
+        results = self.init_result_dict(desc=self.ACR_obj.acquisition_type())
+        results.files = self.img_desc(dcm)
 
         try:
             detected_rows = self.get_spatially_resolved_rows(dcm)
             hole_arrays = self.get_resolved_arrays(detected_rows)
-            ul_resolution, lr_resolution, best_resolution = self.get_best_resolution(hole_arrays)
 
-            results["measurement"] = {
-                "resolution_ul": ul_resolution,
-                "resolution_lr": lr_resolution,
-                "resolution": best_resolution,
-                "resolution_units": "mm",
-                "rows": hole_arrays
-            }
+            results.add_measurement(
+                Measurement(
+                    name="SpatialResolution",
+                    type="measured",
+                    subtype="Hole Arrays",
+                    unit="mm",
+                    value=hole_arrays,
+                ),
+            )
+
+            for res, desc in zip(
+                self.get_best_resolution(hole_arrays),
+                ("Upper Left", "Lower Right", "Best"),
+            ):
+                results.add_measurement(
+                    Measurement(
+                        name="SpatialResolution",
+                        type="measured",
+                        subtype=desc,
+                        unit="mm",
+                        value=res,
+                    ),
+                )
+
         except Exception as e:
             logger.exception(
                 "Could not calculate the spatial resolution for %s"
                 " because of : %s",
-                self.img_desc(mtf_dcm),
+                self.img_desc(dcm),
                 e,
             )
             traceback.print_exc(file=sys.stdout)
 
         # only return reports if requested
         if self.report:
-            results["report_image"] = self.report_files
+            results.add_report_image(self.report_files)
 
         return results
 
     def write_report(self, dcm, img, center, roi_coords, processed_rois, width):
-        import matplotlib.pyplot as plt
         import matplotlib.patches as patches
+        import matplotlib.pyplot as plt
 
         fig, axes = plt.subplot_mosaic(
             [
@@ -360,9 +382,6 @@ class ACRSpatialResolution(HazenTask):
         logger.info(f"Center           => {cxy}")
         logger.info(f"Pixel Resolution => {dx, dy}")
         logger.info(f"ROI width        => {width}")
-
-        # Windowing step
-        blurred = self.ACR_obj.filter_with_gaussian(presentation)
 
         # Generate preprocessed ROIs
         task_args = []

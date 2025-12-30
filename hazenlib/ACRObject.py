@@ -1,24 +1,39 @@
+from __future__ import annotations
+
+# Typing imports
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import pydicom
+
 import sys
+from typing import Any
+
 import cv2
+import numpy as np
 import scipy
 import skimage
-import numpy as np
+
 from hazenlib.logger import logger
-from hazenlib.utils import determine_orientation, detect_circle, detect_centroid, debug_image_sample, expand_data_range, \
-    create_circular_kernel, get_datatype_min, get_datatype_max, is_enhanced_dicom, get_image_spacing, split_dicom, \
-    debug_plot_sample
+from hazenlib.utils import (detect_centroid, detect_circle,
+                            determine_orientation, expand_data_range,
+                            get_datatype_max, get_datatype_min,
+                            get_image_spacing, is_enhanced_dicom, split_dicom)
 
 
 class ACRObject:
-    """Base class for performing tasks on image sets of the ACR phantom. \n
+    """Base class for performing tasks on image sets of the ACR phantom.
+
     acquired following the ACR Large phantom guidelines
     """
 
-    def __init__(self, dcm_list):
-        """Initialise an ACR object instance
+    def __init__(self, dcm_list: list[pydicom.FileDataset]) -> None:
+        """Initialise an ACR object instance.
 
         Args:
-            dcm_list (list): list of pydicom.Dataset objects - DICOM files loaded
+            dcm_list (list): list of pydicom.Dataset objects
+                - DICOM files loaded
+
         """
         # First, need to determine if input DICOMs are
         # enhanced or normal, single or multi-frame
@@ -41,6 +56,79 @@ class ACRObject:
             # Perform sorting of the image slices based on phantom orientation
             self.slice_stack = self.order_phantom_slices(sorted_dcms)
         logger.info(f'Ordered slices => {[sl.InstanceNumber for sl in self.slice_stack]}')
+
+
+    def acquisition_type(self, *, strict: bool = True) -> str:
+        """Get the acquisition type (T1w, T2w, Sagittal Localiser.
+
+        Identified by the following:
+        | Acquisition        | TR   |   TE | Slice Thick (mm) | Slice Gap |
+        |--------------------+------+------+------------------+-----------|
+        | Sagittal Localiser |  200 |   20 |              10* |       N/A |
+        | T1                 |  500 |   20 |                5 |         5 |
+        | T2                 | 2000 |   80 |                5 |         5 |
+        * Older protocols use 20mm
+        """
+        try:
+            TR = self.slice_stack[0][(0x0018, 0x0080)].value        # noqa: N806
+            TE = self.slice_stack[0][(0x0018, 0x0081)].value        # noqa: N806
+        except KeyError:
+            # Assuming enhanced DICOM
+            logger.debug(self.slice_stack[0])
+            TR = (      # noqa: N806
+                self.slice_stack[0]
+                .SharedFunctionalGroupsSequence[0] [(0x0018,0x9112)][0]
+                .RepetitionTime
+            )
+            TE = (      # noqa: N806
+                self.slice_stack[0]
+                .PerFrameFunctionalGroupsSequence[0]
+                .MREchoSequence[0]
+                .EffectiveEchoTime
+            )
+
+        def is_close(value: float, target: float, rel_tol: float) -> bool:
+            return abs(value - target) / target <= rel_tol
+
+        sequence_params = {
+            "Sagittal Localiser": (200, 20),
+            "T1": (500, 20),
+            "T2": (2000, 80),
+        }
+        rel_tol = 1e-9 if strict else 1e-2
+
+        for sequence, (tr, te) in sequence_params.items():
+            if (
+                is_close(TE, te, rel_tol=rel_tol)
+                and is_close(TR, tr, rel_tol=rel_tol)
+            ):
+                msgs = []
+                if te != TE:
+                    msgs.append(
+                        f"TE ({TE}) is within tolerance of {te} +- {rel_tol}%",
+                    )
+                if tr != TR:
+                    msgs.append(
+                        f"TR ({TR}) is within tolerance of {tr} +- {rel_tol}%",
+                    )
+                if msgs:
+                    logger.warning(
+                        "%s so sequence identified as %s"
+                        " but not with an exact match.",
+                        " and ".join(msgs),
+                        sequence,
+                    )
+
+                return sequence
+
+        sequence = "Unknown"
+        logger.error(
+            "Could not match acquisition type from TE (%f) and TR (%f)"
+            " setting acquisition type to %s",
+            TE, TR, sequence,
+        )
+        return sequence
+
 
     def sort_dcms(self, dcm_list):
         """Sort a stack of DICOM images based on slice position.
@@ -174,7 +262,7 @@ class ACRObject:
         logger.info(f"Centroid (x, y) => {centre_x}, {centre_y}")
 
         logger.info(
-            "Phantom center found at (%i,%i) with radius %f",
+            "Phantom center found at (%i,%i) with radius %s",
             centre_x, centre_y, radius,
         )
         return (centre_x, centre_y), radius
@@ -362,6 +450,20 @@ class ACRObject:
         intercept = dcm.get('RescaleIntercept', 1)
         center = dcm.get('WindowCenter', None)
         width = dcm.get('WindowWidth', None)
+
+        def get_from_frame_voi_lut_sequence(prop: str) -> Any:
+            return dcm[
+                (0x5200,0x9230) # Per-Frame Functional Groups Sequence
+            ][0][
+                (0x0028,0x9132) # Frame VOI LUT Sequence
+            ][0][prop].value
+
+        if center is None:
+            center = get_from_frame_voi_lut_sequence("WindowCenter")
+
+        if width is None:
+            width = get_from_frame_voi_lut_sequence("WindowWidth")
+
         voi_lut_function = dcm.get('VOILUTFunction', 'linear').lower()
         float_data = img.copy().astype(np.float32)  # Cast to float to maintain precision
         rescaled = ACRObject.rescale_data(float_data, slope, intercept)
@@ -830,7 +932,7 @@ class ACRObject:
         try:
             non_zero_data = data[np.nonzero(data)]
             return np.percentile(non_zero_data, percentile)
-        except:
+        except (IndexError, ValueError, TypeError):
             return 0
 
     @staticmethod

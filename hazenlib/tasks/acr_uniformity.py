@@ -21,20 +21,26 @@ import sys
 import traceback
 
 import numpy as np
-from scipy.signal import convolve2d
-from matplotlib.pyplot import subplots as plt_subplots
-
-from hazenlib.HazenTask import HazenTask
 from hazenlib.ACRObject import ACRObject
-from hazenlib.utils import create_circular_roi_at, compute_radius_from_area, \
-    create_circular_mask, create_circular_mean_kernel, detect_roi_center
-from hazenlib import logger
+from hazenlib.HazenTask import HazenTask
+from hazenlib.logger import logger
+from hazenlib.types import Measurement, Result
+from hazenlib.utils import (compute_radius_from_area, create_circular_mask,
+                            create_circular_mean_kernel,
+                            create_circular_roi_at, detect_roi_center)
+from matplotlib.pyplot import subplots as plt_subplots
+from scipy.signal import convolve2d
 
 
 class ACRUniformity(HazenTask):
     """Uniformity measurement class for DICOM images of the ACR phantom."""
 
     def __init__(self, **kwargs):
+        if kwargs.pop("verbose", None) is not None:
+            logger.warning(
+                "verbose is not a supported argument for %s",
+                type(self).__name__,
+            )
         super().__init__(**kwargs)
         # Initialise ACR object
         self.ACR_obj = ACRObject(self.dcm_list)
@@ -50,7 +56,7 @@ class ACRUniformity(HazenTask):
         # Offset used when adding labels to plots. They display 10 mm to the bottom and right of the ROI
         self.label_x_offset = np.ceil(np.divide(10, self.ACR_obj.dx))
 
-    def run(self) -> dict:
+    def run(self) -> Result:
         """Main function for performing uniformity measurement using slice 7 from the ACR phantom image set.
 
         Returns:
@@ -59,12 +65,20 @@ class ACRUniformity(HazenTask):
                 to the generated images for visualisation
         """
         # Initialise results dictionary
-        results = self.init_result_dict()
-        results["file"] = self.img_desc(self.ACR_obj.slice_stack[6])
+        results = self.init_result_dict(desc=self.ACR_obj.acquisition_type())
+        results.files = self.img_desc(self.ACR_obj.slice_stack[6])
 
         try:
             result = self.get_integral_uniformity(self.ACR_obj.slice_stack[6])
-            results["measurement"] = {"integral uniformity %": round(result, 2)}
+            results.add_measurement(
+                Measurement(
+                    name="Uniformity",
+                    type="measured",
+                    subtype="Integral uniformity",
+                    unit="%",
+                    value=round(result, 2),
+                ),
+            )
         except Exception as e:
             logger.exception(
                 "Could not calculate the percent integral uniformity for %s"
@@ -76,7 +90,7 @@ class ACRUniformity(HazenTask):
 
         # only return reports if requested
         if self.report:
-            results["report_image"] = self.report_files
+            results.add_report_image(self.report_files)
 
         return results
 
