@@ -68,6 +68,18 @@ TASK_MAP = {
     "acr_all": "acr_all",
 }
 
+# List of ACR tasks (excluding acr_all)
+ACR_TASKS = [
+    "acr_geometric_accuracy",
+    "acr_ghosting",
+    "acr_low_contrast_object_detectability",
+    "acr_slice_position",
+    "acr_slice_thickness",
+    "acr_snr",
+    "acr_spatial_resolution",
+    "acr_uniformity",
+]
+
 
 def init_task(selected_task, files, report, report_dir, **kwargs):
     """Initialise object of the correct HazenTask class
@@ -270,8 +282,16 @@ def main():
         )
         result = task.run()
     elif selected_task == "relaxometry":
-        if args.calc is None or args.plate_number is None:
-            parser.error("relaxometry task requires --calc and --plate_number arguments")
+        missing_args = []
+        if args.calc is None:
+            missing_args.append("--calc")
+        if args.plate_number is None:
+            missing_args.append("--plate_number")
+        if missing_args:
+            parser.error(
+                f"relaxometry task requires the following arguments: "
+                f"{', '.join(missing_args)}"
+            )
         task = init_task(selected_task, files, report, report_dir)
         result = task.run(
             calc=args.calc,
@@ -293,11 +313,7 @@ def main():
         fns = [os.path.basename(fn) for fn in files]
         logger.info("Processing: %s", fns)
         if selected_task == "acr_all":
-            selected_tasks = [
-                task_name
-                for task_name in TASK_MAP.keys()
-                if task_name.startswith("acr") and task_name != "acr_all"
-            ]
+            selected_tasks = ACR_TASKS
         else:
             selected_tasks = [selected_task]
 
