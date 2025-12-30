@@ -20,6 +20,7 @@ from pydicom import dcmread
 # Local imports
 from hazenlib.logger import logger
 from hazenlib.types import Result
+from hazenlib.utils import scrub, REGEX_SCRUBNAME
 
 
 class HazenTask:
@@ -69,14 +70,14 @@ class HazenTask:
         self.report_path.mkdir(parents=True, exist_ok=True)
         self.report_files: Sequence[str] = []
 
-    def init_result_dict(self, desc: str = "") -> Result:
+    def init_result_dict(self, desc: str = "", files: tuple = ()) -> Result:
         """Initialise measurement results holder and input description.
 
         Returns
             d : holds measurement results and task input description.
 
         """
-        return Result(task=type(self).__name__, desc=desc)
+        return Result(task=type(self).__name__, desc=desc, files=files)
 
     def img_desc(
         self, dcm: pydicom.Dataset, properties: Sequence | None = None,
@@ -109,4 +110,12 @@ class HazenTask:
                 for field in ["SeriesDescription", "SeriesNumber"]
             ]
 
-        return "_".join(metadata).replace(" ", "_")
+        join_char = "_"
+        img_desc = join_char.join(metadata).replace(" ", join_char)
+        # Let's make sure dirty names do not contaminate the file names
+        # or any other string operations.
+        return scrub(
+            img_desc,
+            REGEX_SCRUBNAME,
+            join_char,
+        ).strip(join_char).replace(join_char * 2, join_char)

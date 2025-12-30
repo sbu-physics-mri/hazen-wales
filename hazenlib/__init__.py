@@ -3,7 +3,7 @@ Welcome to the hazen Command Line Interface
 
 The following Tasks are available:
 - ACR phantom:
-acr_all | acr_snr | acr_slice_position | acr_slice_thickness | acr_spatial_resolution | acr_uniformity | acr_ghosting | acr_geometric_accuracy | acr_low_contrast_object_detectability
+acr_snr | acr_slice_position | acr_slice_thickness | acr_spatial_resolution | acr_uniformity | acr_ghosting | acr_geometric_accuracy | acr_low_contrast_object_detectability | acr_sagittal_geometric_accuracy | acr_object_detectability
 - MagNET Test Objects:
 snr | snr_map | slice_position | slice_width | spatial_resolution | uniformity | ghosting
 - Caliber phantom:
@@ -40,10 +40,8 @@ relaxometry Task options:
 
 import importlib
 import inspect
-import json
 import logging
 import os
-import pkgutil
 import sys
 
 from docopt import docopt
@@ -74,7 +72,7 @@ single_image_tasks = [
 
 
 def init_task(selected_task, files, report, report_dir, **kwargs):
-    """Initialise object of the correct HazenTask class
+    """Initialise object of the correct HazenTask class.
 
     Args:
         selected_task (string): name of task script/module to load
@@ -85,14 +83,15 @@ def init_task(selected_task, files, report, report_dir, **kwargs):
 
     Returns:
         an object of the specified HazenTask class
+
     """
     task_module = importlib.import_module(f"hazenlib.tasks.{selected_task}")
 
     try:
         task = getattr(task_module, selected_task.capitalize())(
-            input_data=files, report=report, report_dir=report_dir, **kwargs
+            input_data=files, report=report, report_dir=report_dir, **kwargs,
         )
-    except:
+    except AttributeError as err:
         class_list = [
             cls.__name__
             for _, cls in inspect.getmembers(
@@ -102,7 +101,7 @@ def init_task(selected_task, files, report, report_dir, **kwargs):
         ]
         if len(class_list) == 1:
             task = getattr(task_module, class_list[0])(
-                input_data=files, report=report, report_dir=report_dir, **kwargs
+                input_data=files, report=report, report_dir=report_dir, **kwargs,
             )
         else:
             msg = (
@@ -110,7 +109,7 @@ def init_task(selected_task, files, report, report_dir, **kwargs):
                 " {class_list}"
             )
             logger.error(msg)
-            raise Exception(msg)
+            raise ValueError(msg) from err
 
     return task
 
@@ -139,6 +138,7 @@ def main():
     fmt = arguments["--format"] if arguments["--format"] else "json"
     result_file = arguments["--result"] if arguments["--result"] else "-"
 
+    logger.info(f"Hazen version: {__version__}")
     logger.debug("The following files were identified as valid DICOMs:")
     files = get_dicom_files(arguments["<folder>"])
     logger.debug(
@@ -191,23 +191,17 @@ def main():
         # may be enhanced, may be multi-frame
         fns = [os.path.basename(fn) for fn in files]
         logger.info("Processing: %s", fns)
-        if selected_task == "acr_all":
-            package = importlib.import_module("hazenlib.tasks")
-            selected_tasks = [
-                t
-                for _, m, _ in pkgutil.iter_modules(
-                    package.__path__, package.__name__ + ".",
-                )
-                if (t := m.split(".")[-1]).startswith("acr")
-            ]
-        else:
-            selected_tasks = [selected_task]
+        # Slice Position task, all ACR tasks except SNR
+        # may be enhanced, may be multi-frame
+        fns = [os.path.basename(fn) for fn in files]
+        logger.info(f"Processing {fns}")
+        task = init_task(selected_task, files, report, report_dir, verbose=verbose)
+        result = task.run()
 
-        for selected_task in selected_tasks:
-            task = init_task(
-                selected_task, files, report, report_dir, verbose=verbose)
-            result = task.run()
-            write_result(result, fmt=fmt, path=result_file)
+        task = init_task(
+            selected_task, files, report, report_dir, verbose=verbose)
+        result = task.run()
+        write_result(result, fmt=fmt, path=result_file)
         return
 
     write_result(result, fmt=fmt, path=result_file)

@@ -33,30 +33,18 @@ git clone https://github.com/GSTT-CSC/hazen.git
 # Go to local copy of hazen repo
 cd hazen
 
-# Create and activate a virtual environment
-# - using 'python' or 'python3' will depend on your local installation of Python
-python3 -m venv ~/hazen-venv
-source ~/hazen-venv/bin/activate
-
-# Install requirements
-pip install --upgrade pip setuptools wheel
-pip install -r requirements.txt
+# Ensure the development environment is up-to-date
+# Requires uv: https://docs.astral.sh/uv/getting-started/installation/
+uv sync
 
 # Run tests to ensure everything is working on your local machine, prior to development
-pytest tests/
-
-# After making a code change, you will need to rebuild your local hazen install
-pip install .
-# optionally, use the -e flag to install the module in editable way, to avoid having to reinstall after each change
-#    pip install -e .
-# optionally, use the -q flag for quiet installation
-#    pip install -e . -q
+uv run pytest tests/
 
 # Re-run the unit tests on the relevant code you have edited, e.g.:
-hazen snr tests/data/snr/GE
+uv run hazen snr tests/data/snr/GE
 
 # You can also run specific Tasks or scripts without installing the module by directly executing the local file, e.g.:
-python hazenlib/__init__.py snr tests/data/snr/GE
+uv run python hazenlib/__init__.py snr tests/data/snr/GE
 ```
 
 ## 3) Developer Process for Contributing
@@ -154,15 +142,16 @@ For a new release: <br>
 ## 5) Update Documentation
 
 Create rst files describing the structure of the hazen Python Package
+
 ```
 # in an active hazen virtual environment in the root of the project
 # the command below specifies that sphinx should look for scripts in the hazenlib folder
 # and output rst files into the docs/source folder
-sphinx-apidoc -o docs/source hazenlib
+uv run sphinx-apidoc -o docs/source hazenlib
 
 # next, from within the docs/ folder
 cd docs/
 # create/update the html files for the documentation
-make html  -f Makefile
+uv run make html  -f Makefile
 # opening the docs/source/index.html in a web browser allows a preview of the generated docs
 ```

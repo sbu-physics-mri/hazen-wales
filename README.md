@@ -39,6 +39,7 @@ The hazen Tasks provide the following measurements within these phantoms:
 - Uniformity
 - Ghosting
 - MR relaxometry
+- Low Contrast Object Detectability
 
 Each Task outputs numerical results to the user's terminal. Below is an output from the `hazen snr` Task performed on 
 some example MRI data:
@@ -59,7 +60,7 @@ The optional `--report` flag allows the user to generate diagrams that visualise
 
 | `hazen snr tests/data/snr/Siemens --report` | `hazen acr_ghosting tests/data/acr/Siemens --report` |
 |---------------------------------------------|------------------------------------------------------|
-| <img src="/docs/assets/snr.jpg?raw=true"> | <img src="/docs/assets/acr_ghosting.jpg?raw=true"> |
+| <img src="/docs/assets/snr.jpg?raw=true">   | <img src="/docs/assets/acr_ghosting.jpg?raw=true">   |
 
 ---
 
@@ -71,26 +72,52 @@ There are two main options for running hazen.
 
 ### 1) Python install and run (CLI)
 
-hazen can be installed with Python 3.9, 3.10, 3.11 or 3.12 versions via pip.
+It is *strongly* recommended that you use [uv](https://docs.astral.sh/uv/) to install hazen as this automatically manages the Python version, dependencies and virtual environments.
 
-It is strongly recommended to use a virtual environment, that can be made using the following commands.
+#### Installing uv
+
+See the [uv installation documentation](https://docs.astral.sh/uv/getting-started/installation/) for the most up-to-date information on how to install uv.
+
+On UNIX (macOS and Linux) systems, uv can be installed with:
 
 ```bash
-python3 -m venv hazen-venv
-source hazen-venv/bin/activate
-pip install hazen
-# Check that hazen was correctly installed and see which version it is:
-hazen --version
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-#### Updating hazen
-If you already have an old version of hazen installed, upgrade to the latest version with:
+For Windows systems, uv can be installed with:
 
-```shell
-source hazen-venv/bin/activate
-pip install --upgrade pip
-pip install --upgrade hazen
+```powershell
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
+
+#### Installing hazen
+
+To always use the most up-to-date release of hazen use:
+
+```bash
+uvx hazen
+```
+That is, replace any and all hazen commands from `hazen ...` to `uvx hazen ...` like so:
+
+```bash
+uvx hazen --help
+uvx hazen --version
+uvx hazen snr tests/data/snr/Philips
+```
+
+This will automatically check if there has been an update to hazen and download the latest version.
+If hazen has been updated really recently (i.e. within the last couple of minutes), you can force the use of the absolute latest version with:
+
+```bash
+uvx --reinstall hazen
+```
+
+If you'd like to use uv like a more traditional package manager and avoid the automatic updating, you can manually install hazen with:
+
+```bash
+uv tool install hazen
+```
+
 
 #### Running hazen via CLI
 The CLI version of hazen is designed to be pointed at single folders containing DICOM file(s). Example datasets are 
