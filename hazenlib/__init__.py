@@ -3,7 +3,9 @@ Welcome to the hazen Command Line Interface
 
 The following Tasks are available:
 - ACR phantom:
-acr_all | acr_snr | acr_slice_position | acr_slice_thickness | acr_spatial_resolution | acr_uniformity | acr_ghosting | acr_geometric_accuracy | acr_low_contrast_object_detectability
+acr_all | acr_snr | acr_slice_position | acr_slice_thickness |
+acr_spatial_resolution | acr_uniformity | acr_ghosting | acr_geometric_accuracy |
+acr_low_contrast_object_detectability
 - MagNET Test Objects:
 snr | snr_map | slice_position | slice_width | spatial_resolution | uniformity | ghosting
 - Caliber phantom:
@@ -13,7 +15,6 @@ relaxometry
 import argparse
 import importlib
 import inspect
-import json
 import logging
 import os
 import sys
@@ -87,7 +88,7 @@ def init_task(selected_task, files, report, report_dir, **kwargs):
         task = getattr(task_module, selected_task.capitalize())(
             input_data=files, report=report, report_dir=report_dir, **kwargs
         )
-    except:
+    except AttributeError:
         class_list = [
             cls.__name__
             for _, cls in inspect.getmembers(
@@ -116,7 +117,7 @@ def main():
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    
+
     parser.add_argument(
         "task",
         choices=list(TASK_MAP.keys()),
@@ -126,7 +127,7 @@ def main():
         "folder",
         help="Path to folder containing DICOM files",
     )
-    
+
     # General options available for all tasks
     parser.add_argument(
         "--report",
@@ -142,14 +143,21 @@ def main():
     parser.add_argument(
         "--verbose",
         action="store_true",
-        help="Whether to provide additional metadata about the calculation in the result (slice position and relaxometry tasks)",
+        help=(
+            "Whether to provide additional metadata about the calculation "
+            "in the result (slice position and relaxometry tasks)"
+        ),
     )
     parser.add_argument(
         "--log",
         type=str,
         default="info",
         choices=["debug", "info", "warning", "error", "critical"],
-        help='Set the level of logging based on severity. Available levels are "debug", "warning", "error", "critical", with "info" as default',
+        help=(
+            'Set the level of logging based on severity. '
+            'Available levels are "debug", "warning", "error", "critical", '
+            'with "info" as default'
+        ),
     )
     parser.add_argument(
         "--format",
@@ -169,19 +177,26 @@ def main():
         action="version",
         version=__version__,
     )
-    
+
     # Task-specific options
     parser.add_argument(
         "--measured_slice_width",
         type=float,
         default=None,
-        help="Provide a slice width to be used for SNR measurement, by default it is parsed from the DICOM (optional for acr_snr and snr)",
+        help=(
+            "Provide a slice width to be used for SNR measurement, "
+            "by default it is parsed from the DICOM "
+            "(optional for acr_snr and snr)"
+        ),
     )
     parser.add_argument(
         "--subtract",
         type=str,
         default=None,
-        help="Provide a second folder path to calculate SNR by subtraction for the ACR phantom (optional for acr_snr)",
+        help=(
+            "Provide a second folder path to calculate SNR by subtraction "
+            "for the ACR phantom (optional for acr_snr)"
+        ),
     )
     parser.add_argument(
         "--coil",
@@ -195,7 +210,10 @@ def main():
         type=str,
         default=None,
         choices=["T1", "T2"],
-        help="Choose 'T1' or 'T2' for relaxometry measurement (required for relaxometry)",
+        help=(
+            "Choose 'T1' or 'T2' for relaxometry measurement "
+            "(required for relaxometry)"
+        ),
     )
     parser.add_argument(
         "--plate_number",
@@ -204,7 +222,7 @@ def main():
         choices=[4, 5],
         help="Which plate to use for measurement: 4 or 5 (required for relaxometry)",
     )
-    
+
     args = parser.parse_args()
 
     # Set common options
@@ -230,7 +248,7 @@ def main():
 
     # Parse the task and optional arguments:
     selected_task = args.task
-    
+
     if selected_task == "snr":
         task = init_task(
             selected_task,
