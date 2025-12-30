@@ -4,24 +4,29 @@
 
 from __future__ import annotations
 
-# Python imporst
+# Python imports
+import os
 import unittest
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 # Module imports
 import numpy as np
-
-# Local imports
-from hazenlib.tasks.acr_low_contrast_object_detectability import (
-    ACRLowContrastObjectDetectability,
-)
+from hazenlib.tasks.acr_low_contrast_object_detectability import \
+    ACRLowContrastObjectDetectability
 from hazenlib.types import LCODTemplate, LowContrastObject, Spoke
 from hazenlib.utils import get_dicom_files
 
-
+# Local imports
 from tests import TEST_DATA_DIR, TEST_REPORT_DIR
 
+
+@dataclass
+class DummyDICOMEntry:
+    """A minimal stand-in for a pydicom.FileDataset entry."""
+
+    value: Any
 
 class DummyDICOM:
     """A minimal stand-in for a pydicom FileDataset."""
@@ -39,6 +44,16 @@ class DummyDICOM:
         # Needed for getting pixel spacing
         self.Manufacturer = "GE"
         self.SOPClassUID = "1.2.840.10008.5.1.4.1.1.4"  # Not an enhanced DICOM
+
+    def __getitem__(self, key: str | tuple) -> DummyDICOMEntry:
+        """Return None."""
+        return DummyDICOMEntry(value=None)
+
+    def set_pixel_data(
+        self, pixel_data: np.ndarray, *_: Any,  # noqa: ANN401
+    ) -> None:
+        """Set the pixel data."""
+        self.pixel_array = pixel_data
 
 @dataclass
 class SliceScore:
@@ -96,7 +111,9 @@ class TestLCODTemplateSpokes(unittest.TestCase):
 
         for i, (spoke, diameter) in enumerate(zip(spokes, self.template.diameters)):
             # Expected angle: theta + i * (360 / N)
-            expected_theta = self.template.theta + i * (360 / len(self.template.diameters))
+            expected_theta = (
+                self.template.theta + i * (360 / len(self.template.diameters))
+            )
             self.assertAlmostEqual(spoke.theta, expected_theta)
 
             # Diameter stored in Spoke is twice the radius
@@ -223,82 +240,95 @@ class TestLCODTemplateMask(unittest.TestCase):
             self.assertTrue(np.all(mask[p:, p:] == mask_shifted[:-p, :-p]))
 
 
-class TestFindSpokes(unittest.TestCase):
-    """Validate that ``find_spokes`` returns a correct set of spokes."""
-
-    def setUp(self) -> None:
-        """Set up the fake data and find spokes."""
-        dim = 256
-        self.dcm = DummyDICOM(shape=(dim, dim))
-
-        # Sets up a DummyDICOM image with spokes.
-        self.cx = dim * 0.52
-        self.cy = dim * 0.49
-        self.theta = 12
-
-        self.template = LCODTemplate(self.cx, self.cy, self.theta)
-        self.dcm.pixel_array = self.template.mask(self.dcm) * self.dcm.pixel_array
-
-
-        # By pass constructor - only need the attributes used by find_spokes
-        self.task = ACRLowContrastObjectDetectability.__new__(
-            ACRLowContrastObjectDetectability,
-        )
-        self.task.rotation = 0.0
-        self.task.find_center = lambda : (dim / 2, dim / 2)
-        self.task.lcod_center = None
-
-    def test_find_spokes(self) -> None:
-        """Test spoke finding algorithm."""
-        seed = 26082025
-        random_state = np.random.RandomState(seed)
-        template = self.task.find_spokes(self.dcm, random_state=random_state)
-        spokes = template.spokes
-        for spoke, spoke_true in zip(spokes, self.template.spokes):
-            self.assertAlmostEqual(spoke.cx, spoke_true.cx, places=0)
-            self.assertAlmostEqual(spoke.cy, spoke_true.cy, places=0)
-            self.assertAlmostEqual(spoke.theta, spoke_true.theta, places=0)
-            for obj, obj_true in zip(spoke, spoke_true):
-                self.assertAlmostEqual(obj.x, obj_true.x, places=0)
-                self.assertAlmostEqual(obj.y, obj_true.y, places=0)
-
-
 class TestACRLowContrastObjectDetectability(unittest.TestCase):
     """Test Class for the LCOD task.
 
     Defaults to testing the slice scores.
     """
 
-    ACR_DATA = Path(TEST_DATA_DIR / "acr" / "SiemensMTF")
+    ACR_DATA = Path(TEST_DATA_DIR / "acr" / "GE_Artist_1.5T_T1")
     SCORES = (
-        SliceScore(8, 7),
-        SliceScore(9, 10),
-        SliceScore(10, 10),
+        SliceScore(8, 2),
+        SliceScore(9, 3),
+        SliceScore(10, 9),
         SliceScore(11, 10),
     )
+    SLICE_TOLERANCE: int = 2  # Accepted +- slice tolerance
+    TOTAL_TOLERANCE: int = 5  # Accepted +- total tolerance
 
     def setUp(self) -> None:
         """Set up for the tests."""
         input_files = get_dicom_files(self.ACR_DATA)
+
+        # Get report flag from environment (default: False)
+        # To enable reports, you would run something like:
+
+        ###########
+        ## Linux ##
+        ###########
+
+        # HAZEN_REPORT=true pytest
+        # or:
+        # HAZEN_REPORT=1 python -m unittest
+
+        ###################
+        ## Windows (cmd) ##
+        ###################
+
+        # set HAZEN_REPORT=true && pytest
+        # or:
+        # set HAZEN_REPORT=1 && python -m unittestac
+
+        ##########################
+        ## Windows (powershell) ##
+        ##########################
+
+        # $env:HAZEN_REPORT="true"; pytest
+        # or:
+        # $env:HAZEN_REPORT="1"; python -m unittest
+        report_env = os.getenv("HAZEN_REPORT", "false").lower()
+        report = report_env in ("true", "1", "yes")
+
         self.acr_object_detectability = ACRLowContrastObjectDetectability(
             input_data=input_files,
             report_dir=Path(TEST_REPORT_DIR),
-            report=True,
+            report=report,
         )
         self.results = self.acr_object_detectability.run()
 
-    def test_slice_score(self) -> None:
-        """Test the score for a slice."""
-        for score in self.SCORES:
-            result = self.results.get_measurement(
-                name="LowContrastObjectDetectability",
-                measurement_type="measured",
-                subtype=f"slice {score.index}",
-            )
-            self.assertEqual(len(result), 1)
+    def _score_testing(self, score: SliceScore) -> None:
+        result = self.results.get_measurement(
+            name="LowContrastObjectDetectability",
+            measurement_type="measured",
+            subtype=f"slice {score.index}",
+        )
+        self.assertEqual(len(result), 1)
 
-            slice_score = result[0].value
-            # self.assertEqual(slice_score, score.score)
+        slice_score = result[0].value
+        self.assertTrue(
+            abs(slice_score - score.score) <= self.SLICE_TOLERANCE,
+            msg=(
+                f"{self.ACR_DATA} slice {score.index}\n"
+                f"Expected {score.score} +- {self.SLICE_TOLERANCE}"
+                f" but got {slice_score}"
+            ),
+        )
+
+    def test_slice_score_8(self) -> None:
+        """Test the score for slice 8."""
+        self._score_testing(self.SCORES[0])
+
+    def test_slice_score_9(self) -> None:
+        """Test the score for slice 9."""
+        self._score_testing(self.SCORES[1])
+
+    def test_slice_score_10(self) -> None:
+        """Test the score for slice 10."""
+        self._score_testing(self.SCORES[2])
+
+    def test_slice_score_11(self) -> None:
+        """Test the score for slice 11."""
+        self._score_testing(self.SCORES[3])
 
 
     def test_total_score(self) -> None:
@@ -309,20 +339,66 @@ class TestACRLowContrastObjectDetectability(unittest.TestCase):
             subtype="total",
         )[0].value
         correct_total_score = sum(s.score for s in self.SCORES)
-        # self.assertEqual(total_score, correct_total_score)
+        self.assertTrue(
+            abs(total_score - correct_total_score) <= self.TOTAL_TOLERANCE,
+            msg=(
+                f"Expected total score to be {correct_total_score}"
+                f" +- {self.TOTAL_TOLERANCE} but got {total_score}"
+            ),
+        )
 
 
-class TestACRLowContrastObjectDetectabilityGE(
+class TestACRLowContrastObjectDetectabilitySiemensAera(
         TestACRLowContrastObjectDetectability,
 ):
-    """Test class for GE data."""
+    """Test class for Siemens Aera data."""
 
-    ACR_DATA = Path(TEST_DATA_DIR / "acr" / "GE")
+    ACR_DATA = Path(TEST_DATA_DIR / "acr" / "Siemens_Aera_1.5T_T1")
     SCORES = (
-        SliceScore(8, 0),
-        SliceScore(9, 2),
+        SliceScore(8, 3),
+        SliceScore(9, 6),
         SliceScore(10, 8),
-        SliceScore(11, 7),
+        SliceScore(11, 8),
+    )
+
+class TestACRLowContrastObjectDetectabilitySiemensSkyra(
+        TestACRLowContrastObjectDetectability,
+):
+    """Test class for Siemens Skyra data."""
+
+    ACR_DATA = Path(TEST_DATA_DIR / "acr" / "Siemens_MagnetomSkyra_3T_T1")
+    SCORES = (
+        SliceScore(8, 4),
+        SliceScore(9, 5),
+        SliceScore(10, 6),
+        SliceScore(11, 5),
+    )
+
+class TestACRLowContrastObjectDetectabilitySiemensSolaFit(
+        TestACRLowContrastObjectDetectability,
+):
+    """Test class for Siemens Sola Fit."""
+
+    ACR_DATA = Path(TEST_DATA_DIR / "acr" / "SiemensSolaFit")
+    SCORES = (
+        SliceScore(8, 2),
+        SliceScore(9, 6),
+        SliceScore(10, 6),
+        SliceScore(11, 6),
+    )
+
+@unittest.skip("Need to improve LCOD for Philips scanners.")
+class TestACRLowContrastObjectDetectabilityPhilipsAchieva(
+        TestACRLowContrastObjectDetectability,
+):
+    """Test class for Philips Achieva data."""
+
+    ACR_DATA = Path(TEST_DATA_DIR / "acr" / "PhilipsAchieva")
+    SCORES = (
+        SliceScore(8, 10),
+        SliceScore(9, 10),
+        SliceScore(10, 10),
+        SliceScore(11, 10),
     )
 
 

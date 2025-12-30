@@ -1,3 +1,4 @@
+
 """Types used for hazenlib."""
 
 from __future__ import annotations
@@ -138,7 +139,6 @@ class Result(JsonSerializableMixin):
     task: str
     desc: str = ""
     files: str | Sequence[str] | None = None
-    desc: str = ""
 
     def __post_init__(self) -> None:
         """Initialize the measurements, report_images and metadata."""
@@ -170,7 +170,6 @@ class Result(JsonSerializableMixin):
             paths = [image_path]
         self._report_images += paths
 
-
     def get_measurement(
             self,
             name: str | None = None,
@@ -184,7 +183,7 @@ class Result(JsonSerializableMixin):
             m
             for m in self.measurements
             if (
-                    m.name == name
+                    (name is None or m.name == name)
                     and (measurement_type is None or m.type == measurement_type)
                     and (subtype is None or m.subtype == subtype)
                     and (description is None or m.description in description)
@@ -206,6 +205,14 @@ class Result(JsonSerializableMixin):
         return base
 
 
+    def __repr__(self) -> str:
+        """Wrap around the to_dict method."""
+        attrs = ", ".join(
+            f"{key}={value!r}" for key, value in self.to_dict().items()
+        )
+        return f"{self.__class__.__name__}({attrs})"
+
+
 #############################
 ### Task Specific Classes ###
 #############################
@@ -214,8 +221,6 @@ class Result(JsonSerializableMixin):
 ########
 # LCOD #
 ########
-
-
 
 @dataclass
 class LowContrastObject:
@@ -242,10 +247,10 @@ class Spoke:
     diameter: float
 
     # Distance from the center (mm)
-    dist: tuple[float] = (12.5, 25, 38.0)
+    dist: tuple[float] = (12.5, 25.0, 38.5)
 
-    # Spoke length
-    length: float = 44.0
+    # Spoke length (mm)
+    length: float = 42.0
 
     passed: bool = False
 
@@ -313,6 +318,7 @@ class Spoke:
 
         if return_coords:
             rtn.append((x_coords, y_coords))
+
         if return_object_mask:
             object_mask = np.zeros((size, len(self)), dtype=bool)
             r = np.linspace(0, self.length, size)
@@ -327,6 +333,7 @@ class Spoke:
 
         if len(rtn) == 1:
             return rtn[0]
+
         return tuple(rtn)
 
 
@@ -406,24 +413,25 @@ class LCODTemplate:
                 )
                 # Compare actual to measured area to check if object is on the
                 # grid.
-                mask_area = 2 * np.sum(is_object) * (dx * dy)
-                obj_area = np.pi * (obj.diameter / 2) ** 2
-                if warn_if_object_out_of_bounds and not np.isclose(
-                    mask_area, obj_area, rtol=1e-1, atol=dx * dy,
-                ):
-                    logger.warning(
-                        "Object %d in spoke %d is out of bounds.\n"
-                        "File: %s\n"
-                        "Object area:\t%f\nMask area:\t%f\n"
-                        "Object:\n\tCenter: (%f, %f)\n\tDiameter: %f\n"
-                        "Image:\n\tPixel size: (%f, %f)\n\tShape: (%d, %d)",
-                        oidx,
-                        sidx,
-                        dcm.filename,
-                        obj_area, mask_area,
-                        obj.x, obj.y, obj.diameter,
-                        dx, dy, *mask.shape,
-                    )
+                if warn_if_object_out_of_bounds:
+                    mask_area = 2 * np.sum(is_object) * (dx * dy)
+                    obj_area = np.pi * (obj.diameter / 2) ** 2
+                    if not np.isclose(
+                            mask_area, obj_area, rtol=1e-1, atol=dx * dy,
+                    ):
+                        logger.warning(
+                            "Object %d in spoke %d is out of bounds.\n"
+                            "File: %s\n"
+                            "Object area:\t%f\nMask area:\t%f\n"
+                            "Object:\n\tCenter: (%f, %f)\n\tDiameter: %f\n"
+                            "Image:\n\tPixel size: (%f, %f)\n\tShape: (%d, %d)",
+                            oidx,
+                            sidx,
+                            dcm.filename,
+                            obj_area, mask_area,
+                            obj.x, obj.y, obj.diameter,
+                            dx, dy, *mask.shape,
+                        )
                 match subset:
                     case "all":
                         object_considered_for_mask = True
@@ -443,6 +451,29 @@ class LCODTemplate:
                     mask |= is_object
         return mask
 
+@dataclass
+class StatsParameters:
+    """Dataclass for the stats parameters and associated p-values."""
+
+    p_vals: list[tuple] = field(default_factory=list)
+    params: list[tuple] = field(default_factory=list)
+
+    @property
+    def p_vals_all(self) -> list:
+        """All the p-values as a flat list."""
+        p_vals_all = []
+        for p in self.p_vals:
+            p_vals_all += list(p)
+        return p_vals_all
+
+    @property
+    def params_all(self) -> list:
+        """All the parameters as a flat list."""
+        params_all = []
+        for p in self.params:
+            params_all += list(p)
+        return params_all
+
 
 @dataclass(frozen=True)
 class FailedStatsModel:
@@ -457,3 +488,19 @@ class FailedStatsModel:
     def params(self) -> np.ndarray:
         """Return the p-values - all ones."""
         return np.ones(3)
+
+@dataclass
+class SpokeReportData:
+    """Container for spoke analysis data used in reporting."""
+
+    spoke_id: int
+    profile: np.ndarray
+    detrended: np.ndarray
+    trend: np.ndarray
+    object_mask: np.ndarray
+    x_coords: np.ndarray | None
+    y_coords: np.ndarray | None
+    p_vals: np.ndarray
+    params: np.ndarray
+    detected: list[bool]
+    objects: list[Any]  # Object info from template

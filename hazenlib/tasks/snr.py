@@ -286,7 +286,7 @@ class SNR(HazenTask):
     def get_roi_samples(
         self, ax, dcm: pydicom.Dataset or np.ndarray, centre_col: int, centre_row: int
     ) -> list:
-        """Determine region of interest from a pixel array
+        """Determine region of interest from a pixel array.
 
         Args:
             ax (matplotlib axes): diagram axis for visualisation with matplotlib
@@ -296,11 +296,9 @@ class SNR(HazenTask):
 
         Returns:
             list of np.ndarray: corresponding to pixel array subsets at predefined ROI
+
         """
-        if type(dcm) == np.ndarray:
-            data = dcm
-        else:
-            data = dcm.pixel_array
+        data = dcm if isinstance(dcm, np.ndarray) else dcm.pixel_array
 
         sample = [None] * 5
         # for array indexing: [row, column] format

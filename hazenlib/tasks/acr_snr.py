@@ -13,10 +13,16 @@ Created by Neil Heraghty (Adapted by Yassine Azma, yassine.azma@rmh.nhs.uk)
 method for measurement of signal-to-noise ratio in MRI. Physics in Medicine
 & Biology, 58(11), 3775.
 """
+# Typing imports
 from __future__ import annotations
 
-import contextlib
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import pydicom
+
 # Python imports
+import contextlib
 import os
 import sys
 import traceback
@@ -31,6 +37,8 @@ from hazenlib.ACRObject import ACRObject
 from hazenlib.HazenTask import HazenTask
 from hazenlib.logger import logger
 from hazenlib.types import Measurement, Result
+# Local imports
+from hazenlib.utils import dcmread
 from scipy import ndimage
 
 
@@ -124,7 +132,7 @@ class ACRSNR(HazenTask):
                 for f in os.listdir(self.subtract)
                 if os.path.isfile(os.path.join(self.subtract, f))
             ]
-            data2 = [pydicom.dcmread(dicom) for dicom in filepaths]
+            data2 = [dcmread(dicom) for dicom in filepaths]
             snr_dcm2 = ACRObject(data2).slice_stack[6]
 
             logger.debug(
@@ -262,10 +270,7 @@ class ACRSNR(HazenTask):
         Returns:
             list of np.array: subsets of the original pixel array.
         """
-        if type(dcm) == np.ndarray:
-            data = dcm
-        else:
-            data = dcm.pixel_array
+        data = dcm if isinstance(dcm, np.ndarray) else dcm.pixel_array
 
         sample = [None] * 5
         # for array indexing: [row, column] format

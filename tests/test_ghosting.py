@@ -1,13 +1,12 @@
 import unittest
 
 import numpy as np
-import pydicom
 import pytest
 import os
 import pathlib
 from tests import TEST_DATA_DIR, TEST_REPORT_DIR
 from hazenlib.tasks.ghosting import Ghosting
-from hazenlib.utils import get_dicom_files
+from hazenlib.utils import dcmread, get_dicom_files
 
 
 class TestGhosting(unittest.TestCase):
@@ -38,7 +37,7 @@ class TestGhosting(unittest.TestCase):
     GHOSTING = 0.11803264099090763
 
     def setUp(self):
-        self.dcm = pydicom.dcmread(
+        self.dcm = dcmread(
             os.path.join(TEST_DATA_DIR, "ghosting", "GHOSTING", "IM_0001.dcm")
         )
         self.ghosting = Ghosting(
@@ -140,7 +139,7 @@ class TestCOLPEGhosting(TestGhosting):
     GHOSTING = 0.015138960417776908
 
     def setUp(self):
-        self.dcm = pydicom.dcmread(
+        self.dcm = dcmread(
             os.path.join(
                 TEST_DATA_DIR,
                 "ghosting",
@@ -184,7 +183,7 @@ class TestAxialPhilipsGhosting(TestGhosting):
     GHOSTING = 0.007246960909896829
 
     def setUp(self):
-        self.dcm = pydicom.dcmread(
+        self.dcm = dcmread(
             os.path.join(
                 TEST_DATA_DIR, "ghosting", "GHOSTING", "axial_philips_ghosting.dcm"
             )

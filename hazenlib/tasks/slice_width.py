@@ -421,7 +421,6 @@ class SliceWidth(HazenTask):
 
         cos_theta_2 = np.cos(theta) ** 2
         sin_theta_2 = np.sin(theta) ** 2
-        cos_2_theta = np.cos(2 * theta)
         sin_2_theta = np.sin(2 * theta)
 
         sigma_x_2 = sigma_x**2
@@ -525,18 +524,11 @@ class SliceWidth(HazenTask):
         A = popt_single[0]
         x0 = popt_single[1]
         y0 = popt_single[2]
-        sigma_x = popt_single[3]
-        sigma_y = popt_single[4]
-        theta = popt_single[5]
         C = popt_single[6]
-
-        # print(f'results of 2d gaussian fitting: \n\tamplitude = {A_} \n\tx0 = {x0} \n\ty0 = {y0} \n\tsigma_x = {sigma_x} \n\tsigma_y = {sigma_y} \n\ttheta = {theta} \n\tC = {C} \n')
 
         # to get image coordinates need to add back on x_start and y_start
         x0_im = x0 + x_start
         y0_im = y0 + y_start
-
-        # print(f'Initial centre was ({rods[idx].x}, {rods[idx].y}). Refined centre is ({x0_im}, {y0_im})\n')
 
         return x0_im, y0_im, x0, y0
 
@@ -952,24 +944,6 @@ class SliceWidth(HazenTask):
         term3 = 2.0 * np.sin(theta)
 
         slice_width_mm["combined"]["aapm_tilt"] = (term1**0.5 + term2) / term3
-        phantom_tilt = (
-            np.arctan(
-                slice_width_mm["combined"]["aapm_tilt"]
-                / slice_width_mm["bottom"]["aapm"]
-            )
-            + (theta / 2.0)
-            - pi / 2.0
-        )
-        phantom_tilt_deg = phantom_tilt * (180.0 / pi)
-
-        phantom_tilt_check = (
-            -np.arctan(
-                slice_width_mm["combined"]["aapm_tilt"] / slice_width_mm["top"]["aapm"]
-            )
-            - (theta / 2.0)
-            + pi / 2.0
-        )
-        phantom_tilt_check_deg = phantom_tilt_check * (180.0 / pi)
 
         # AAPM method directly incorporating phantom tilt and independent of geometric linearity
         theta = (180.0 - 2.0 * 11.3) * pi / 180.0
@@ -990,25 +964,6 @@ class SliceWidth(HazenTask):
         slice_width_mm["combined"]["aapm_tilt_corrected"] = (
             term1**0.5 + term2
         ) / term3
-        phantom_tilt = (
-            np.arctan(
-                slice_width_mm["combined"]["aapm_tilt_corrected"]
-                / slice_width_mm["bottom"]["aapm_corrected"]
-            )
-            + (theta / 2.0)
-            - pi / 2.0
-        )
-        phantom_tilt_deg = phantom_tilt * (180.0 / pi)
-
-        phantom_tilt_check = (
-            -np.arctan(
-                slice_width_mm["combined"]["aapm_tilt_corrected"]
-                / slice_width_mm["top"]["aapm_corrected"]
-            )
-            - (theta / 2.0)
-            + pi / 2.0
-        )
-        phantom_tilt_check_deg = phantom_tilt_check * (180.0 / pi)
 
         # calculate linearity in mm from distances in pixels
 
@@ -1099,16 +1054,6 @@ class SliceWidth(HazenTask):
         # slice_width['top']['default']}\n" f"Slice width bottom (mm): {slice_width['bottom']['default']}\nPhantom tilt (
         # deg): {phantom_tilt_deg}\n" f"Slice width AAPM geometry corrected (mm): {slice_width['combined'][
         # 'aapm_tilt_corrected']}")
-
-        distortion_values = {
-            "vertical mm": round(vert_distortion_mm, 2),
-            "horizontal mm": round(horz_distortion_mm, 2),
-        }
-
-        linearity_values = {
-            "vertical mm": round(vertical_linearity_mm, 2),
-            "horizontal mm": round(horizontal_linearity_mm, 2),
-        }
 
         return [
             Measurement(
