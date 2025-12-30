@@ -8,45 +8,15 @@ acr_all | acr_snr | acr_slice_position | acr_slice_thickness | acr_spatial_resol
 snr | snr_map | slice_position | slice_width | spatial_resolution | uniformity | ghosting
 - Caliber phantom:
 relaxometry
-
-All tasks can be run by executing 'hazen <task> <folder>'. Optional flags are available for the Tasks; see the General
-Options section below. The 'acr_snr' and 'snr' Tasks have additional optional flags, also detailed below.
-
-Usage:
-    hazen <task> <folder> [options]
-    hazen snr <folder> [--measured_slice_width=<mm>] [--coil=<head or body>] [options]
-    hazen acr_snr <folder> [--measured_slice_width=<mm>] [--subtract=<folder2>] [options]
-    hazen relaxometry <folder> --calc=<T1> --plate_number=<4> [options]
-
-    hazen -h | --help
-    hazen --version
-
-General Options: available for all Tasks
-    --report                     Whether to generate visualisation of the measurement steps.
-    --output=<path>              Provide a folder where report images are to be saved.
-    --verbose                    Whether to provide additional metadata about the calculation in the result (slice position and relaxometry tasks)
-    --log=<level>                Set the level of logging based on severity. Available levels are "debug", "warning", "error", "critical", with "info" as default.
-    --format <fmt>               Output format for test results. Choices: json (default),csv or tsv
-    --result=<path>              Path to the results path. If "-", default, will write to stdout.
-
-acr_snr & snr Task options:
-    --measured_slice_width=<mm>  Provide a slice width to be used for SNR measurement, by default it is parsed from the DICOM (optional for acr_snr and snr)
-    --subtract=<folder2>         Provide a second folder path to calculate SNR by subtraction for the ACR phantom (optional for acr_snr)
-
-relaxometry Task options:
-    --calc=<n>                   Choose 'T1' or 'T2' for relaxometry measurement (required)
-    --plate_number=<n>           Which plate to use for measurement: 4 or 5 (required)
 """
 
+import argparse
 import importlib
 import inspect
 import json
 import logging
 import os
-import pkgutil
 import sys
-
-from docopt import docopt
 
 from hazenlib._version import __version__
 from hazenlib.formatters import write_result
@@ -71,6 +41,31 @@ single_image_tasks = [
     "slice_width",
     "snr_map",
 ]
+
+# Mapping of task names to their corresponding modules
+TASK_MAP = {
+    # ACR phantom tasks
+    "acr_geometric_accuracy": "acr_geometric_accuracy",
+    "acr_ghosting": "acr_ghosting",
+    "acr_low_contrast_object_detectability": "acr_low_contrast_object_detectability",
+    "acr_slice_position": "acr_slice_position",
+    "acr_slice_thickness": "acr_slice_thickness",
+    "acr_snr": "acr_snr",
+    "acr_spatial_resolution": "acr_spatial_resolution",
+    "acr_uniformity": "acr_uniformity",
+    # MagNET Test Objects tasks
+    "ghosting": "ghosting",
+    "slice_position": "slice_position",
+    "slice_width": "slice_width",
+    "snr": "snr",
+    "snr_map": "snr_map",
+    "spatial_resolution": "spatial_resolution",
+    "uniformity": "uniformity",
+    # Caliber phantom tasks
+    "relaxometry": "relaxometry",
+    # Special combined task
+    "acr_all": "acr_all",
+}
 
 
 def init_task(selected_task, files, report, report_dir, **kwargs):
@@ -117,7 +112,100 @@ def init_task(selected_task, files, report, report_dir, **kwargs):
 
 def main():
     """Main entrypoint to hazen"""
-    arguments = docopt(__doc__, version=__version__)
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    
+    parser.add_argument(
+        "task",
+        choices=list(TASK_MAP.keys()),
+        help="The task to run",
+    )
+    parser.add_argument(
+        "folder",
+        help="Path to folder containing DICOM files",
+    )
+    
+    # General options available for all tasks
+    parser.add_argument(
+        "--report",
+        action="store_true",
+        help="Whether to generate visualisation of the measurement steps",
+    )
+    parser.add_argument(
+        "--output",
+        type=str,
+        default=None,
+        help="Provide a folder where report images are to be saved",
+    )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Whether to provide additional metadata about the calculation in the result (slice position and relaxometry tasks)",
+    )
+    parser.add_argument(
+        "--log",
+        type=str,
+        default="info",
+        choices=["debug", "info", "warning", "error", "critical"],
+        help='Set the level of logging based on severity. Available levels are "debug", "warning", "error", "critical", with "info" as default',
+    )
+    parser.add_argument(
+        "--format",
+        type=str,
+        default="json",
+        choices=["json", "csv", "tsv"],
+        help="Output format for test results. Choices: json (default), csv or tsv",
+    )
+    parser.add_argument(
+        "--result",
+        type=str,
+        default="-",
+        help='Path to the results path. If "-", default, will write to stdout',
+    )
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=__version__,
+    )
+    
+    # Task-specific options
+    parser.add_argument(
+        "--measured_slice_width",
+        type=float,
+        default=None,
+        help="Provide a slice width to be used for SNR measurement, by default it is parsed from the DICOM (optional for acr_snr and snr)",
+    )
+    parser.add_argument(
+        "--subtract",
+        type=str,
+        default=None,
+        help="Provide a second folder path to calculate SNR by subtraction for the ACR phantom (optional for acr_snr)",
+    )
+    parser.add_argument(
+        "--coil",
+        type=str,
+        default=None,
+        choices=["head", "body"],
+        help="Coil type for SNR measurement (optional for snr)",
+    )
+    parser.add_argument(
+        "--calc",
+        type=str,
+        default=None,
+        choices=["T1", "T2"],
+        help="Choose 'T1' or 'T2' for relaxometry measurement (required for relaxometry)",
+    )
+    parser.add_argument(
+        "--plate_number",
+        type=int,
+        default=None,
+        choices=[4, 5],
+        help="Which plate to use for measurement: 4 or 5 (required for relaxometry)",
+    )
+    
+    args = parser.parse_args()
 
     # Set common options
     log_levels = {
@@ -127,57 +215,52 @@ def main():
         "warning": logging.WARNING,
         "error": logging.ERROR,
     }
-    if arguments["--log"] in log_levels.keys():
-        level = log_levels[arguments["--log"]]
-        logging.getLogger().setLevel(level)
-    else:
-        logging.getLogger().setLevel(logging.INFO)
+    level = log_levels.get(args.log, logging.INFO)
+    logging.getLogger().setLevel(level)
 
-    report = arguments["--report"]
-    report_dir = arguments["--output"] if arguments["--output"] else None
-    verbose = arguments["--verbose"]
-    fmt = arguments["--format"] if arguments["--format"] else "json"
-    result_file = arguments["--result"] if arguments["--result"] else "-"
+    report = args.report
+    report_dir = args.output
+    verbose = args.verbose
+    fmt = args.format
+    result_file = args.result
 
     logger.debug("The following files were identified as valid DICOMs:")
-    files = get_dicom_files(arguments["<folder>"])
-    logger.debug(
-        "%s task will be set off on %s images", arguments["<task>"], len(files)
-    )
+    files = get_dicom_files(args.folder)
+    logger.debug("%s task will be set off on %s images", args.task, len(files))
 
     # Parse the task and optional arguments:
-    if arguments["snr"] or arguments["<task>"] == "snr":
-        selected_task = "snr"
+    selected_task = args.task
+    
+    if selected_task == "snr":
         task = init_task(
             selected_task,
             files,
             report,
             report_dir,
-            measured_slice_width=arguments["--measured_slice_width"],
-            coil=arguments["--coil"],
+            measured_slice_width=args.measured_slice_width,
+            coil=args.coil,
         )
         result = task.run()
-    elif arguments["acr_snr"] or arguments["<task>"] == "acr_snr":
-        selected_task = "acr_snr"
+    elif selected_task == "acr_snr":
         task = init_task(
             selected_task,
             files,
             report,
             report_dir,
-            subtract=arguments["--subtract"],
-            measured_slice_width=arguments["--measured_slice_width"],
+            subtract=args.subtract,
+            measured_slice_width=args.measured_slice_width,
         )
         result = task.run()
-    elif arguments["relaxometry"] or arguments["<task>"] == "relaxometry":
-        selected_task = "relaxometry"
+    elif selected_task == "relaxometry":
+        if args.calc is None or args.plate_number is None:
+            parser.error("relaxometry task requires --calc and --plate_number arguments")
         task = init_task(selected_task, files, report, report_dir)
         result = task.run(
-            calc=arguments["--calc"],
-            plate_number=arguments["--plate_number"],
-            verbose=arguments["--verbose"],
+            calc=args.calc,
+            plate_number=args.plate_number,
+            verbose=verbose,
         )
     else:
-        selected_task = arguments["<task>"]
         if selected_task in single_image_tasks:
             # Ghosting, Uniformity, Spatial resolution, SNR map, Slice width
             # for now these are most likely not enhanced, single-frame
@@ -192,13 +275,10 @@ def main():
         fns = [os.path.basename(fn) for fn in files]
         logger.info("Processing: %s", fns)
         if selected_task == "acr_all":
-            package = importlib.import_module("hazenlib.tasks")
             selected_tasks = [
-                t
-                for _, m, _ in pkgutil.iter_modules(
-                    package.__path__, package.__name__ + ".",
-                )
-                if (t := m.split(".")[-1]).startswith("acr")
+                task_name
+                for task_name in TASK_MAP.keys()
+                if task_name.startswith("acr") and task_name != "acr_all"
             ]
         else:
             selected_tasks = [selected_task]
