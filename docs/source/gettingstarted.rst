@@ -50,8 +50,8 @@ In Terminal:
        'snr_subtraction_measured_seFoV250_2meas_slice5mm_tra_repeat_PSN_noDC_2_1': 220.73,
        'snr_subtraction_normalised_seFoV250_2meas_slice5mm_tra_repeat_PSN_noDC_2_1': 2154.69}
 
-Linux & MacOS - Using uv (recommended)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Using uv (recommended)
+^^^^^^^^^^^^^^^^^^^^^^
 For developers, hazen can be installed using `uv <https://docs.astral.sh/uv/>`_. This is the recommended method as it provides faster dependency resolution and better reproducibility.
 
 .. code-block:: bash
