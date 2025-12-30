@@ -19,13 +19,21 @@ anticipate contributions in the following main areas:
 
 ## 2) How to make and test code changes
 
-Clone and install this repo following the guidance below. This requires git, Python 3.9, pip and a venv installed and on
-accessible within your PATH. We highly recommend using a virtual environment for development and testing.
+Clone and install this repo following the guidance below. This requires git and Python 3.11+ installed and accessible 
+within your PATH. We highly recommend using [uv](https://docs.astral.sh/uv/) for development and testing.
 
 Where possible, make small granular commits (rather than singular large commits!) with descriptive messages. Please 
 separate feature enhancements and bugfixes into individual branches for easier review.
 
+### Using uv (recommended)
+
 ```bash
+# Install uv if you haven't already
+# On macOS and Linux:
+curl -LsSf https://astral.sh/uv/install.sh | sh
+# On Windows:
+# powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+
 # Clone hazen repo
 # - this will create a folder named 'hazen' in the current working directory
 git clone https://github.com/GSTT-CSC/hazen.git
@@ -33,18 +41,41 @@ git clone https://github.com/GSTT-CSC/hazen.git
 # Go to local copy of hazen repo
 cd hazen
 
-# Ensure the development environment is up-to-date
-# Requires uv: https://docs.astral.sh/uv/getting-started/installation/
-uv sync
+# Install hazen and its dependencies (including dev dependencies)
+uv sync --group dev
 
 # Run tests to ensure everything is working on your local machine, prior to development
 uv run pytest tests/
 
-# Re-run the unit tests on the relevant code you have edited, e.g.:
+# After making a code change, run tests on the relevant code you have edited, e.g.:
 uv run hazen snr tests/data/snr/GE
 
 # You can also run specific Tasks or scripts without installing the module by directly executing the local file, e.g.:
 uv run python hazenlib/__init__.py snr tests/data/snr/GE
+```
+
+### Using pip (alternative)
+
+```bash
+# Clone hazen repo
+git clone https://github.com/GSTT-CSC/hazen.git
+
+# Go to local copy of hazen repo
+cd hazen
+
+# Create and activate a virtual environment
+python3 -m venv ~/hazen-venv
+source ~/hazen-venv/bin/activate
+
+# Install hazen in editable mode with dev dependencies
+pip install --upgrade pip setuptools wheel
+pip install -e ".[dev]"
+
+# Run tests to ensure everything is working on your local machine, prior to development
+pytest tests/
+
+# After making a code change, re-run the unit tests on the relevant code you have edited, e.g.:
+hazen snr tests/data/snr/GE
 ```
 
 ## 3) Developer Process for Contributing
