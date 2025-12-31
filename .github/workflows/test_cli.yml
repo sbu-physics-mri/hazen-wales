@@ -80,11 +80,6 @@ jobs:
         run: |
           uv run hazen acr_low_contrast_object_detectability tests/data/acr/SiemensMTF --report
 
-      - name: test_acr_all
-        if: always()
-        run: |
-          uv run hazen acr_all tests/data/acr/SiemensMTF --report
-
       - name: test slice_position
         if: always()
         run: |
@@ -138,5 +133,3 @@ jobs:
           uv run hazen acr_snr tests/data/acr/Siemens --result out.json
           uv run hazen acr_snr tests/data/acr/Siemens --format csv --result out.csv
           uv run hazen acr_snr tests/data/acr/Siemens --format tsv --result out.tsv
-
-

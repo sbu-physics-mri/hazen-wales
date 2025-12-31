@@ -6,11 +6,10 @@ from __future__ import annotations
 
 # Python imports
 import csv
-import json
 import logging
 import sys
 from pathlib import Path
-from typing import Any, Literal, Mapping, Sequence, TextIO, TypeAlias
+from typing import Any, Literal, Mapping, TextIO, TypeAlias
 
 logger = logging.getLogger(__name__)
 

@@ -140,6 +140,7 @@ from hazenlib.data.relaxometry_params import (MAX_RICIAN_NOISE,
 from hazenlib.HazenTask import HazenTask
 from hazenlib.logger import logger
 from hazenlib.types import Measurement, Metadata
+from hazenlib.utils import dcmread
 from scipy.interpolate import UnivariateSpline
 from scipy.special import i0e, ive
 
@@ -217,7 +218,7 @@ class Relaxometry(HazenTask):
         if calc in ["T1", "t1"]:
             image_stack = T1ImageStack(self.dcm_list)
             try:
-                template_dcm = pydicom.dcmread(
+                template_dcm = dcmread(
                     TEMPLATE_VALUES[f"plate{plate_number}"][relax_str]["filename"]
                 )
             except KeyError:
@@ -230,7 +231,7 @@ class Relaxometry(HazenTask):
         elif calc in ["T2", "t2"]:
             image_stack = T2ImageStack(self.dcm_list)
             try:
-                template_dcm = pydicom.dcmread(
+                template_dcm = dcmread(
                     TEMPLATE_VALUES[f"plate{plate_number}"][relax_str]["filename"]
                 )
             except KeyError:
@@ -531,23 +532,8 @@ def pixel_rescale(dcm):
         si = dcm["2005100d"].value  # Scale intercept
 
         return (dcm.pixel_array - si) / ss
-    # From pydicom v3.0.0 pydicom.pixels should be used in favor
-    # of pydicom.pixel_data_handlers.util
-    # https://pydicom.github.io/pydicom/stable/release_notes/index.html#version-3-0-0
-    try:
+    else:
         return pydicom.pixels.apply_modality_lut(dcm.pixel_array, dcm)
-    except AttributeError as err:
-        logger.warning(
-            "pydicom.pixel_data_handlers.util be depreciated in favor"
-            " of pydicom.pixels in pydicom v4."
-            " Once Python 3.9 support is dropped (Oct 2025) then pydicom"
-            " v3 will be enforced. Current pydicom version %s raised %s",
-            pydicom.__version__,
-            err,
-        )
-        return pydicom.pixel_data_handlers.util.apply_modality_lut(
-            dcm.pixel_array, dcm,
-        )
 
 
 class ROITimeSeries:
@@ -837,7 +823,7 @@ class ImageStack:
         plt.title("Template")
         plt.axis("off")
 
-        ax = plt.subplot(2, 2, 2)
+        plt.subplot(2, 2, 2)
         self.plot_rois(new_fig=False)
         plt.title("Image")
 

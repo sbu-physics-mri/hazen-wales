@@ -7,12 +7,11 @@ from pathlib import Path
 
 import hazenlib
 import numpy as np
-import pydicom
 from hazenlib.tasks.relaxometry import Relaxometry
 from hazenlib.tasks.snr import SNR
 
 from hazenlib.types import Measurement, Result
-from hazenlib.utils import get_dicom_files
+from hazenlib.utils import dcmread, get_dicom_files
 
 # Local imports
 from tests import TEST_DATA_DIR
@@ -26,7 +25,7 @@ class TestCliParser(unittest.TestCase):
 
     def setUp(self):
         self.file = str(TEST_DATA_DIR / "resolution" / "philips" / "IM-0004-0002.dcm")
-        self.dcm = pydicom.dcmread(self.file)
+        self.dcm = dcmread(self.file)
 
     def test_version(self):
         pyproject_path = Path(__file__).parent.parent / "pyproject.toml"

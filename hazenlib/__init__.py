@@ -3,7 +3,7 @@ Welcome to the hazen Command Line Interface
 
 The following Tasks are available:
 - ACR phantom:
-acr_all | acr_snr | acr_slice_position | acr_slice_thickness |
+acr_snr | acr_slice_position | acr_slice_thickness |
 acr_spatial_resolution | acr_uniformity | acr_ghosting | acr_geometric_accuracy |
 acr_low_contrast_object_detectability
 - MagNET Test Objects:
@@ -49,6 +49,7 @@ TASK_MAP = {
     "acr_geometric_accuracy": "acr_geometric_accuracy",
     "acr_ghosting": "acr_ghosting",
     "acr_low_contrast_object_detectability": "acr_low_contrast_object_detectability",
+    "acr_object_detectability": "acr_object_detectability",
     "acr_slice_position": "acr_slice_position",
     "acr_slice_thickness": "acr_slice_thickness",
     "acr_snr": "acr_snr",
@@ -64,8 +65,6 @@ TASK_MAP = {
     "uniformity": "uniformity",
     # Caliber phantom tasks
     "relaxometry": "relaxometry",
-    # Special combined task
-    "acr_all": "acr_all",
 }
 
 # List of ACR tasks (excluding acr_all)
@@ -82,7 +81,7 @@ ACR_TASKS = [
 
 
 def init_task(selected_task, files, report, report_dir, **kwargs):
-    """Initialise object of the correct HazenTask class
+    """Initialise object of the correct HazenTask class.
 
     Args:
         selected_task (string): name of task script/module to load
@@ -93,14 +92,15 @@ def init_task(selected_task, files, report, report_dir, **kwargs):
 
     Returns:
         an object of the specified HazenTask class
+
     """
     task_module = importlib.import_module(f"hazenlib.tasks.{selected_task}")
 
     try:
         task = getattr(task_module, selected_task.capitalize())(
-            input_data=files, report=report, report_dir=report_dir, **kwargs
+            input_data=files, report=report, report_dir=report_dir, **kwargs,
         )
-    except AttributeError:
+    except AttributeError as err:
         class_list = [
             cls.__name__
             for _, cls in inspect.getmembers(
@@ -110,7 +110,7 @@ def init_task(selected_task, files, report, report_dir, **kwargs):
         ]
         if len(class_list) == 1:
             task = getattr(task_module, class_list[0])(
-                input_data=files, report=report, report_dir=report_dir, **kwargs
+                input_data=files, report=report, report_dir=report_dir, **kwargs,
             )
         else:
             msg = (
@@ -118,7 +118,7 @@ def init_task(selected_task, files, report, report_dir, **kwargs):
                 " {class_list}"
             )
             logger.error(msg)
-            raise Exception(msg)
+            raise ValueError(msg) from err
 
     return task
 
@@ -254,6 +254,7 @@ def main():
     fmt = args.format
     result_file = args.result
 
+    logger.info(f"Hazen version: {__version__}")
     logger.debug("The following files were identified as valid DICOMs:")
     files = get_dicom_files(args.folder)
     logger.debug("%s task will be set off on %s images", args.task, len(files))
@@ -312,16 +313,13 @@ def main():
         # may be enhanced, may be multi-frame
         fns = [os.path.basename(fn) for fn in files]
         logger.info("Processing: %s", fns)
-        if selected_task == "acr_all":
-            selected_tasks = ACR_TASKS
-        else:
-            selected_tasks = [selected_task]
+        task = init_task(selected_task, files, report, report_dir, verbose=verbose)
+        result = task.run()
 
-        for selected_task in selected_tasks:
-            task = init_task(
-                selected_task, files, report, report_dir, verbose=verbose)
-            result = task.run()
-            write_result(result, fmt=fmt, path=result_file)
+        task = init_task(
+            selected_task, files, report, report_dir, verbose=verbose)
+        result = task.run()
+        write_result(result, fmt=fmt, path=result_file)
         return
 
     write_result(result, fmt=fmt, path=result_file)
