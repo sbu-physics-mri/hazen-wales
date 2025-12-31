@@ -1,7 +1,9 @@
-# This workflow will install Python dependencies, run tests and lint with a single version of Python
-# For more information see: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
+# Release CI: Exhaustive verification before release
+# Duration target: < 30 minutes
+# Runs: full check suite, comprehensive tests, and build verification
+# Triggered: Push to main/release branches
 
-name: Release tests
+name: Release CI
 
 on:
   push:
@@ -10,7 +12,7 @@ on:
       - 'release/*'
 
 jobs:
-  test:
+  ci-release:
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -31,10 +33,14 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
 
-    - name: Test with pytest
-      run: |
-        set -Eeuxo pipefail
-        uv run pytest --junitxml=pytest.xml --cov-report=term-missing:skip-covered --cov=hazenlib tests/ | tee pytest-coverage.txt ; echo $?
+    - name: Install dependencies
+      run: uv sync --group dev
+
+    - name: Run release CI checks
+      run: make ci-release
+
+    - name: Verify package build
+      run: make build
 
     - name: Pytest coverage comment
       id: coverageComment
