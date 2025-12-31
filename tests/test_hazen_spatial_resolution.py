@@ -43,7 +43,9 @@ class TestACRSpatialResolutionSiemens(unittest.TestCase):
         assert y_ramp_pos == self.y_ramp_pos
 
     def test_get_edge_type(self):
-        edge_type = self.acr_spatial_resolution_task.get_edge_type(self.crop_image)
+        edge_type = self.acr_spatial_resolution_task.get_edge_type(
+            self.crop_image
+        )
         assert edge_type == self.edge_type
 
     def test_get_edge_loc(self):

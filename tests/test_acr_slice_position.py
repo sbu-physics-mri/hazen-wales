@@ -21,14 +21,22 @@ class TestACRSlicePositionSiemens(unittest.TestCase):
 
         self.dcm_1 = self.acr_slice_position_task.ACR_obj.slice_stack[0]
         img_1 = self.dcm_1.pixel_array
-        cxy_1, _ = self.acr_slice_position_task.ACR_obj.find_phantom_center(img_1, self.acr_slice_position_task.ACR_obj.dx, self.acr_slice_position_task.ACR_obj.dy)
-        self.slice1_x_pts, self.slice1_y_pts = self.acr_slice_position_task.find_wedges(
-            img_1, cxy_1
+        cxy_1, _ = self.acr_slice_position_task.ACR_obj.find_phantom_center(
+            img_1,
+            self.acr_slice_position_task.ACR_obj.dx,
+            self.acr_slice_position_task.ACR_obj.dy,
+        )
+        self.slice1_x_pts, self.slice1_y_pts = (
+            self.acr_slice_position_task.find_wedges(img_1, cxy_1)
         )
 
         self.dcm_11 = self.acr_slice_position_task.ACR_obj.slice_stack[-1]
         img_11 = self.dcm_11.pixel_array
-        cxy_11, _ = self.acr_slice_position_task.ACR_obj.find_phantom_center(img_11, self.acr_slice_position_task.ACR_obj.dx, self.acr_slice_position_task.ACR_obj.dy)
+        cxy_11, _ = self.acr_slice_position_task.ACR_obj.find_phantom_center(
+            img_11,
+            self.acr_slice_position_task.ACR_obj.dx,
+            self.acr_slice_position_task.ACR_obj.dy,
+        )
         (
             self.slice11_x_pts,
             self.slice11_y_pts,
@@ -56,7 +64,9 @@ class TestACRSlicePositionSiemens(unittest.TestCase):
             self.acr_slice_position_task.get_slice_position(self.dcm_11), 2
         )
 
-        print("\ntest_slice_position.py::TestSlicePosition::test_slice_position")
+        print(
+            "\ntest_slice_position.py::TestSlicePosition::test_slice_position"
+        )
         print("new_release_value:", slice_position_val_1)
         print("fixed_value:", self.dL[0])
 
@@ -91,8 +101,12 @@ class TestACRSlicePositionSiemensSolaFit(TestACRSlicePositionSiemens):
     dL = -0.2, -1.37
 
 
-class TestACRSlicePositionSiemensLargeSliceLocationDelta(TestACRSlicePositionSiemens):
-    ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "SiemensLargeSliceLocationDelta")
+class TestACRSlicePositionSiemensLargeSliceLocationDelta(
+    TestACRSlicePositionSiemens
+):
+    ACR_DATA = pathlib.Path(
+        TEST_DATA_DIR / "acr" / "SiemensLargeSliceLocationDelta"
+    )
     slice_1_x_pts = [123, 129]
     slice_11_x_pts = [123, 129]
     slice_1_y_pts = [47, 87]
@@ -117,9 +131,12 @@ class TestACRSlicePositionPhilips3TDStream2(TestACRSlicePositionSiemens):
     slice_11_y_pts = [42, 82]
     dL = 3.12, -0.78
 
+
 # triggers mispositioning of line profiles under a prior algorithm revision.
 class TestACRSlicePositionSiemensSolaFit2(TestACRSlicePositionSiemens):
-    ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "SiemensSolaFitSlicePosition")
+    ACR_DATA = pathlib.Path(
+        TEST_DATA_DIR / "acr" / "SiemensSolaFitSlicePosition"
+    )
     slice_1_x_pts = [124, 130]
     slice_11_x_pts = [124, 130]
     slice_1_y_pts = [43, 83]

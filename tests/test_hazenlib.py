@@ -24,7 +24,9 @@ class TestCliParser(unittest.TestCase):
     maxDiff = None
 
     def setUp(self):
-        self.file = str(TEST_DATA_DIR / "resolution" / "philips" / "IM-0004-0002.dcm")
+        self.file = str(
+            TEST_DATA_DIR / "resolution" / "philips" / "IM-0004-0002.dcm"
+        )
         self.dcm = dcmread(self.file)
 
     def test_version(self):
@@ -134,9 +136,10 @@ class TestCliParser(unittest.TestCase):
             )[0]
             self.assertAlmostEqual(m_r.value, m_d.value)
 
-
     def test_relaxometry(self):
-        path = str(TEST_DATA_DIR / "relaxometry" / "T1" / "site3_ge" / "plate4")
+        path = str(
+            TEST_DATA_DIR / "relaxometry" / "T1" / "site3_ge" / "plate4"
+        )
         files = get_dicom_files(path)
         relaxometry_task = Relaxometry(input_data=files, report=False)
         result = relaxometry_task.run(calc="T1", plate_number=4, verbose=False)

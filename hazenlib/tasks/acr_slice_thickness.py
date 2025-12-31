@@ -114,7 +114,7 @@ from hazenlib.ACRObject import ACRObject
 from hazenlib.HazenTask import HazenTask
 from hazenlib.logger import logger
 from hazenlib.types import Measurement, Result
-from hazenlib.utils import (get_image_orientation)
+from hazenlib.utils import get_image_orientation
 
 
 class ACRSliceThickness(HazenTask):
@@ -129,17 +129,39 @@ class ACRSliceThickness(HazenTask):
         super().__init__(**kwargs)
         # Initialise ACR object
         self.ACR_obj = ACRObject(self.dcm_list)
-        self.SAMPLING_LINE_WIDTH = 4 / self.ACR_obj.dx   # How many pixel lines to use in the sampling during ramp line profiling.
-        self.RAMP_HEIGHT = 4.5 / self.ACR_obj.dx         # I measured the ramp height to be about 5mm on PACS, but testing shows it might be slightly less??
-        self.RAMP_Y_OFFSET = 1 / self.ACR_obj.dx         # 1mm adjustment off center to grab the bottom ramp. There's technically a 2mm gap between slots.
-        self.RAMP_X_OFFSET = 10 / self.ACR_obj.dx        # This is extra padding added to the resolved width of ramp to allow the FWHM have more samples than necessary in the event we underestimated the true length of the ramp.
-        self.INSERT_ROI_HEIGHT = 10 / self.ACR_obj.dx    # Allow just enough space for slots but exclude insert boundaries
-        self.INSERT_ROI_WIDTH = 150 / self.ACR_obj.dx    # Allow enough space to capture the slots which might be R-L offsetted.
-        self.CROPPED_ROI_WIDTH = 150 / self.ACR_obj.dx   # Allow enough space to capture the slots which might be R-L offsetted.
-        self.CROPPED_ROI_HEIGHT = 20 / self.ACR_obj.dx   # Capture slots plus some surrounding areas to help visualization in report.
-        self.WINDOW_ROI_WIDTH = 10 / self.ACR_obj.dx     # Rectangle that captures enough of a population at the center to determine proper mean signal of slots.
-        self.WINDOW_ROI_HEIGHT = 5 / self.ACR_obj.dx     # Rectangle that captures enough of a population at the center to determine proper mean signal of slots.
-        self.RAMP_PROFILE_SMOOTHING = 5 / self.ACR_obj.dx# Smoothing to apply on sampled line profile to remove local minimas within the slot.
+        self.SAMPLING_LINE_WIDTH = (
+            4 / self.ACR_obj.dx
+        )  # How many pixel lines to use in the sampling during ramp line profiling.
+        self.RAMP_HEIGHT = (
+            4.5 / self.ACR_obj.dx
+        )  # I measured the ramp height to be about 5mm on PACS, but testing shows it might be slightly less??
+        self.RAMP_Y_OFFSET = (
+            1 / self.ACR_obj.dx
+        )  # 1mm adjustment off center to grab the bottom ramp. There's technically a 2mm gap between slots.
+        self.RAMP_X_OFFSET = (
+            10 / self.ACR_obj.dx
+        )  # This is extra padding added to the resolved width of ramp to allow the FWHM have more samples than necessary in the event we underestimated the true length of the ramp.
+        self.INSERT_ROI_HEIGHT = (
+            10 / self.ACR_obj.dx
+        )  # Allow just enough space for slots but exclude insert boundaries
+        self.INSERT_ROI_WIDTH = (
+            150 / self.ACR_obj.dx
+        )  # Allow enough space to capture the slots which might be R-L offsetted.
+        self.CROPPED_ROI_WIDTH = (
+            150 / self.ACR_obj.dx
+        )  # Allow enough space to capture the slots which might be R-L offsetted.
+        self.CROPPED_ROI_HEIGHT = (
+            20 / self.ACR_obj.dx
+        )  # Capture slots plus some surrounding areas to help visualization in report.
+        self.WINDOW_ROI_WIDTH = (
+            10 / self.ACR_obj.dx
+        )  # Rectangle that captures enough of a population at the center to determine proper mean signal of slots.
+        self.WINDOW_ROI_HEIGHT = (
+            5 / self.ACR_obj.dx
+        )  # Rectangle that captures enough of a population at the center to determine proper mean signal of slots.
+        self.RAMP_PROFILE_SMOOTHING = (
+            5 / self.ACR_obj.dx
+        )  # Smoothing to apply on sampled line profile to remove local minimas within the slot.
 
     def run(self) -> Result:
         """Main function for performing slice width measurement
@@ -153,7 +175,7 @@ class ACRSliceThickness(HazenTask):
         # TODO image may be 90 degrees cw or acw, could use code to identify which or could be added as extra arg
 
         ori = get_image_orientation(slice_thickness_dcm)
-        if ori == 'Sagittal':
+        if ori == "Sagittal":
             # Get the pixel array from the DICOM file
             img = slice_thickness_dcm.pixel_array
 
@@ -196,7 +218,8 @@ class ACRSliceThickness(HazenTask):
             logger.exception(
                 "Could not calculate the slice thickness for %s"
                 " because of : %s",
-                self.img_desc(slice_thickness_dcm), e,
+                self.img_desc(slice_thickness_dcm),
+                e,
             )
             traceback.print_exc(file=sys.stdout)
 
@@ -212,74 +235,74 @@ class ACRSliceThickness(HazenTask):
         (center_x, center_y) = center
         fig, axes = plt.subplot_mosaic(
             [
-                ['.', '.', '.', '.', '.', '.'],
-                ['.', 'main', 'main', 'main', 'main', '.'],
-                ['.', 'main', 'main', 'main', 'main', '.'],
-                ['.', 'main', 'main', 'main', 'main', '.'],
-                ['.', 'main', 'main', 'main', 'main', '.'],
-                ['.', 'main', 'main', 'main', 'main', '.'],
-                ['.', 'main', 'main', 'main', 'main', '.'],
-                ['.', 'main', 'main', 'main', 'main', '.'],
-                ['.', '.', '.', '.', '.', '.'],
-                ['.','insert', 'insert', 'insert', 'insert', '.'],
-                ['.','insert', 'insert', 'insert', 'insert', '.'],
-                ['.','top', 'top', 'top', 'top', '.'],
-                ['.','top', 'top', 'top', 'top', '.'],
-                ['.','bottom', 'bottom', 'bottom', 'bottom', '.'],
-                ['.','bottom', 'bottom', 'bottom', 'bottom', '.'],
+                [".", ".", ".", ".", ".", "."],
+                [".", "main", "main", "main", "main", "."],
+                [".", "main", "main", "main", "main", "."],
+                [".", "main", "main", "main", "main", "."],
+                [".", "main", "main", "main", "main", "."],
+                [".", "main", "main", "main", "main", "."],
+                [".", "main", "main", "main", "main", "."],
+                [".", "main", "main", "main", "main", "."],
+                [".", ".", ".", ".", ".", "."],
+                [".", "insert", "insert", "insert", "insert", "."],
+                [".", "insert", "insert", "insert", "insert", "."],
+                [".", "top", "top", "top", "top", "."],
+                [".", "top", "top", "top", "top", "."],
+                [".", "bottom", "bottom", "bottom", "bottom", "."],
+                [".", "bottom", "bottom", "bottom", "bottom", "."],
             ],
             layout="constrained",
-            per_subplot_kw={
-                'main': {
-                    'xbound': (0, 750),
-                    'ybound': (0, 500)
-                }
-            }
+            per_subplot_kw={"main": {"xbound": (0, 750), "ybound": (0, 500)}},
         )
         fig.set_size_inches(8, 8)
-        #fig.tight_layout(pad=4)
+        # fig.tight_layout(pad=4)
 
         # Centroid
-        axes['main'].imshow(results['img'], cmap='viridis')
-        axes['main'].scatter(center_x, center_y, c="red")
-        axes['main'].axis("off")
-        axes['main'].set_title("Window Leveled + Centroid Location")
+        axes["main"].imshow(results["img"], cmap="viridis")
+        axes["main"].scatter(center_x, center_y, c="red")
+        axes["main"].axis("off")
+        axes["main"].set_title("Window Leveled + Centroid Location")
 
         # Centroid
-        axes['insert'].imshow(results['rois']['insert'], cmap='viridis')
-        axes['insert'].axis("off")
-        axes['insert'].set_title("Insert")
+        axes["insert"].imshow(results["rois"]["insert"], cmap="viridis")
+        axes["insert"].axis("off")
+        axes["insert"].set_title("Insert")
 
         # Top Ramp
-        top_center = results['ramps']['top']['center']
-        top_width = results['ramps']['top']['width']
+        top_center = results["ramps"]["top"]["center"]
+        top_width = results["ramps"]["top"]["width"]
         top_half_width = top_width / 2
-        axes['top'].imshow(results['rois']['top'], cmap='viridis')
-        axes['top'].scatter(*top_center, c="blue")
-        axes['top'].plot(
+        axes["top"].imshow(results["rois"]["top"], cmap="viridis")
+        axes["top"].scatter(*top_center, c="blue")
+        axes["top"].plot(
             [top_center[0] - top_half_width, top_center[0] + top_half_width],
             [top_center[1], top_center[1]],
-            "b-"
+            "b-",
         )
-        axes['top'].axis("off")
-        axes['top'].set_title("Top Ramp")
+        axes["top"].axis("off")
+        axes["top"].set_title("Top Ramp")
 
         # Bottom Ramp
-        bottom_center = results['ramps']['bottom']['center']
-        bottom_width = results['ramps']['bottom']['width']
+        bottom_center = results["ramps"]["bottom"]["center"]
+        bottom_width = results["ramps"]["bottom"]["width"]
         bottom_half_width = bottom_width / 2
-        axes['bottom'].imshow(results['rois']['bottom'], cmap='viridis')
-        axes['bottom'].scatter(*bottom_center, c="red")
-        axes['bottom'].plot(
-            [bottom_center[0] - bottom_half_width, bottom_center[0] + bottom_half_width],
+        axes["bottom"].imshow(results["rois"]["bottom"], cmap="viridis")
+        axes["bottom"].scatter(*bottom_center, c="red")
+        axes["bottom"].plot(
+            [
+                bottom_center[0] - bottom_half_width,
+                bottom_center[0] + bottom_half_width,
+            ],
             [bottom_center[1], bottom_center[1]],
-            "r-"
+            "r-",
         )
-        axes['bottom'].axis("off")
-        axes['bottom'].set_title("Bottom Ramp")
+        axes["bottom"].axis("off")
+        axes["bottom"].set_title("Bottom Ramp")
 
         img_path = os.path.realpath(
-            os.path.join(self.report_path, f"{self.img_desc(dcm)}_slice_thickness.png")
+            os.path.join(
+                self.report_path, f"{self.img_desc(dcm)}_slice_thickness.png"
+            )
         )
         fig.savefig(img_path)
         self.report_files.append(img_path)
@@ -312,37 +335,54 @@ class ACRSliceThickness(HazenTask):
         """
         # Create a crop window of the general insert region. This includes portions of the bordering bright pixels
         # with ample space to ensure capture of the insert regardless of centroid errors.
-        interest_region = self.ACR_obj.crop_image(img, centre[0],
-                                                centre[1],
-                                                self.CROPPED_ROI_WIDTH,
-                                                self.CROPPED_ROI_HEIGHT)
+        interest_region = self.ACR_obj.crop_image(
+            img,
+            centre[0],
+            centre[1],
+            self.CROPPED_ROI_WIDTH,
+            self.CROPPED_ROI_HEIGHT,
+        )
         # Grab a crop of a rectangle around the centroid.
         # This is meant to ensure we get the correct half level in an approximation of ACR guidelines.
-        window_region = self.ACR_obj.crop_image(img, centre[0],
-                                                centre[1],
-                                                self.WINDOW_ROI_WIDTH,
-                                                self.WINDOW_ROI_HEIGHT)
+        window_region = self.ACR_obj.crop_image(
+            img,
+            centre[0],
+            centre[1],
+            self.WINDOW_ROI_WIDTH,
+            self.WINDOW_ROI_HEIGHT,
+        )
 
         level, width = self.ACR_obj.compute_center_and_width(window_region)
         half_level = level / 2
 
         # Generate leveled version of the general ROI. This is effectively a binarization step. It is very important
         # of a step since it simplifies centering improvements and edge/peak detection.
-        leveled_interest_region = self.ACR_obj.apply_window_center_width(interest_region, half_level, 0)
+        leveled_interest_region = self.ACR_obj.apply_window_center_width(
+            interest_region, half_level, 0
+        )
 
         # Find out the relative center of the Insert ROI with respect to the general region of interest that includes
         # the bordering bright pixels.
         # Basically, we do a line profile to determine the true center of the slot region.
         # This helps with correcting any errors or biases in centering introduced by the centroid detection.
-        center_y = int(self.find_insert_region_center_y(self.ACR_obj.invert_image(leveled_interest_region)))
+        center_y = int(
+            self.find_insert_region_center_y(
+                self.ACR_obj.invert_image(leveled_interest_region)
+            )
+        )
         center_x = int(np.ceil(leveled_interest_region.shape[1] / 2))
-        logger.info(f'Relative Center of Insert ROI is => ({center_x}, {center_y})')
+        logger.info(
+            f"Relative Center of Insert ROI is => ({center_x}, {center_y})"
+        )
 
         # The grand finale, crop a perfect insert rectangle that contains the slots
-        insert_region = self.ACR_obj.crop_image(leveled_interest_region, center_x,
-                                                int(center_y),
-                                                self.INSERT_ROI_WIDTH,
-                                                self.INSERT_ROI_HEIGHT)
+        insert_region = self.ACR_obj.crop_image(
+            leveled_interest_region,
+            center_x,
+            int(center_y),
+            self.INSERT_ROI_WIDTH,
+            self.INSERT_ROI_HEIGHT,
+        )
         return leveled_interest_region, insert_region
 
     def find_insert_region_center_y(self, insert_region):
@@ -353,19 +393,21 @@ class ACRSliceThickness(HazenTask):
                 insert_region,
                 (-1, 0),
                 (insert_region.shape[0], 0),
-                mode="constant"
+                mode="constant",
             )
             x_diff = np.diff(profile)
             abs_x_diff_profile = np.absolute(x_diff)
 
             peaks, _ = self.ACR_obj.find_n_highest_peaks(abs_x_diff_profile, 5)
             y_center = (peaks[0] + peaks[-1]) // 2
-            logger.info(f'Peaks: {peaks}')
-            logger.info(f'Calculated Center: {y_center}')
+            logger.info(f"Peaks: {peaks}")
+            logger.info(f"Calculated Center: {y_center}")
             return y_center
         except Exception as w:
             logger.warning(w)
-            logger.warning('Defaulting to {} as insert y center!'.format(default_y_center))
+            logger.warning(
+                "Defaulting to {} as insert y center!".format(default_y_center)
+            )
 
         return default_y_center
 
@@ -383,12 +425,21 @@ class ACRSliceThickness(HazenTask):
         top_x = 0
         top_y = abs(center_y - self.RAMP_HEIGHT + self.RAMP_Y_OFFSET)
         top_width = insert.shape[1]
-        top_roi_sample = self.ACR_obj.crop_image(insert, top_x, top_y, top_width, self.RAMP_HEIGHT, mode=None)
+        top_roi_sample = self.ACR_obj.crop_image(
+            insert, top_x, top_y, top_width, self.RAMP_HEIGHT, mode=None
+        )
 
         bottom_x = 0
         bottom_y = abs(center_y + self.RAMP_Y_OFFSET)
         bottom_width = insert.shape[1]
-        bottom_roi_sample = self.ACR_obj.crop_image(insert, bottom_x, bottom_y, bottom_width, self.RAMP_HEIGHT, mode=None)
+        bottom_roi_sample = self.ACR_obj.crop_image(
+            insert,
+            bottom_x,
+            bottom_y,
+            bottom_width,
+            self.RAMP_HEIGHT,
+            mode=None,
+        )
         return top_roi_sample, bottom_roi_sample
 
     def find_ramp_max_width(self, ramp, y):
@@ -415,15 +466,21 @@ class ACRSliceThickness(HazenTask):
             (y, -1),
             (y, ramp.shape[1] + 1),
             mode="constant",
-            linewidth=int(1/self.ACR_obj.dx)
+            linewidth=int(1 / self.ACR_obj.dx),
         ).flatten()
         abs_diff_x_profile = np.abs(np.diff(xray))
-        smoothed_x_profile = scipy.ndimage.gaussian_filter1d(abs_diff_x_profile, self.RAMP_PROFILE_SMOOTHING)
+        smoothed_x_profile = scipy.ndimage.gaussian_filter1d(
+            abs_diff_x_profile, self.RAMP_PROFILE_SMOOTHING
+        )
 
         xpeaks = self.ACR_obj.find_n_highest_peaks(smoothed_x_profile, 4)
         x_offset = int(xpeaks[0][0] - self.RAMP_X_OFFSET)
         width = int(xpeaks[0][1] + self.RAMP_X_OFFSET) - x_offset
-        logger.info('Ramp width was calculated to be {} pixels max starting at offset {}!'.format(width, x_offset))
+        logger.info(
+            "Ramp width was calculated to be {} pixels max starting at offset {}!".format(
+                width, x_offset
+            )
+        )
         return x_offset, width
 
     def find_ramp_center_width(self, ramp):
@@ -463,7 +520,7 @@ class ACRSliceThickness(HazenTask):
 
         cx, fwhm = self.ACR_obj.calculate_FWHM(profile)
         cx += offset
-        logger.info(f'CX: {cx} FWHM: {fwhm}')
+        logger.info(f"CX: {cx} FWHM: {fwhm}")
 
         return (cx, y_mid), float(fwhm)
 
@@ -485,32 +542,36 @@ class ACRSliceThickness(HazenTask):
         """
         general_roi, insert_roi = self.find_insert(img, centre)
 
-        top_roi_leveled, bottom_roi_leveled = self.find_ramp_regions(insert_roi)
+        top_roi_leveled, bottom_roi_leveled = self.find_ramp_regions(
+            insert_roi
+        )
 
         top_c, top_width = self.find_ramp_center_width(top_roi_leveled)
 
-        bottom_c, bottom_width = self.find_ramp_center_width(bottom_roi_leveled)
+        bottom_c, bottom_width = self.find_ramp_center_width(
+            bottom_roi_leveled
+        )
 
         return {
-            'rois': {
-                'insert': general_roi,
-                'top': top_roi_leveled,
-                'bottom': bottom_roi_leveled
+            "rois": {
+                "insert": general_roi,
+                "top": top_roi_leveled,
+                "bottom": bottom_roi_leveled,
             },
-            'ramps': {
-                'top': {
-                    'center': top_c,
-                    'width': top_width,
+            "ramps": {
+                "top": {
+                    "center": top_c,
+                    "width": top_width,
                 },
-                'bottom': {
-                    'center': bottom_c,
-                    'width': bottom_width,
-                }
-            }
+                "bottom": {
+                    "center": bottom_c,
+                    "width": bottom_width,
+                },
+            },
         }
 
     def compute_thickness(self, top_width, bottom_width):
-        """ Given the top ramp's width and the bottom ramp's width, compute the slice thickness in units of mm.
+        """Given the top ramp's width and the bottom ramp's width, compute the slice thickness in units of mm.
 
         Formula
         _______
@@ -549,19 +610,21 @@ class ACRSliceThickness(HazenTask):
                 }
         """
         img, rescaled, presentation = self.ACR_obj.get_presentation_pixels(dcm)
-        cxy, _ = self.ACR_obj.find_phantom_center(rescaled, self.ACR_obj.dx, self.ACR_obj.dy)
+        cxy, _ = self.ACR_obj.find_phantom_center(
+            rescaled, self.ACR_obj.dx, self.ACR_obj.dy
+        )
 
         ramps = self.find_ramps(rescaled, cxy)
 
         # Per the ACR formula. Slice thickness = 0.2 x (top x bottom)/(top + bottom)
-        top_width = ramps['ramps']['top']['width']
-        bottom_width = ramps['ramps']['bottom']['width']
+        top_width = ramps["ramps"]["top"]["width"]
+        bottom_width = ramps["ramps"]["bottom"]["width"]
         thickness = self.compute_thickness(top_width, bottom_width)
 
         results = {
             **ramps,
-            'thickness': thickness,
-            'img': rescaled,
+            "thickness": thickness,
+            "img": rescaled,
         }
 
         if self.report:

@@ -17,20 +17,34 @@ class TestLegacySlicePositionSiemens(unittest.TestCase):
 
     def setUp(self):
         input_files = get_dicom_files(self.ACR_DATA)
-        self.acr_slice_position_task = LegacySlicePosition(input_data=input_files)
+        self.acr_slice_position_task = LegacySlicePosition(
+            input_data=input_files
+        )
 
         self.dcm_1 = self.acr_slice_position_task.ACR_obj.slice_stack[0]
         img_1 = self.dcm_1.pixel_array
-        cxy_1, _ = self.acr_slice_position_task.ACR_obj.find_phantom_center(img_1, self.acr_slice_position_task.ACR_obj.dx, self.acr_slice_position_task.ACR_obj.dy)
-        mask_1 = self.acr_slice_position_task.ACR_obj.get_mask_image(img_1, cxy_1)
-        self.slice1_x_pts, self.slice1_y_pts = self.acr_slice_position_task.find_wedges(
-            img_1, mask_1
+        cxy_1, _ = self.acr_slice_position_task.ACR_obj.find_phantom_center(
+            img_1,
+            self.acr_slice_position_task.ACR_obj.dx,
+            self.acr_slice_position_task.ACR_obj.dy,
+        )
+        mask_1 = self.acr_slice_position_task.ACR_obj.get_mask_image(
+            img_1, cxy_1
+        )
+        self.slice1_x_pts, self.slice1_y_pts = (
+            self.acr_slice_position_task.find_wedges(img_1, mask_1)
         )
 
         self.dcm_11 = self.acr_slice_position_task.ACR_obj.slice_stack[-1]
         img_11 = self.dcm_11.pixel_array
-        cxy_11, _ = self.acr_slice_position_task.ACR_obj.find_phantom_center(img_11, self.acr_slice_position_task.ACR_obj.dx, self.acr_slice_position_task.ACR_obj.dy)
-        mask_11 = self.acr_slice_position_task.ACR_obj.get_mask_image(img_11, cxy_11)
+        cxy_11, _ = self.acr_slice_position_task.ACR_obj.find_phantom_center(
+            img_11,
+            self.acr_slice_position_task.ACR_obj.dx,
+            self.acr_slice_position_task.ACR_obj.dy,
+        )
+        mask_11 = self.acr_slice_position_task.ACR_obj.get_mask_image(
+            img_11, cxy_11
+        )
         (
             self.slice11_x_pts,
             self.slice11_y_pts,
@@ -58,7 +72,9 @@ class TestLegacySlicePositionSiemens(unittest.TestCase):
             self.acr_slice_position_task.get_slice_position(self.dcm_11), 2
         )
 
-        print("\ntest_slice_position.py::TestSlicePosition::test_slice_position")
+        print(
+            "\ntest_slice_position.py::TestSlicePosition::test_slice_position"
+        )
         print("new_release_value:", slice_position_val_1)
         print("fixed_value:", self.dL[0])
 

@@ -87,4 +87,3 @@ class TestACRUniformityPhilipsAchieva(unittest.TestCase):
 class TestACRUniformityGE(TestACRUniformitySiemens):
     ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "GE")
     piu = 83.78
-

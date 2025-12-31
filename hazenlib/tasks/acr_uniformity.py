@@ -25,9 +25,13 @@ from hazenlib.ACRObject import ACRObject
 from hazenlib.HazenTask import HazenTask
 from hazenlib.logger import logger
 from hazenlib.types import Measurement, Result
-from hazenlib.utils import (compute_radius_from_area, create_circular_mask,
-                            create_circular_mean_kernel,
-                            create_circular_roi_at, detect_roi_center)
+from hazenlib.utils import (
+    compute_radius_from_area,
+    create_circular_mask,
+    create_circular_mean_kernel,
+    create_circular_roi_at,
+    detect_roi_center,
+)
 from matplotlib.pyplot import subplots as plt_subplots
 from scipy.signal import convolve2d
 
@@ -50,7 +54,9 @@ class ACRUniformity(HazenTask):
         self.r_small = compute_radius_from_area(1, self.ACR_obj.dx)
         # Kernel we can use to convolve on input array to obtain an ROI mean
         self.r_small_kernel = create_circular_mean_kernel(self.r_small)
-        logger.info(f'Generated 2D circular kernel for target => \n{self.r_small_kernel}')
+        logger.info(
+            f"Generated 2D circular kernel for target => \n{self.r_small_kernel}"
+        )
         # Required pixel radius to produce ~200cm2 ROI - 1cm to ensure small rois live fully within large ROI
         self.r_large_filter = self.r_large - self.r_small
         # Offset used when adding labels to plots. They display 10 mm to the bottom and right of the ROI
@@ -111,9 +117,7 @@ class ACRUniformity(HazenTask):
         axes[0].set_title("Centroid Location")
 
         axes[1].imshow(img)
-        axes[1].scatter(
-            [y_max, y_min], [x_max, x_min], c="red", marker="x"
-        )
+        axes[1].scatter([y_max, y_min], [x_max, x_min], c="red", marker="x")
         axes[1].plot(
             self.r_small * np.cos(theta) + y_max,
             self.r_small * np.sin(theta) + x_max,
@@ -231,17 +235,27 @@ class ACRUniformity(HazenTask):
         large_roi[mask] = 0
         # Convolve the large ROI with our kernel.
         # See https://docs.opencv.org/3.0-beta/doc/py_tutorials/py_imgproc/py_morphological_ops/py_morphological_ops.html
-        mean_large_roi = convolve2d(large_roi, self.r_small_kernel, mode='same')
+        mean_large_roi = convolve2d(
+            large_roi, self.r_small_kernel, mode="same"
+        )
         # We want to bias the valid centers to be fully within the large ROI.
         # Per the ACR example, it looks like it should be biased by one radius (or two radii in our case due to implementation).
-        valid_search_mask = mask if search_space_mask is None else search_space_mask
-        mean_large_roi = np.ma.masked_array(mean_large_roi, mask=valid_search_mask, fill_value=0)
+        valid_search_mask = (
+            mask if search_space_mask is None else search_space_mask
+        )
+        mean_large_roi = np.ma.masked_array(
+            mean_large_roi, mask=valid_search_mask, fill_value=0
+        )
         # Find mean (which is already averaged) and x and y coordinates of that point in the averaged data.
         # Do this for both the minimum and maximum
         min_mean = mean_large_roi.min()
-        x_min, y_min = detect_roi_center(mean_large_roi, mean_large_roi.argmin())
+        x_min, y_min = detect_roi_center(
+            mean_large_roi, mean_large_roi.argmin()
+        )
         max_mean = mean_large_roi.max()
-        x_max, y_max = detect_roi_center(mean_large_roi, mean_large_roi.argmax())
+        x_max, y_max = detect_roi_center(
+            mean_large_roi, mean_large_roi.argmax()
+        )
         return x_min, y_min, min_mean, x_max, y_max, max_mean
 
     def get_integral_uniformity(self, dcm):
@@ -262,23 +276,38 @@ class ACRUniformity(HazenTask):
         (center_x, center_y), _ = self.ACR_obj.find_phantom_center(
             img, self.ACR_obj.dx, self.ACR_obj.dy
         )
-        logger.info(f'Adjusted centroid to ({center_x}, {center_y})')
+        logger.info(f"Adjusted centroid to ({center_x}, {center_y})")
 
-        logger.info('Getting large ROI in image...')
-        large_roi = create_circular_roi_at(img, self.r_large, center_x, center_y)
-        large_roi_valid_space = create_circular_mask(img, self.r_large_filter, center_x, center_y)
+        logger.info("Getting large ROI in image...")
+        large_roi = create_circular_roi_at(
+            img, self.r_large, center_x, center_y
+        )
+        large_roi_valid_space = create_circular_mask(
+            img, self.r_large_filter, center_x, center_y
+        )
 
-        logger.info('Getting the min and max mean ROIs in image...')
-        x_min, y_min, min_value, x_max, y_max, max_value = self.get_mean_roi_values(large_roi, ~large_roi_valid_space)
-        logger.info(f'Mean Min ROI => ({x_min}, {y_min}) = {min_value}')
-        logger.info(f'Mean Max ROI => ({x_max}, {y_max}) = {max_value}')
+        logger.info("Getting the min and max mean ROIs in image...")
+        x_min, y_min, min_value, x_max, y_max, max_value = (
+            self.get_mean_roi_values(large_roi, ~large_roi_valid_space)
+        )
+        logger.info(f"Mean Min ROI => ({x_min}, {y_min}) = {min_value}")
+        logger.info(f"Mean Max ROI => ({x_max}, {y_max}) = {max_value}")
 
         # Uniformity calculation
         piu = self.calculate_uniformity(min_value, max_value)
-        logger.info(f'PIU[{piu}] = 100 * (1 - ({max_value} - {min_value}) / ({max_value} + {min_value}))')
+        logger.info(
+            f"PIU[{piu}] = 100 * (1 - ({max_value} - {min_value}) / ({max_value} + {min_value}))"
+        )
 
         if self.report:
-            logger.info('Writing report ... ')
-            self.write_report(img, (center_x, center_y), (x_min, y_min, min_value), (x_max, y_max, max_value), piu, dcm)
+            logger.info("Writing report ... ")
+            self.write_report(
+                img,
+                (center_x, center_y),
+                (x_min, y_min, min_value),
+                (x_max, y_max, max_value),
+                piu,
+                dcm,
+            )
 
         return piu

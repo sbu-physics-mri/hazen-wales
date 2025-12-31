@@ -132,7 +132,6 @@ TASK_REGISTRY = {
         single_image=False,
         phantom=PhantomType.ACR,
     ),
-
 }
 
 
@@ -154,7 +153,9 @@ def init_task(selected_task, files, report, report_dir, **kwargs):
         meta = TASK_REGISTRY[selected_task]
     except KeyError:
         msg = f"Unknown task: {selected_task}"
-        logger.error("%s. Supported tasks are:\n%s", "\n\t".join(TASK_REGISTRY))
+        logger.error(
+            "%s. Supported tasks are:\n%s", "\n\t".join(TASK_REGISTRY)
+        )
         raise ValueError(msg)
 
     # Import module
@@ -215,7 +216,7 @@ def get_parser() -> argparse.ArgumentParser:
         default="info",
         choices=["debug", "info", "warning", "error", "critical"],
         help=(
-            'Set the level of logging based on severity. '
+            "Set the level of logging based on severity. "
             'Available levels are "debug", "warning", "error", "critical", '
             'with "info" as default'
         ),
@@ -379,7 +380,8 @@ def main():
         result = task.run()
 
         task = init_task(
-            selected_task, files, report, report_dir, verbose=verbose)
+            selected_task, files, report, report_dir, verbose=verbose
+        )
         result = task.run()
         write_result(result, fmt=fmt, path=result_file)
         return

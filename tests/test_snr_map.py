@@ -15,7 +15,9 @@ logger = logging.getLogger(__name__)
 
 
 class TestSnrMap(unittest.TestCase):
-    siemens_1 = [os.path.join(TEST_DATA_DIR, "snr", "Siemens", "tra_250_2meas_1.IMA")]
+    siemens_1 = [
+        os.path.join(TEST_DATA_DIR, "snr", "Siemens", "tra_250_2meas_1.IMA")
+    ]
 
     ROI_CORNERS_TEST = [
         np.array([114, 121]),
@@ -33,13 +35,18 @@ class TestSnrMap(unittest.TestCase):
         self.snr_map_task = SNRMap(input_data=self.siemens_1, report=True)
         self.results = self.snr_map_task.run()
         self.original, self.smoothed, self.noise = self.snr_map_task.smooth(
-            dcm=self.snr_map_task.single_dcm, kernel=self.snr_map_task.kernel_size
+            dcm=self.snr_map_task.single_dcm,
+            kernel=self.snr_map_task.kernel_size,
         )
-        self.image_centre, self.roi_corners = self.snr_map_task.get_rois(self.smoothed)
+        self.image_centre, self.roi_corners = self.snr_map_task.get_rois(
+            self.smoothed
+        )
         self.snr = self.snr_map_task.calc_snr(
             self.original, self.noise, self.roi_corners
         )
-        self.snr_map = self.snr_map_task.calc_snr_map(self.original, self.noise)
+        self.snr_map = self.snr_map_task.calc_snr_map(
+            self.original, self.noise
+        )
         self.detailed_fig = self.snr_map_task.plot_detailed(
             self.original,
             self.smoothed,
@@ -57,14 +64,18 @@ class TestSnrMap(unittest.TestCase):
         np.testing.assert_allclose(
             192.88188017908504,
             self.results.get_measurement(
-                name="SNR", measurement_type="measured", subtype="smoothing",
+                name="SNR",
+                measurement_type="measured",
+                subtype="smoothing",
             )[0].value,
             2,
         )
 
     def test_smooth(self):
         np.testing.assert_allclose(self.original.cumsum().sum(), 1484467722691)
-        np.testing.assert_allclose(self.smoothed.cumsum().sum(), 1484468146211.5635)
+        np.testing.assert_allclose(
+            self.smoothed.cumsum().sum(), 1484468146211.5635
+        )
         np.testing.assert_allclose(abs(self.noise).sum(), 2147755.9753086423)
 
     def test_get_rois(self):

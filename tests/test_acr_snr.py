@@ -18,7 +18,8 @@ class TestACRSNRGE(unittest.TestCase):
         ge_files = get_dicom_files(ACR_DATA_GE)
 
         self.acr_snr_task = ACRSNR(
-            input_data=ge_files, report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR)
+            input_data=ge_files,
+            report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR),
         )
 
         self.snr_dcm = self.acr_snr_task.ACR_obj.slice_stack[6]
@@ -52,15 +53,17 @@ class TestACRSNRSiemens(TestACRSNRGE):
         self.snr_dcm = self.acr_snr_task.ACR_obj.slice_stack[6]
         self.snr_dcm2 = ACRObject(
             [
-                dcmread(
-                    os.path.join(TEST_DATA_DIR, "acr", "Siemens2", f"{i}")
+                dcmread(os.path.join(TEST_DATA_DIR, "acr", "Siemens2", f"{i}"))
+                for i in os.listdir(
+                    os.path.join(TEST_DATA_DIR, "acr", "Siemens2")
                 )
-                for i in os.listdir(os.path.join(TEST_DATA_DIR, "acr", "Siemens2"))
             ]
         ).slice_stack[6]
 
     def test_snr_by_subtraction(self):
-        snr, _ = self.acr_snr_task.snr_by_subtraction(self.snr_dcm, self.snr_dcm2)
+        snr, _ = self.acr_snr_task.snr_by_subtraction(
+            self.snr_dcm, self.snr_dcm2
+        )
         rounded_snr = round(snr, 2)
 
         print(
