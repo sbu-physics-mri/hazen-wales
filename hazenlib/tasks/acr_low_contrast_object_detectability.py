@@ -393,7 +393,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
         theta_tol: float = 3 * np.pi / 180,
     ) -> LCODTemplate:
         """Improve the template with a non-linear optimiser."""
-        dcm = self.ACR_obj.slice_stack[-1]
+        dcm = self.ACR_obj.slice_stack[current_slice]
 
         selected_spokes = [
             spoke for idx, spoke in enumerate(template.spokes) if idx in spokes
