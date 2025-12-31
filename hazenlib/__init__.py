@@ -22,62 +22,118 @@ import sys
 from hazenlib._version import __version__
 from hazenlib.formatters import write_result
 from hazenlib.logger import logger
+from hazenlib.types import PhantomType, TaskMetadata
 from hazenlib.utils import get_dicom_files
 
-"""Hazen is designed to measure the same parameters from multiple images.
-    While some tasks require a set of multiple images (within the same folder),
-    such as slice position, SNR and all ACR tasks,
-    the majority of the calculations are performed on a single image at a time,
-    and bulk processing all images in the input folder with the same task.
 
-    In Sep 2023 a design decision was made to pass the minimum number of files
-    to the task.run() functions.
-    Below is a list of the single image tasks where the task.run() will be called
-    on each image in the folder, while other tasks are being passed ALL image files.
-"""
-single_image_tasks = [
-    "ghosting",
-    "uniformity",
-    "spatial_resolution",
-    "slice_width",
-    "snr_map",
-]
+TASK_REGISTRY = {
+    # MagNET #
+    "snr": TaskMetadata(
+        module_name="snr",
+        class_name="SNR",
+        single_image=True,
+        phantom=PhantomType.MAGNET,
+    ),
+    "ghosting": TaskMetadata(
+        module_name="ghosting",
+        class_name="Ghosting",
+        single_image=True,
+        phantom=PhantomType.MAGNET,
+    ),
+    "uniformity": TaskMetadata(
+        module_name="uniformity",
+        class_name="Uniformity",
+        single_image=True,
+        phantom=PhantomType.MAGNET,
+    ),
+    "spatial_resolution": TaskMetadata(
+        module_name="spatial_resolution",
+        class_name="SpatialResolution",
+        single_image=True,
+        phantom=PhantomType.MAGNET,
+    ),
+    "slice_width": TaskMetadata(
+        module_name="slice_width",
+        class_name="SliceWidth",
+        single_image=True,
+        phantom=PhantomType.MAGNET,
+    ),
+    "slice_position": TaskMetadata(
+        module_name="slice_position",
+        class_name="SlicePosition",
+        single_image=True,
+        phantom=PhantomType.MAGNET,
+    ),
+    "snr_map": TaskMetadata(
+        module_name="snr_map",
+        class_name="SNRMap",
+        single_image=True,
+        phantom=PhantomType.MAGNET,
+    ),
+    # ACR #
+    "acr_geometric_accuracy": TaskMetadata(
+        module_name="acr_geometric_accuracy",
+        class_name="ACRGeometricAccuracy",
+        single_image=False,
+        phantom=PhantomType.ACR,
+    ),
+    "acr_ghosting": TaskMetadata(
+        module_name="acr_ghosting",
+        class_name="ACRGhosting",
+        single_image=False,
+        phantom=PhantomType.ACR,
+    ),
+    "acr_low_contrast_object_detectability": TaskMetadata(
+        module_name="acr_low_contrast_object_detectability",
+        class_name="ACRLowContrastObjectDetectability",
+        single_image=False,
+        phantom=PhantomType.ACR,
+    ),
+    "acr_object_detectability": TaskMetadata(
+        module_name="acr_object_detectability",
+        class_name="ACRObjectDetectability",
+        single_image=False,
+        phantom=PhantomType.ACR,
+    ),
+    "acr_slice_position": TaskMetadata(
+        module_name="acr_slice_position",
+        class_name="ACRSlicePosition",
+        single_image=False,
+        phantom=PhantomType.ACR,
+    ),
+    "acr_slice_thickness": TaskMetadata(
+        module_name="acr_slice_thickness",
+        class_name="ACRSliceThickness",
+        single_image=False,
+        phantom=PhantomType.ACR,
+    ),
+    "acr_snr": TaskMetadata(
+        module_name="acr_snr",
+        class_name="ACRSNR",
+        single_image=False,
+        phantom=PhantomType.ACR,
+    ),
+    "acr_spatial_resolution": TaskMetadata(
+        module_name="acr_spatial_resolution",
+        class_name="ACRSpatialResolution",
+        single_image=False,
+        phantom=PhantomType.ACR,
+    ),
+    "acr_uniformity": TaskMetadata(
+        module_name="acr_uniformity",
+        class_name="ACRUniformity",
+        single_image=False,
+        phantom=PhantomType.ACR,
+    ),
+    # Caliber
+    "relaxometry": TaskMetadata(
+        module_name="relaxometry",
+        class_name="Relaxometry",
+        single_image=False,
+        phantom=PhantomType.ACR,
+    ),
 
-# Mapping of task names to their corresponding modules
-TASK_MAP = {
-    # ACR phantom tasks
-    "acr_geometric_accuracy": "acr_geometric_accuracy",
-    "acr_ghosting": "acr_ghosting",
-    "acr_low_contrast_object_detectability": "acr_low_contrast_object_detectability",
-    "acr_object_detectability": "acr_object_detectability",
-    "acr_slice_position": "acr_slice_position",
-    "acr_slice_thickness": "acr_slice_thickness",
-    "acr_snr": "acr_snr",
-    "acr_spatial_resolution": "acr_spatial_resolution",
-    "acr_uniformity": "acr_uniformity",
-    # MagNET Test Objects tasks
-    "ghosting": "ghosting",
-    "slice_position": "slice_position",
-    "slice_width": "slice_width",
-    "snr": "snr",
-    "snr_map": "snr_map",
-    "spatial_resolution": "spatial_resolution",
-    "uniformity": "uniformity",
-    # Caliber phantom tasks
-    "relaxometry": "relaxometry",
 }
-
-# List of ACR tasks (excluding acr_all)
-ACR_TASKS = [
-    "acr_geometric_accuracy",
-    "acr_ghosting",
-    "acr_low_contrast_object_detectability",
-    "acr_slice_position",
-    "acr_slice_thickness",
-    "acr_snr",
-    "acr_spatial_resolution",
-    "acr_uniformity",
-]
 
 
 def init_task(selected_task, files, report, report_dir, **kwargs):
@@ -94,37 +150,30 @@ def init_task(selected_task, files, report, report_dir, **kwargs):
         an object of the specified HazenTask class
 
     """
-    task_module = importlib.import_module(f"hazenlib.tasks.{selected_task}")
-
     try:
-        task = getattr(task_module, selected_task.capitalize())(
-            input_data=files, report=report, report_dir=report_dir, **kwargs,
-        )
+        meta = TASK_REGISTRY[selected_task]
+    except KeyError:
+        msg = f"Unknown task: {selected_task}"
+        logger.error("%s. Supported tasks are:\n%s", "\n\t".join(TASK_REGISTRY))
+        raise ValueError(msg)
+
+    # Import module
+    task_module = importlib.import_module(f"hazenlib.tasks.{meta.module_name}")
+
+    # Get explicit class
+    try:
+        task_class = getattr(task_module, meta.class_name)
     except AttributeError as err:
-        class_list = [
-            cls.__name__
-            for _, cls in inspect.getmembers(
-                sys.modules[task_module.__name__],
-                lambda x: inspect.isclass(x) and (x.__module__ == task_module.__name__),
-            )
-        ]
-        if len(class_list) == 1:
-            task = getattr(task_module, class_list[0])(
-                input_data=files, report=report, report_dir=report_dir, **kwargs,
-            )
-        else:
-            msg = (
-                f"Task {task_module} has multiple class definitions:"
-                " {class_list}"
-            )
-            logger.error(msg)
-            raise ValueError(msg) from err
+        raise ImportError(
+            f"Module {meta.module_name} has no class '{meta.class_name}'"
+        ) from err
 
-    return task
+    return task_class(
+        input_data=files, report=report, report_dir=report_dir, **kwargs
+    )
 
 
-def main():
-    """Main entrypoint to hazen"""
+def get_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -132,7 +181,7 @@ def main():
 
     parser.add_argument(
         "task",
-        choices=list(TASK_MAP.keys()),
+        choices=list(TASK_REGISTRY.keys()),
         help="The task to run",
     )
     parser.add_argument(
@@ -234,8 +283,16 @@ def main():
         choices=[4, 5],
         help="Which plate to use for measurement: 4 or 5 (required for relaxometry)",
     )
+    return parser
 
+
+def main():
+    """Main entrypoint to hazen"""
+    parser = get_parser()
     args = parser.parse_args()
+    single_image_tasks = [
+        task for task in TASK_REGISTRY.values() if task.single_image
+    ]
 
     # Set common options
     log_levels = {
@@ -260,7 +317,7 @@ def main():
     logger.debug("%s task will be set off on %s images", args.task, len(files))
 
     # Parse the task and optional arguments:
-    selected_task = args.task
+    selected_task = args.task.lower()
 
     if selected_task == "snr":
         task = init_task(
@@ -303,17 +360,22 @@ def main():
         if selected_task in single_image_tasks:
             # Ghosting, Uniformity, Spatial resolution, SNR map, Slice width
             # for now these are most likely not enhanced, single-frame
-            for file in files:
-                task = init_task(selected_task, [file], report, report_dir)
+            for f in files:
+                task = init_task(selected_task, [f], report, report_dir)
                 result = task.run()
-                result_string = result.to_json()
-                print(result_string)
+                write_result(result, fmt=fmt, path=result_file)
             return
         # Slice Position task, all ACR tasks except SNR
         # may be enhanced, may be multi-frame
         fns = [os.path.basename(fn) for fn in files]
         logger.info("Processing: %s", fns)
-        task = init_task(selected_task, files, report, report_dir, verbose=verbose)
+        task = init_task(
+            selected_task,
+            files,
+            report,
+            report_dir,
+            verbose=verbose,
+        )
         result = task.run()
 
         task = init_task(
