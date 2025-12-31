@@ -49,7 +49,7 @@ class LegacySliceThickness(HazenTask):
         # TODO image may be 90 degrees cw or acw, could use code to identify which or could be added as extra arg
 
         ori = get_image_orientation(slice_thickness_dcm)
-        if ori == 'Sagittal':
+        if ori == "Sagittal":
             # Get the pixel array from the DICOM file
             img = slice_thickness_dcm.pixel_array
 
@@ -98,7 +98,10 @@ class LegacySliceThickness(HazenTask):
         # Line profiles around the central row
         invest_x = [
             skimage.measure.profile_line(
-                img, (centre[1] + k, 1), (centre[1] + k, img.shape[1]), mode="constant"
+                img,
+                (centre[1] + k, 1),
+                (centre[1] + k, img.shape[1]),
+                mode="constant",
             )
             for k in range(investigate_region)
         ]
@@ -120,7 +123,9 @@ class LegacySliceThickness(HazenTask):
         width = np.max(width_pts) - np.min(width_pts)
 
         # take rough estimate of x points for later line profiles
-        x = np.round([np.min(width_pts) + 0.2 * width, np.max(width_pts) - 0.2 * width])
+        x = np.round(
+            [np.min(width_pts) + 0.2 * width, np.max(width_pts) - 0.2 * width]
+        )
 
         # Y
         c = skimage.measure.profile_line(
@@ -136,7 +141,9 @@ class LegacySliceThickness(HazenTask):
         y_locs = centre[1] - 2 * investigate_region + 1 + y_peaks
         height = np.max(y_locs) - np.min(y_locs)
 
-        y = np.round([np.max(y_locs) - 0.25 * height, np.min(y_locs) + 0.25 * height])
+        y = np.round(
+            [np.max(y_locs) - 0.25 * height, np.min(y_locs) + 0.25 * height]
+        )
 
         return x, y
 
@@ -188,8 +195,9 @@ class LegacySliceThickness(HazenTask):
 
             return x_true
 
-        FWHM_pts = simple_interp(half_max_crossing_indices[0], data), simple_interp(
-            half_max_crossing_indices[-1], data
+        FWHM_pts = (
+            simple_interp(half_max_crossing_indices[0], data),
+            simple_interp(half_max_crossing_indices[-1], data),
         )
         return FWHM_pts
 
@@ -203,16 +211,20 @@ class LegacySliceThickness(HazenTask):
         Returns:
             float: measured slice thickness.
         """
-        #img = dcm.pixel_array
+        # img = dcm.pixel_array
         img, rescaled, presentation = self.ACR_obj.get_presentation_pixels(dcm)
-        cxy, _ = self.ACR_obj.find_phantom_center(rescaled, self.ACR_obj.dx, self.ACR_obj.dy)
+        cxy, _ = self.ACR_obj.find_phantom_center(
+            rescaled, self.ACR_obj.dx, self.ACR_obj.dy
+        )
         blurred = self.ACR_obj.filter_with_gaussian(rescaled, 1)
         x_pts, y_pts = self.find_ramps(blurred, cxy)
 
         interp_factor = 1 / 5
         interp_factor_dx = interp_factor * self.ACR_obj.dx
         sample = np.arange(1, x_pts[1] - x_pts[0] + 2)
-        new_sample = np.arange(1, x_pts[1] - x_pts[0] + interp_factor, interp_factor)
+        new_sample = np.arange(
+            1, x_pts[1] - x_pts[0] + interp_factor, interp_factor
+        )
         offsets = np.arange(-3, 4)
         ramp_length = np.zeros((2, 7))
 
@@ -237,7 +249,8 @@ class LegacySliceThickness(HazenTask):
             ]
 
             interp_lines = [
-                scipy.interpolate.interp1d(sample, line)(new_sample) for line in lines
+                scipy.interpolate.interp1d(sample, line)(new_sample)
+                for line in lines
             ]
             fwhm = [self.FWHM(interp_line) for interp_line in interp_lines]
             ramp_length[0, i] = interp_factor_dx * np.diff(fwhm[0])
@@ -247,7 +260,11 @@ class LegacySliceThickness(HazenTask):
             fwhm_store.append(fwhm)
 
         with np.errstate(divide="ignore", invalid="ignore"):
-            dz = 0.2 * (np.prod(ramp_length, axis=0)) / np.sum(ramp_length, axis=0)
+            dz = (
+                0.2
+                * (np.prod(ramp_length, axis=0))
+                / np.sum(ramp_length, axis=0)
+            )
 
         dz = dz[~np.isnan(dz)]
         # TODO check this - if it's taking the value closest to the DICOM slice thickness this is potentially not accurate?
@@ -275,10 +292,14 @@ class LegacySliceThickness(HazenTask):
 
             axes[1].imshow(img)
             axes[1].plot(
-                [x_pts[0], x_pts[1]], offsets[z_ind] + [y_pts[0], y_pts[0]], "b-"
+                [x_pts[0], x_pts[1]],
+                offsets[z_ind] + [y_pts[0], y_pts[0]],
+                "b-",
             )
             axes[1].plot(
-                [x_pts[0], x_pts[1]], offsets[z_ind] + [y_pts[1], y_pts[1]], "r-"
+                [x_pts[0], x_pts[1]],
+                offsets[z_ind] + [y_pts[1], y_pts[1]],
+                "r-",
             )
             axes[1].axis("off")
             axes[1].set_title("Line Profiles")
@@ -293,7 +314,11 @@ class LegacySliceThickness(HazenTask):
                 label=f"FWHM={np.round(ramp_length[1][z_ind], 2)}mm",
             )
             axes[2].axhline(
-                0.5 * y_extent, linestyle="dashdot", color="k", xmin=xmin, xmax=xmax
+                0.5 * y_extent,
+                linestyle="dashdot",
+                color="k",
+                xmin=xmin,
+                xmax=xmax,
             )
             axes[2].axvline(
                 max_loc, linestyle="dashdot", color="k", ymin=0, ymax=10 / 11
@@ -321,7 +346,11 @@ class LegacySliceThickness(HazenTask):
                 label=f"FWHM={np.round(ramp_length[0][z_ind], 2)}mm",
             )
             axes[3].axhline(
-                0.5 * y_extent, xmin=xmin, xmax=xmax, linestyle="dashdot", color="k"
+                0.5 * y_extent,
+                xmin=xmin,
+                xmax=xmax,
+                linestyle="dashdot",
+                color="k",
             )
             axes[3].axvline(
                 max_loc, ymin=0, ymax=10 / 11, linestyle="dashdot", color="k"
@@ -336,7 +365,8 @@ class LegacySliceThickness(HazenTask):
 
             img_path = os.path.realpath(
                 os.path.join(
-                    self.report_path, f"{self.img_desc(dcm)}_slice_thickness.png"
+                    self.report_path,
+                    f"{self.img_desc(dcm)}_slice_thickness.png",
                 )
             )
             fig.savefig(img_path)

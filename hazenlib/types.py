@@ -1,4 +1,3 @@
-
 """Types used for hazenlib."""
 
 from __future__ import annotations
@@ -9,10 +8,13 @@ from typing import TYPE_CHECKING
 from hazenlib.logger import logger
 
 if TYPE_CHECKING:
+    from typing import Iterator
+
     import pydicom
     from numpy.typing import NDArray
 
 # Python imports
+from enum import Enum
 import functools
 import json
 from collections.abc import Sequence
@@ -25,8 +27,10 @@ import scipy as sp
 
 # Local imports
 from hazenlib.constants import MEASUREMENT_NAMES, MEASUREMENT_TYPES
-from hazenlib.exceptions import (InvalidMeasurementNameError,
-                                 InvalidMeasurementTypeError)
+from hazenlib.exceptions import (
+    InvalidMeasurementNameError,
+    InvalidMeasurementTypeError,
+)
 from hazenlib.utils import get_pixel_size
 
 #########################################
@@ -35,9 +39,32 @@ from hazenlib.utils import get_pixel_size
 
 P_HazenTask = ParamSpec("P_HazenTask")
 
+#############################
+# Task Description Metadata #
+#############################
+
+
+class PhantomType(Enum):
+    """Supported phantom types for QA tasks"""
+
+    ACR = "ACR"
+    MAGNET = "MagNET"
+    CALIBER = "Caliber"
+
+
+@dataclass
+class TaskMetadata:
+    module_name: str
+    class_name: str
+    single_image: bool = False
+    phantom: PhantomType | None = None
+    requires_args: list[str] | None = None
+
+
 ################
 # Base Classes #
 ################
+
 
 class JsonSerializableMixin:
     """Mix-in that supplies a shallow dict and json representation."""
@@ -64,7 +91,7 @@ class JsonSerializableMixin:
         indent: int | None = 2,
         sort_keys: bool = False,
         ensure_ascii: bool = True,
-        **extra_kwargs: Any,    # noqa: ANN401
+        **extra_kwargs: Any,  # noqa: ANN401
     ) -> str:
         """Serialize JSON with common formatting options.
 
@@ -92,9 +119,11 @@ class JsonSerializableMixin:
             **extra_kwargs,
         )
 
+
 ####################################################
 # The canonical result that every task must return #
 ####################################################
+
 
 @dataclass(frozen=True, slots=True)
 class Measurement(JsonSerializableMixin):
@@ -114,6 +143,7 @@ class Measurement(JsonSerializableMixin):
 
         if self.type not in get_args(MEASUREMENT_TYPES):
             raise InvalidMeasurementTypeError(self.type)
+
 
 @dataclass(slots=True)
 class Metadata(JsonSerializableMixin):
@@ -156,41 +186,40 @@ class Result(JsonSerializableMixin):
         """Tuple of report image locations."""
         return tuple(str(p) for p in self._report_images)
 
-
     def add_measurement(self, measurement: Measurement) -> None:
         """Add a measurement to the results."""
         self._measurements.append(measurement)
 
-
     def add_report_image(self, image_path: str | Sequence[str]) -> None:
         """Add a report image location to the report_images."""
-        if isinstance(image_path, Sequence) and not isinstance(image_path, str):
+        if isinstance(image_path, Sequence) and not isinstance(
+            image_path, str
+        ):
             paths = image_path
         else:
             paths = [image_path]
         self._report_images += paths
 
     def get_measurement(
-            self,
-            name: str | None = None,
-            measurement_type: str | None = None,
-            subtype: str | None = None,
-            description: str | None = None,
-            unit: str | None = None,
+        self,
+        name: str | None = None,
+        measurement_type: str | None = None,
+        subtype: str | None = None,
+        description: str | None = None,
+        unit: str | None = None,
     ) -> list[Measurement]:
         """Get the measurement(s) that match fields."""
         return [
             m
             for m in self.measurements
             if (
-                    (name is None or m.name == name)
-                    and (measurement_type is None or m.type == measurement_type)
-                    and (subtype is None or m.subtype == subtype)
-                    and (description is None or m.description in description)
-                    and (unit is None or m.unit == unit)
+                (name is None or m.name == name)
+                and (measurement_type is None or m.type == measurement_type)
+                and (subtype is None or m.subtype == subtype)
+                and (description is None or m.description in description)
+                and (unit is None or m.unit == unit)
             )
         ]
-
 
     def to_dict(self) -> dict[str, Any]:
         """Return dict."""
@@ -200,10 +229,9 @@ class Result(JsonSerializableMixin):
         # Add properties to dict.
         base["measurements"] = [m.to_dict() for m in self.measurements]
         base["report_images"] = list(self.report_images)
-        base["metadata"]  = self.metadata.to_dict()
+        base["metadata"] = self.metadata.to_dict()
 
         return base
-
 
     def __repr__(self) -> str:
         """Wrap around the to_dict method."""
@@ -221,6 +249,7 @@ class Result(JsonSerializableMixin):
 ########
 # LCOD #
 ########
+
 
 @dataclass
 class LowContrastObject:
@@ -242,12 +271,12 @@ class Spoke:
 
     cx: float
     cy: float
-    theta: float        # Degrees
+    theta: float  # Degrees
 
     diameter: float
 
     # Distance from the center (mm)
-    dist: tuple[float] = (12.5, 25.0, 38.5)
+    dist: tuple[float, float, float] = (12.5, 25.0, 38.5)
 
     # Spoke length (mm)
     length: float = 42.0
@@ -272,12 +301,11 @@ class Spoke:
             for d in self.dist
         )
 
-
     def __len__(self) -> int:
         """Objects within the spoke."""
         return len(self.objects)
 
-    def __iter__(self) -> LowContrastObject:
+    def __iter__(self) -> Iterator[LowContrastObject]:
         """Iterate over the low contrast objects."""
         return iter(self.objects)
 
@@ -285,7 +313,7 @@ class Spoke:
         self,
         dcm: pydicom.FileDataset,
         size: int = 128,
-        offset: tuple[float] = (0.0, 0.0),
+        offset: tuple[float, float] = (0.0, 0.0),
         *,
         return_object_mask: bool = False,
         return_coords: bool = False,
@@ -294,38 +322,40 @@ class Spoke:
         px_x, px_y = get_pixel_size(dcm)
         if px_x != px_y:
             msg = "Only square pixels are supported"
-            logger.critcal("%s but got (%f, %f)", msg, px_x, px_y)
+            logger.critical("%s but got (%f, %f)", msg, px_x, px_y)
             raise ValueError(msg)
         r_coords = np.linspace(
-            0, self.length / px_x, size, endpoint=False,
+            0,
+            self.length / px_x,
+            size,
+            endpoint=False,
         )
         theta_coords = np.zeros_like(r_coords) + self.theta
 
-        x_coords = (
-            (self.cx + offset[1]) / px_x
-            + r_coords * np.sin(np.deg2rad(theta_coords))
+        x_coords = (self.cx + offset[1]) / px_x + r_coords * np.sin(
+            np.deg2rad(theta_coords)
         )
-        y_coords = (
-            (self.cy + offset[0]) / px_y
-            - r_coords * np.cos(np.deg2rad(theta_coords))
+        y_coords = (self.cy + offset[0]) / px_y - r_coords * np.cos(
+            np.deg2rad(theta_coords)
         )
 
         profile = sp.ndimage.map_coordinates(
-            dcm.pixel_array, [y_coords.ravel(), x_coords.ravel()], order=1,
+            dcm.pixel_array,
+            [y_coords.ravel(), x_coords.ravel()],
+            order=1,
         )
 
         rtn = [profile]
 
         if return_coords:
-            rtn.append((x_coords, y_coords))
+            rtn.append(np.array((x_coords, y_coords)))
 
         if return_object_mask:
             object_mask = np.zeros((size, len(self)), dtype=bool)
             r = np.linspace(0, self.length, size)
             for i, obj in enumerate(self):
                 obj_r_pos = np.sqrt(
-                    (obj.x - self.cx) ** 2
-                    + (obj.y - self.cy) ** 2,
+                    (obj.x - self.cx) ** 2 + (obj.y - self.cy) ** 2,
                 )
                 object_mask[:, i] = np.abs(r - obj_r_pos) <= obj.diameter / 4
 
@@ -350,16 +380,38 @@ class LCODTemplate:
 
     # Diameters of each low contrast object (mm)
     # Starting with the largest spoke and moving clockwise.
-    diameters: tuple[float]  = (
-        7.00, 6.39, 5.78, 5.17, 4.55, 3.94, 3.33, 2.72, 2.11, 1.50,
+    diameters: tuple[
+        float,
+        float,
+        float,
+        float,
+        float,
+        float,
+        float,
+        float,
+        float,
+        float,
+    ] = (
+        7.00,
+        6.39,
+        5.78,
+        5.17,
+        4.55,
+        3.94,
+        3.33,
+        2.72,
+        2.11,
+        1.50,
     )
-
 
     @functools.cached_property
     def spokes(self) -> Sequence[Spoke]:
         """Position of each of the low contrast object spokes."""
         return self._calc_spokes(
-            self.cx, self.cy, self.theta, self.diameters,
+            self.cx,
+            self.cy,
+            self.theta,
+            self.diameters,
         )
 
     @staticmethod
@@ -369,7 +421,7 @@ class LCODTemplate:
         cy: float,
         theta: float,
         diameters: tuple[float],
-    ) -> tuple[Spoke]:
+    ) -> tuple[Spoke, ...]:
         # Spokes start with the largest and decrease in size clockwise
         return tuple(
             Spoke(cx, cy, theta + i * (360 / len(diameters)), d)
@@ -379,7 +431,7 @@ class LCODTemplate:
     def mask(
         self,
         dcm: pydicom.FileDataset,
-        offset: tuple[float] = (0.0, 0.0),
+        offset: tuple[float, float] = (0.0, 0.0),
         *,
         subset: str = "all",
         warn_if_object_out_of_bounds: bool = False,
@@ -399,7 +451,9 @@ class LCODTemplate:
             *[
                 np.linspace(v0, v0 + s * dv, num=s, endpoint=False)
                 for v0, dv, s in zip(
-                    offset, (dy, dx), mask.shape,
+                    offset,
+                    (dy, dx),
+                    mask.shape,
                 )
             ],
             indexing="ij",
@@ -407,17 +461,19 @@ class LCODTemplate:
 
         for sidx, spoke in enumerate(self.spokes):
             for oidx, obj in enumerate(spoke):
-                is_object = (
-                    (y_grid - obj.y) ** 2 + (x_grid - obj.x) ** 2
-                    <= (obj.diameter / 2) ** 2
-                )
+                is_object = (y_grid - obj.y) ** 2 + (x_grid - obj.x) ** 2 <= (
+                    obj.diameter / 2
+                ) ** 2
                 # Compare actual to measured area to check if object is on the
                 # grid.
                 if warn_if_object_out_of_bounds:
                     mask_area = 2 * np.sum(is_object) * (dx * dy)
                     obj_area = np.pi * (obj.diameter / 2) ** 2
                     if not np.isclose(
-                            mask_area, obj_area, rtol=1e-1, atol=dx * dy,
+                        mask_area,
+                        obj_area,
+                        rtol=1e-1,
+                        atol=dx * dy,
                     ):
                         logger.warning(
                             "Object %d in spoke %d is out of bounds.\n"
@@ -428,9 +484,14 @@ class LCODTemplate:
                             oidx,
                             sidx,
                             dcm.filename,
-                            obj_area, mask_area,
-                            obj.x, obj.y, obj.diameter,
-                            dx, dy, *mask.shape,
+                            obj_area,
+                            mask_area,
+                            obj.x,
+                            obj.y,
+                            obj.diameter,
+                            dx,
+                            dy,
+                            *mask.shape,
                         )
                 match subset:
                     case "all":
@@ -450,6 +511,7 @@ class LCODTemplate:
                 if object_considered_for_mask:
                     mask |= is_object
         return mask
+
 
 @dataclass
 class StatsParameters:
@@ -488,6 +550,7 @@ class FailedStatsModel:
     def params(self) -> np.ndarray:
         """Return the p-values - all ones."""
         return np.ones(3)
+
 
 @dataclass
 class SpokeReportData:

@@ -35,7 +35,9 @@ class TestUniformity(unittest.TestCase):
         print("new_release_value:", vertical_ipem)
         print("fixed_value:", self.IPEM_VERTICAL)
 
-        assert horizontal_ipem == pytest.approx(self.IPEM_HORIZONTAL, abs=0.005)
+        assert horizontal_ipem == pytest.approx(
+            self.IPEM_HORIZONTAL, abs=0.005
+        )
         assert vertical_ipem == pytest.approx(self.IPEM_VERTICAL, abs=0.005)
 
 

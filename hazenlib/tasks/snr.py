@@ -11,6 +11,7 @@ Created by Neil Heraghty
 
 04/05/2018
 """
+
 from __future__ import annotations
 
 import contextlib
@@ -36,10 +37,10 @@ class SNR(HazenTask):
     """
 
     def __init__(
-            self,
-            measured_slice_width: float | None = None,
-            coil: str | None = None,
-            **kwargs: Any,
+        self,
+        measured_slice_width: float | None = None,
+        coil: str | None = None,
+        **kwargs: Any,
     ) -> None:
         """Initialise the Hazen ACR SNR Object."""
         super().__init__(**kwargs)
@@ -48,7 +49,6 @@ class SNR(HazenTask):
         self.measured_slice_width = measured_slice_width
         with contextlib.suppress(TypeError):
             self.measured_slice_width = float(measured_slice_width)
-
 
         # Determining kernel size based on coil choice. Values of 9 and 25 come from McCann 2013 paper.
         try:
@@ -59,7 +59,6 @@ class SNR(HazenTask):
 
         except AttributeError:
             self.kernel_size = 9
-
 
     def run(self) -> Result:
         """Main function for performing signal-to-noise ratio measurement
@@ -99,7 +98,9 @@ class SNR(HazenTask):
 
         # SINGLE METHOD (SMOOTHING) for every input file
         for dcm in self.dcm_list:
-            snr, normalised_snr = self.snr_by_smoothing(dcm, self.measured_slice_width)
+            snr, normalised_snr = self.snr_by_smoothing(
+                dcm, self.measured_slice_width
+            )
             results.add_measurement(
                 Measurement(
                     name="SNR",
@@ -125,7 +126,9 @@ class SNR(HazenTask):
 
         return results
 
-    def two_inputs_match(self, dcm1: pydicom.Dataset, dcm2: pydicom.Dataset) -> bool:
+    def two_inputs_match(
+        self, dcm1: pydicom.Dataset, dcm2: pydicom.Dataset
+    ) -> bool:
         """Check if two DICOMs are sufficiently similar, based on the following fields
             "StudyInstanceUID", "RepetitionTime", "EchoTime", "FlipAngle"
 
@@ -180,7 +183,9 @@ class SNR(HazenTask):
             slice_thickness = hazenlib.utils.get_slice_thickness(dcm)
 
         averages = hazenlib.utils.get_average(dcm)
-        bandwidth_factor = np.sqrt((bandwidth * columns / 2) / 1000) / np.sqrt(30)
+        bandwidth_factor = np.sqrt((bandwidth * columns / 2) / 1000) / np.sqrt(
+            30
+        )
         voxel_factor = 1 / (0.001 * dx * dy * slice_thickness)
 
         normalised_snr_factor = (
@@ -206,7 +211,9 @@ class SNR(HazenTask):
         # filter size = 9, following MATLAB code and McCann 2013 paper for head coil, although note McCann 2013 recommends 25x25 for body coil.
 
         # 9 for head coil, 25 for body coil
-        filtered_array = ndimage.uniform_filter(a, self.kernel_size, mode="constant")
+        filtered_array = ndimage.uniform_filter(
+            a, self.kernel_size, mode="constant"
+        )
         return filtered_array
 
     def get_noise_image(self, dcm: pydicom.Dataset) -> np.array:
@@ -284,7 +291,11 @@ class SNR(HazenTask):
         return int(col), int(row)
 
     def get_roi_samples(
-        self, ax, dcm: pydicom.Dataset or np.ndarray, centre_col: int, centre_row: int
+        self,
+        ax,
+        dcm: pydicom.Dataset or np.ndarray,
+        centre_col: int,
+        centre_row: int,
     ) -> list:
         """Determine region of interest from a pixel array.
 
@@ -303,19 +314,24 @@ class SNR(HazenTask):
         sample = [None] * 5
         # for array indexing: [row, column] format
         sample[0] = data[
-            (centre_row - 10) : (centre_row + 10), (centre_col - 10) : (centre_col + 10)
+            (centre_row - 10) : (centre_row + 10),
+            (centre_col - 10) : (centre_col + 10),
         ]
         sample[1] = data[
-            (centre_row - 50) : (centre_row - 30), (centre_col - 50) : (centre_col - 30)
+            (centre_row - 50) : (centre_row - 30),
+            (centre_col - 50) : (centre_col - 30),
         ]
         sample[2] = data[
-            (centre_row + 30) : (centre_row + 50), (centre_col - 50) : (centre_col - 30)
+            (centre_row + 30) : (centre_row + 50),
+            (centre_col - 50) : (centre_col - 30),
         ]
         sample[3] = data[
-            (centre_row - 50) : (centre_row - 30), (centre_col + 30) : (centre_col + 50)
+            (centre_row - 50) : (centre_row - 30),
+            (centre_col + 30) : (centre_col + 50),
         ]
         sample[4] = data[
-            (centre_row + 30) : (centre_row + 50), (centre_col + 30) : (centre_col + 50)
+            (centre_row + 30) : (centre_row + 50),
+            (centre_col + 30) : (centre_col + 50),
         ]
 
         if ax:
@@ -359,7 +375,9 @@ class SNR(HazenTask):
                 logger.debug("Orientation = sagittal or coronal.")
                 # orientation is sagittal to patient
                 try:
-                    (col, row), size, angle = shape_detector.get_shape("rectangle")
+                    (col, row), size, angle = shape_detector.get_shape(
+                        "rectangle"
+                    )
                 except exc.ShapeError as e:
                     # shape_detector.find_contours()
                     # shape_detector.detect()
@@ -395,7 +413,9 @@ class SNR(HazenTask):
 
         return int(col), int(row)
 
-    def snr_by_smoothing(self, dcm: pydicom.Dataset, measured_slice_width=None):
+    def snr_by_smoothing(
+        self, dcm: pydicom.Dataset, measured_slice_width=None
+    ):
         """Calculate signal to noise ratio by smoothing
 
         Args:
@@ -426,7 +446,9 @@ class SNR(HazenTask):
 
         snr = np.mean(np.divide(signal, noise))
 
-        normalised_snr = snr * self.get_normalised_snr_factor(dcm, measured_slice_width)
+        normalised_snr = snr * self.get_normalised_snr_factor(
+            dcm, measured_slice_width
+        )
 
         if self.report:
             import matplotlib.pyplot as plt
@@ -442,7 +464,9 @@ class SNR(HazenTask):
             axes.legend()
 
             img_path = os.path.realpath(
-                os.path.join(self.report_path, f"{self.img_desc(dcm)}_smoothing.png")
+                os.path.join(
+                    self.report_path, f"{self.img_desc(dcm)}_smoothing.png"
+                )
             )
             fig.savefig(img_path)
             self.report_files.append(img_path)
@@ -467,7 +491,10 @@ class SNR(HazenTask):
         return largest_col, largest_row, largest_r
 
     def snr_by_subtraction(
-        self, dcm1: pydicom.Dataset, dcm2: pydicom.Dataset, measured_slice_width=None
+        self,
+        dcm1: pydicom.Dataset,
+        dcm2: pydicom.Dataset,
+        measured_slice_width=None,
     ):
         """Calculate signal to noise ratio by smoothing
 
@@ -521,7 +548,8 @@ class SNR(HazenTask):
 
             img_path = os.path.realpath(
                 os.path.join(
-                    self.report_path, f"{self.img_desc(dcm1)}_snr_subtraction.png"
+                    self.report_path,
+                    f"{self.img_desc(dcm1)}_snr_subtraction.png",
                 )
             )
             fig.savefig(img_path)

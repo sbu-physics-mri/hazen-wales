@@ -7,8 +7,9 @@ Neil Heraghty, neil.heraghty@nhs.net, 16/05/2018
 
 .. todo::
     Replace shape finding functions with hazenlib.utils equivalents
-    
+
 """
+
 import copy
 import os
 import sys
@@ -129,7 +130,9 @@ class SpatialResolution(HazenTask):
 
     def find_square(self, img):
         # TODO: use shape functions from utils
-        cnts = cv.findContours(img.copy(), cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE)[0]
+        cnts = cv.findContours(
+            img.copy(), cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE
+        )[0]
 
         for c in cnts:
             perimeter = cv.arcLength(c, True)
@@ -182,7 +185,9 @@ class SpatialResolution(HazenTask):
             np.array: subset of the pixel array
         """
         y, x = centre
-        arr = pixels[x - size // 2 : x + size // 2, y - size // 2 : y + size // 2]
+        arr = pixels[
+            x - size // 2 : x + size // 2, y - size // 2 : y + size // 2
+        ]
         return arr
 
     def get_void_roi(self, pixels, circle, size=20):
@@ -198,7 +203,9 @@ class SpatialResolution(HazenTask):
         """
         centre_x = circle[0][0][0]
         centre_y = circle[0][0][1]
-        return self.get_roi(pixels=pixels, centre=(centre_x, centre_y), size=size)
+        return self.get_roi(
+            pixels=pixels, centre=(centre_x, centre_y), size=size
+        )
 
     def get_edge_roi(self, pixels, edge_centre, size=20):
         return self.get_roi(
@@ -417,11 +424,17 @@ class SpatialResolution(HazenTask):
 
         for element in range(1, len(sorted_edge_distance)):
             if not (sorted_edge_distance[element] - temp_array01[-1]).all():
-                temp_array02[-1] = (temp_array02[-1] + sorted_esf_data[element]) / 2
+                temp_array02[-1] = (
+                    temp_array02[-1] + sorted_esf_data[element]
+                ) / 2
 
             else:
-                temp_array01 = np.append(temp_array01, sorted_edge_distance[element])
-                temp_array02 = np.append(temp_array02, sorted_esf_data[element])
+                temp_array01 = np.append(
+                    temp_array01, sorted_edge_distance[element]
+                )
+                temp_array02 = np.append(
+                    temp_array02, sorted_esf_data[element]
+                )
 
         # ;interpolate the edge response function (ESF) so that it only has 128 elements
         u = np.linspace(temp_array01[0], temp_array01[-1], 128)
@@ -486,7 +499,10 @@ class SpatialResolution(HazenTask):
             axes[2].imshow(thresh, cmap="gray")
             axes[3].set_title("finding circle")
             c = cv.circle(
-                img, (circle[0][0][0], circle[0][0][1]), circle[0][0][2], (255, 0, 0)
+                img,
+                (circle[0][0][0], circle[0][0][1]),
+                circle[0][0][2],
+                (255, 0, 0),
             )
             axes[3].imshow(c)
             box = cv.drawContours(img, [box], 0, (255, 0, 0), 1)
@@ -509,9 +525,13 @@ class SpatialResolution(HazenTask):
             axes[10].set_title("normalised MTF")
             axes[10].plot(freqs[mask], norm_mtf[mask])
             axes[10].set_xlabel("lp/mm")
-            logger.debug(f"Writing report image: {self.report_path}_{pe}_{edge}.png")
+            logger.debug(
+                f"Writing report image: {self.report_path}_{pe}_{edge}.png"
+            )
             img_path = os.path.realpath(
-                os.path.join(self.report_path, f"{self.img_desc(dcm)}_{pe}_{edge}.png")
+                os.path.join(
+                    self.report_path, f"{self.img_desc(dcm)}_{pe}_{edge}.png"
+                )
             )
             fig.savefig(img_path)
             self.report_files.append(img_path)

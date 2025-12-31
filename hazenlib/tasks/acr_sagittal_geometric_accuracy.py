@@ -71,6 +71,7 @@ luis.santos2@nih.gov
 
 2/20/2025
 """
+
 # Python imports
 import os
 import sys
@@ -169,7 +170,6 @@ class ACRSagittalGeometricAccuracy(HazenTask):
         fig.savefig(img_path)
         self.report_files.append(img_path)
 
-
     def get_geometric_accuracy(self, dcm):
         """Measures Vertical distance of the Sagittal Localizer.
 
@@ -191,12 +191,16 @@ class ACRSagittalGeometricAccuracy(HazenTask):
         """
         img, rescaled, presentation = self.ACR_obj.get_presentation_pixels(dcm)
 
-        cxy, _ = self.ACR_obj.find_phantom_center(img, self.ACR_obj.dx, self.ACR_obj.dy, False)
+        cxy, _ = self.ACR_obj.find_phantom_center(
+            img, self.ACR_obj.dx, self.ACR_obj.dy, False
+        )
         mask = self.ACR_obj.get_mask_image(img, cxy)
 
         offset = (int(np.round(-15 / self.ACR_obj.dx)), 0)
 
-        length_dict = self.ACR_obj.measure_orthogonal_lengths(mask, cxy, v_offset=offset)
+        length_dict = self.ACR_obj.measure_orthogonal_lengths(
+            mask, cxy, v_offset=offset
+        )
 
         if self.report:
             self.write_report(img, dcm, length_dict, mask, cxy, offset)

@@ -185,7 +185,9 @@ class LegacySlicePosition(HazenTask):
             y = [n_point + round(10 / self.ACR_obj.dy)]
         else:
             # define y coordinate
-            y = np.round(np.min(y_locs) + 0.25 * np.abs(np.diff(y_locs))).flatten()
+            y = np.round(
+                np.min(y_locs) + 0.25 * np.abs(np.diff(y_locs))
+            ).flatten()
 
         # distance to y from top of phantom
         dist_to_y = np.abs(n_point - y[0]) * self.ACR_obj.dy
@@ -245,7 +247,8 @@ class LegacySlicePosition(HazenTask):
         # set multiplier for right or left shift based on sign of peak
         pos = (
             1
-            if np.max(-delta[peaks[0] : peaks[1]]) < np.max(delta[peaks[0] : peaks[1]])
+            if np.max(-delta[peaks[0] : peaks[1]])
+            < np.max(delta[peaks[0] : peaks[1]])
             else -1
         )
 
@@ -270,7 +273,9 @@ class LegacySlicePosition(HazenTask):
 
             # filler value to suppress warning when trying to calculate mean of array filled with NaN otherwise
             # calculate difference
-            err[k] = 1e10 if np.isnan(difference).all() else np.nanmean(difference)
+            err[k] = (
+                1e10 if np.isnan(difference).all() else np.nanmean(difference)
+            )
 
         # find minimum non-zero error
         temp = np.argwhere(err == np.min(err[err > 0]))[0]
@@ -301,14 +306,18 @@ class LegacySlicePosition(HazenTask):
             axes[2].grid()
             axes[2].plot(
                 interp_factor
-                * np.linspace(1, len(interp_line_prof_L), len(interp_line_prof_L))
+                * np.linspace(
+                    1, len(interp_line_prof_L), len(interp_line_prof_L)
+                )
                 * self.ACR_obj.dy,
                 interp_line_prof_L,
                 "b",
             )
             axes[2].plot(
                 interp_factor
-                * np.linspace(1, len(interp_line_prof_R), len(interp_line_prof_R))
+                * np.linspace(
+                    1, len(interp_line_prof_R), len(interp_line_prof_R)
+                )
                 * self.ACR_obj.dy,
                 interp_line_prof_R,
                 "r",
@@ -318,7 +327,9 @@ class LegacySlicePosition(HazenTask):
 
             axes[3].plot(
                 interp_factor
-                * np.linspace(1, len(interp_line_prof_L), len(interp_line_prof_L))
+                * np.linspace(
+                    1, len(interp_line_prof_L), len(interp_line_prof_L)
+                )
                 * self.ACR_obj.dy,
                 interp_line_prof_L,
                 "b",
@@ -337,7 +348,9 @@ class LegacySlicePosition(HazenTask):
             axes[3].grid()
             axes[3].plot(
                 interp_factor
-                * np.linspace(1, len(interp_line_prof_L), len(interp_line_prof_L))
+                * np.linspace(
+                    1, len(interp_line_prof_L), len(interp_line_prof_L)
+                )
                 * self.ACR_obj.dy,
                 shift_line,
                 "r",

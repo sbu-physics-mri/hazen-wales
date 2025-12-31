@@ -51,8 +51,8 @@ class Uniformity(HazenTask):
         results.files = self.img_desc(self.single_dcm)
 
         try:
-            horizontal_uniformity, vertical_uniformity = self.get_fractional_uniformity(
-                self.single_dcm
+            horizontal_uniformity, vertical_uniformity = (
+                self.get_fractional_uniformity(self.single_dcm)
             )
             results.add_measurement(
                 Measurement(
@@ -107,7 +107,9 @@ class Uniformity(HazenTask):
         for score in scores:
             template = a == score
             counts = np.expand_dims(np.sum(template, axis), axis)
-            most_frequent = np.where(counts > old_counts, score, old_most_frequent)
+            most_frequent = np.where(
+                counts > old_counts, score, old_most_frequent
+            )
             old_counts = np.maximum(counts, old_counts)
             old_most_frequent = most_frequent
 
@@ -141,7 +143,9 @@ class Uniformity(HazenTask):
             x, y, r = shape_detector.get_shape("circle")
 
         else:
-            raise Exception("Direction must be Transverse, Sagittal or Coronal.")
+            raise Exception(
+                "Direction must be Transverse, Sagittal or Coronal."
+            )
 
         return int(x), int(y)
 
@@ -204,10 +208,18 @@ class Uniformity(HazenTask):
                     linewidth=3,
                 ),
                 Rectangle(
-                    (x - 80, y - 5), 160, 10, facecolor="None", edgecolor="green"
+                    (x - 80, y - 5),
+                    160,
+                    10,
+                    facecolor="None",
+                    edgecolor="green",
                 ),
                 Rectangle(
-                    (x - 5, y - 80), 10, 160, facecolor="None", edgecolor="yellow"
+                    (x - 5, y - 80),
+                    10,
+                    160,
+                    facecolor="None",
+                    edgecolor="yellow",
                 ),
             ]
             pc = PatchCollection(rects, match_original=True)

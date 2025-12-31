@@ -1,4 +1,5 @@
 """Tests for the ACR Object Detectablity module."""
+
 import pathlib
 import unittest
 
@@ -38,7 +39,7 @@ class TestACRObjectDetectabilitySiemensSolaFit(TestACRObjectDetectability):
 
 class TestACRObjectDetectabilityGE(TestACRObjectDetectability):
     ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "GE")
-    SCORE_8 = 0 # in reality, this slice should be scored 0 but this is here to force future reassessments of the algorithm to check this dataset.
+    SCORE_8 = 0  # in reality, this slice should be scored 0 but this is here to force future reassessments of the algorithm to check this dataset.
     TOTAL_SCORE = 0
 
 

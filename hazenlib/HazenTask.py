@@ -55,7 +55,10 @@ class HazenTask:
                 "Loaded DICOM - AcquisitionNumber: %s, "
                 "SeriesDescription: %s, SeriesNumber: %s, "
                 "InstanceNumber: %s",
-                acq_number, series_desc, series_number, instance_number
+                acq_number,
+                series_desc,
+                series_number,
+                instance_number,
             )
 
         self.report: bool = report
@@ -78,7 +81,9 @@ class HazenTask:
         return Result(task=type(self).__name__, desc=desc, files=files)
 
     def img_desc(
-        self, dcm: pydicom.Dataset, properties: Sequence | None = None,
+        self,
+        dcm: pydicom.Dataset,
+        properties: Sequence | None = None,
     ) -> str:
         """Obtain values from the DICOM header to identify input series.
 
@@ -94,7 +99,9 @@ class HazenTask:
         """
         if properties is None:
             properties = [
-                "SeriesDescription", "SeriesNumber", "InstanceNumber"
+                "SeriesDescription",
+                "SeriesNumber",
+                "InstanceNumber",
             ]
         try:
             metadata = [str(dcm.get(field)) for field in properties]
@@ -112,8 +119,12 @@ class HazenTask:
         img_desc = join_char.join(metadata).replace(" ", join_char)
         # Let's make sure dirty names do not contaminate the file names
         # or any other string operations.
-        return scrub(
-            img_desc,
-            REGEX_SCRUBNAME,
-            join_char,
-        ).strip(join_char).replace(join_char * 2, join_char)
+        return (
+            scrub(
+                img_desc,
+                REGEX_SCRUBNAME,
+                join_char,
+            )
+            .strip(join_char)
+            .replace(join_char * 2, join_char)
+        )

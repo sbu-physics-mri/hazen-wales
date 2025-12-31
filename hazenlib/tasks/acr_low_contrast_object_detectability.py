@@ -163,7 +163,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
         # Initialise ACR object
         self.ACR_obj = ACRObject(self.dcm_list)
         self.rotation = self.ACR_obj.determine_rotation(
-                self.ACR_obj.slice_stack[0].pixel_array,
+            self.ACR_obj.slice_stack[0].pixel_array,
         )
         self.lcod_center = None
 
@@ -207,7 +207,9 @@ class ACRLowContrastObjectDetectability(HazenTask):
         for i, dcm in enumerate(self.ACR_obj.slice_stack[self.slice_range]):
             slice_no = 1 + self.slice_range.step * i + self.slice_range.start
             result = self.count_spokes(
-                dcm, slice_no=slice_no, alpha=self.alpha,
+                dcm,
+                slice_no=slice_no,
+                alpha=self.alpha,
             )
             try:
                 num_spokes = min(i for i, r in enumerate(result) if not r)
@@ -382,7 +384,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
         self,
         cx: float,
         cy: float,
-        center_search_tolerance: float = 5,     # mm
+        center_search_tolerance: float = 5,  # mm
     ) -> None:
         cx, cy = float(cx), float(cy)
 
@@ -419,7 +421,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
             effect_scale: float = 0.01,
         ) -> float:
             eps = 1e-12
-    
+
             total_log_pvalue = 0.0
             total_effect_size = 0.0
             n_objects = 0
@@ -428,7 +430,8 @@ class ACRLowContrastObjectDetectability(HazenTask):
                 template = LCODTemplate(cx, cy, theta)
                 sp = self._get_params_and_p_vals(template, dcm)
                 p_vals_fdr, params_fdr = self._fdrcorrection(
-                    sp, alpha=self._ALPHA,
+                    sp,
+                    alpha=self._ALPHA,
                 )
 
                 # Sum across all objects
@@ -534,9 +537,9 @@ class ACRLowContrastObjectDetectability(HazenTask):
             lcod_center = tuple(
                 (dc + offset) * dv
                 for dc, offset, dv in zip(
-                        detected_circles[:2],
-                        (offset_x, offset_y),
-                        (self.ACR_obj.dx, self.ACR_obj.dy),
+                    detected_circles[:2],
+                    (offset_x, offset_y),
+                    (self.ACR_obj.dx, self.ACR_obj.dy),
                 )
             )
 
@@ -920,7 +923,12 @@ class ACRLowContrastObjectDetectability(HazenTask):
             zorder=3,
         )
         ax_top.plot(
-            x, spoke_data.trend, "g--", label="Trend", linewidth=0.8, zorder=3,
+            x,
+            spoke_data.trend,
+            "g--",
+            label="Trend",
+            linewidth=0.8,
+            zorder=3,
         )
         ax_bottom.plot(x, spoke_data.detrended, "k-", linewidth=1, zorder=3)
 
@@ -936,7 +944,8 @@ class ACRLowContrastObjectDetectability(HazenTask):
         orig_range = orig_max - orig_min
         det_range = det_max - det_min
         ax_top.set_ylim(
-            orig_min - 0.05 * orig_range, orig_max + 0.05 * orig_range,
+            orig_min - 0.05 * orig_range,
+            orig_max + 0.05 * orig_range,
         )
         ax_bottom.set_ylim(
             det_min - 0.05 * det_range,
@@ -969,7 +978,8 @@ class ACRLowContrastObjectDetectability(HazenTask):
         n_objects = spoke_data.object_mask.shape[1]
         for obj_idx in range(n_objects):
             obj_mask = spoke_data.object_mask[
-                :, obj_idx,
+                :,
+                obj_idx,
             ]  # Get mask for this object
             color = self.OBJECT_RIBBON_COLORS[obj_idx]
 
@@ -983,21 +993,41 @@ class ACRLowContrastObjectDetectability(HazenTask):
                 # Draw prominent vertical ribbons (behind profile lines)
                 ax_top.axvspan(start, end, alpha=0.45, color=color, zorder=0)
                 ax_bottom.axvspan(
-                    start, end, alpha=0.45, color=color, zorder=0,
+                    start,
+                    end,
+                    alpha=0.45,
+                    color=color,
+                    zorder=0,
                 )
 
                 # Add subtle edge
                 ax_top.axvline(
-                    start, color=color, alpha=0.7, linewidth=0.5, zorder=1,
+                    start,
+                    color=color,
+                    alpha=0.7,
+                    linewidth=0.5,
+                    zorder=1,
                 )
                 ax_top.axvline(
-                    end, color=color, alpha=0.7, linewidth=0.5, zorder=1,
+                    end,
+                    color=color,
+                    alpha=0.7,
+                    linewidth=0.5,
+                    zorder=1,
                 )
                 ax_bottom.axvline(
-                    start, color=color, alpha=0.7, linewidth=0.5, zorder=1,
+                    start,
+                    color=color,
+                    alpha=0.7,
+                    linewidth=0.5,
+                    zorder=1,
                 )
                 ax_bottom.axvline(
-                    end, color=color, alpha=0.7, linewidth=0.5, zorder=1,
+                    end,
+                    color=color,
+                    alpha=0.7,
+                    linewidth=0.5,
+                    zorder=1,
                 )
 
                 # Annotate p-value at object center
@@ -1063,7 +1093,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
                 # Compact formatting
                 p_str = (
                     f"{p_val:.2e}"
-                    if p_val < 1e-3     # noqa: PLR2004
+                    if p_val < 1e-3  # noqa: PLR2004
                     else f"{p_val:.4f}"
                 )
                 param_str = f"{param:.3f}"

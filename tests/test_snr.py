@@ -1,7 +1,6 @@
 import unittest
 import pathlib
 
-import pydicom
 import os
 from tests import TEST_DATA_DIR, TEST_REPORT_DIR
 from hazenlib.utils import get_dicom_files
@@ -16,7 +15,10 @@ class TestSnr(unittest.TestCase):
     SNR_DATA = pathlib.Path(TEST_DATA_DIR / "snr")
     ORIENTATION = "Transverse"
 
-    OBJECT_CENTRE = (131, 122)  # note these coordinates are (x, y) ie. (COLUMN, ROW)
+    OBJECT_CENTRE = (
+        131,
+        122,
+    )  # note these coordinates are (x, y) ie. (COLUMN, ROW)
     SNR_NORM_FACTOR = 9.761711312090041  # checked manually
     IMAGE_SMOOTHED_SNR = 1874.81  # this value from MATLAB for tra_250_2meas_1.IMA, single image smoothed, normalised
     IMAGE_SUBTRACT_SNR = 2130.93  # this value from MATLAB for tra_250_2meas_1.IMA and tra_250_2meas_2.IMA, subtract method, normalised
@@ -50,7 +52,9 @@ class TestSnr(unittest.TestCase):
             description=img_desc,
         )[0].value
         self.assertTrue(
-            self.LOWER_SMOOTHED_SNR <= smoothing_snr <= self.UPPER_SMOOTHED_SNR,
+            self.LOWER_SMOOTHED_SNR
+            <= smoothing_snr
+            <= self.UPPER_SMOOTHED_SNR,
         )
         subtract_snr = val.get_measurement(
             name="SNR",
@@ -77,7 +81,9 @@ class TestSnrPhilips(TestSnr):
         127,
         129,
     )  # note these coordinates are (x, y) ie. (COLUMN, ROW) taken from Hazen, but checked in close proximity to Matlab
-    SNR_NORM_FACTOR = 14.35183536242098  # value taken from Hazen, but checked manually.
+    SNR_NORM_FACTOR = (
+        14.35183536242098  # value taken from Hazen, but checked manually.
+    )
     IMAGE_SMOOTHED_SNR = 5684.08  # this value from MATLAB for Philips_IM-0011-0005.dcm, single image smoothed, normalised
     IMAGE_SUBTRACT_SNR = 5472.44  # this value from MATLAB for Philips_IM-0011-0005.dcm and Philips_IM-0011-0006.dcm, subtract method, normalised
 
@@ -110,7 +116,9 @@ class TestSnrGE(TestSnr):
         127,
         129,
     )  # note these coordinates are (x, y) ie. (COLUMN, ROW) taken from Hazen, but checked in close proximity to Matlab
-    SNR_NORM_FACTOR = 8.254476647778304  # value taken from Hazen, but checked manually
+    SNR_NORM_FACTOR = (
+        8.254476647778304  # value taken from Hazen, but checked manually
+    )
     IMAGE_SMOOTHED_SNR = 1551.19  # this value from MATLAB for GE_IM-0003-0001.dcm, single image smoothed, normalised
     IMAGE_SUBTRACT_SNR = 1517.88  # this value from MATLAB for GE_IM-0003-0001.dcm and Philips_IM-0004-0001.dcm, subtract method, normalised
 
