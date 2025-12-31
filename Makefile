@@ -19,6 +19,8 @@ ACR_DATA = tests/data/acr/GE_Artist_1.5T_T1
 # Help Target #
 ###############
 
+# Collects all commands that follow the format: cmd: ... ## Description
+
 .PHONY: help
 help:
 	@echo "Hazen Development Makefile"
@@ -136,7 +138,7 @@ acr-object-detectability:
 	acr_object_detectability  $(ACR_DATA)
 
 .PHONY: cli-acr
-cli-acr: acr-snr \
+cli-acr: acr-snr \	## Run the ACR CLI tests
 	acr-uniformity \
 	acr-ghosting \
 	acr-slice-position \
@@ -184,7 +186,7 @@ magnet-snr-map:
 	$(VENV_CMD) hazen snr_map tests/data/snr/Siemens
 
 .PHONY: cli-magnet
-cli-magnet: magnet-snr \
+cli-magnet: magnet-snr \	## Run the MagNET CLI tests
 	magnet-uniformity \
 	magnet-ghosting \
 	magnet-slice-position \
@@ -193,12 +195,6 @@ cli-magnet: magnet-snr \
 	magnet-spatial-resolution
 
 # Calibre #
-
-.PHONY: cli-caliber
-cli-caliber: caliber-relaxometry
-
-.PHONY: caliber-relaxometry
-caliber-relaxometry: relaxometry-T1 relaxometry-T2
 
 .PHONY: relaxometry-T1
 relaxometry-T1:
@@ -212,15 +208,24 @@ relaxometry-T2:
 	tests/data/relaxometry/T2/site3_ge/plate4 \
 	--calc T2 --plate_number=4
 
+.PHONY: caliber-relaxometry
+caliber-relaxometry: relaxometry-T1 relaxometry-T2
+
+.PHONY: cli-caliber
+cli-caliber: caliber-relaxometry	## Run the Caliber CLI tests
+
 .PHONY: cli
-cli: cli-acr cli-magnet cli-caliber
+cli: cli-acr cli-magnet cli-caliber	## Run all CLI tests
 
 ###################
 # Combined Checks #
 ###################
 
+.PHONY: check-notypes
+check-notypes: format-check test cli	## Run checks without types
+
 .PHONY: check
-check: type-check format-check test cli
+check: type-check check-notypes
 
 .PHONY: ci
 ci: check ## Run full CI pipeline
@@ -274,6 +279,6 @@ dev-install: ## Install with development dependencies
 .PHONY: pre-commit
 pre-commit: ## Install pre-commit hook
 	@echo "Setting up pre-commit hook..."
-	echo '#!/bin/sh\nmake check' > .git/hooks/pre-commit
+	echo '#!/bin/sh\nmake ci' > .git/hooks/pre-commit
 	chmod +x .git/hooks/pre-commit
 	@echo "Pre-commit hook installed"
