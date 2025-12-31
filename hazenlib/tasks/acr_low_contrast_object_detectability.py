@@ -64,8 +64,6 @@ Implemented for Hazen by Alex Drysdale: alexander.drysdale@wales.nhs.uk
 # Typing
 from __future__ import annotations
 
-import os
-from concurrent import futures
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -75,6 +73,8 @@ if TYPE_CHECKING:
 import copy
 import functools
 import logging
+import os
+from concurrent import futures
 from pathlib import Path
 from types import MappingProxyType
 
@@ -91,15 +91,9 @@ import statsmodels
 import statsmodels.api as sm
 from hazenlib.ACRObject import ACRObject
 from hazenlib.HazenTask import HazenTask
-from hazenlib.types import (
-    FailedStatsModel,
-    LCODTemplate,
-    Measurement,
-    P_HazenTask,
-    Result,
-    SpokeReportData,
-    StatsParameters,
-)
+from hazenlib.types import (FailedStatsModel, LCODTemplate, Measurement,
+                            P_HazenTask, Result, SpokeReportData,
+                            StatsParameters)
 from matplotlib.gridspec import GridSpec
 from matplotlib.patches import Circle
 
