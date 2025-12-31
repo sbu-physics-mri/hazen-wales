@@ -275,7 +275,18 @@ class TestACRLCODTemplateFinding(unittest.TestCase):
     def test_get_current_slice_template(self) -> None:
         """Test that get_current_slice_template returns a template for a valid slice."""
         result = self.acr_object_detectability.get_current_slice_template(10)
-        self.assertTrue(result)
+        
+        # Verify result is an instance of LCODTemplate
+        self.assertIsInstance(result, LCODTemplate)
+        
+        # Verify cx and cy are numeric values
+        self.assertIsInstance(result.cx, (int, float))
+        self.assertIsInstance(result.cy, (int, float))
+        
+        # Verify theta is within expected bounds (0-360 degrees)
+        self.assertIsInstance(result.theta, (int, float))
+        self.assertGreaterEqual(result.theta, 0)
+        self.assertLess(result.theta, 360)
 
 
 class TestACRLowContrastObjectDetectability(unittest.TestCase):
