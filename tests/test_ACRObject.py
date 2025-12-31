@@ -84,7 +84,7 @@ class TestACRToolsGE(TestACRTools):
             self.ACR_object.rotate_point((0, 0), (30, 70), 150)
         )
         rotated_point = np.round(rotated_point, 2)
-        assert (rotated_point == self.test_point).all() == True
+        assert (rotated_point == self.test_point).all()
 
 
 # Philips Achieva axial

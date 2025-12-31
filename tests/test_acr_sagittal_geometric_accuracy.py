@@ -1,14 +1,11 @@
-import os
-import unittest
 import pathlib
-import pydicom
-import numpy as np
+import unittest
 
-from hazenlib.tasks.acr_sagittal_geometric_accuracy import (
-    ACRSagittalGeometricAccuracy,
-)
+import numpy as np
+from hazenlib.tasks.acr_sagittal_geometric_accuracy import \
+    ACRSagittalGeometricAccuracy
 from hazenlib.utils import get_dicom_files
-from hazenlib.ACRObject import ACRObject
+
 from tests import TEST_DATA_DIR, TEST_REPORT_DIR
 
 

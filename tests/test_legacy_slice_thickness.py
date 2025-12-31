@@ -1,11 +1,8 @@
-import os
 import unittest
 import pathlib
-import pydicom
 
 from hazenlib.utils import get_dicom_files
 from hazenlib.tasks.legacy_slice_thickness import LegacySliceThickness
-from hazenlib.ACRObject import ACRObject
 from tests import TEST_DATA_DIR
 
 
@@ -38,9 +35,9 @@ class TestACRSliceThicknessSiemens(unittest.TestCase):
         print(f"Slice Thickness ramp x_pts => {x_pts}")
         print(f"Slice Thickness ramp y_pts => {y_pts}")
 
-        assert (x_pts == self.x_pts).all() == True
+        assert (x_pts == self.x_pts).all()
 
-        assert (y_pts == self.y_pts).all() == True
+        assert (y_pts == self.y_pts).all()
 
     def test_slice_thickness(self):
         slice_thickness_val = round(

@@ -2,14 +2,12 @@ import logging
 import pathlib
 import unittest
 
-import numpy as np
-
 from hazenlib.tasks.acr_spatial_resolution import ACRSpatialResolution
 from hazenlib.utils import get_dicom_files
 
 from tests import TEST_DATA_DIR, TEST_REPORT_DIR
 
-# noqa: ruff: S101
+# noqa: S101
 
 logger = logging.getLogger(__name__)
 

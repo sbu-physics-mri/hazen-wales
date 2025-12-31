@@ -14,17 +14,14 @@ relaxometry
 
 import argparse
 import importlib
-import inspect
 import logging
 import os
-import sys
 
 from hazenlib._version import __version__
 from hazenlib.formatters import write_result
 from hazenlib.logger import logger
 from hazenlib.types import PhantomType, TaskMetadata
 from hazenlib.utils import get_dicom_files
-
 
 TASK_REGISTRY = {
     # MagNET #
