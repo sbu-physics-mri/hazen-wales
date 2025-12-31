@@ -616,7 +616,6 @@ class ACRLowContrastObjectDetectability(HazenTask):
         )
         return self.rotation + rotation_offset
 
-    @functools.lru_cache
     def get_current_slice_template(
         self,
         current_slice: int,
