@@ -417,7 +417,6 @@ class ACRLowContrastObjectDetectability(HazenTask):
             cy = vec[1]
             theta = vec[2]
 
-            loss = 0
             distances = [d for spoke in selected_spokes for d in spoke.dist]
             radii = [
                 spoke.diameter / 2
