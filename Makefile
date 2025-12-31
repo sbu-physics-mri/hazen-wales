@@ -137,8 +137,8 @@ acr-object-detectability:
 	$(VENV_CMD) hazen \
 	acr_object_detectability  $(ACR_DATA)
 
-.PHONY: cli-acr
-cli-acr: acr-snr \	## Run the ACR CLI tests
+.PHONY: cli-acr-all
+cli-acr-all: acr-snr \
 	acr-uniformity \
 	acr-ghosting \
 	acr-slice-position \
@@ -147,6 +147,9 @@ cli-acr: acr-snr \	## Run the ACR CLI tests
 	acr-spatial-resolution \
 	acr-low-contrast-object-detectability \
 	acr-object-detectability
+
+.PHONY: cli-acr
+cli-acr: cli-acr-all	## Run the ACR CLI tests
 
 # Magnet #
 .PHONY: magnet-snr
@@ -185,14 +188,17 @@ magnet-spatial-resolution:
 magnet-snr-map:
 	$(VENV_CMD) hazen snr_map tests/data/snr/Siemens
 
-.PHONY: cli-magnet
-cli-magnet: magnet-snr \	## Run the MagNET CLI tests
+.PHONY: cli-magnet-all
+cli-magnet-all: magnet-snr \
 	magnet-uniformity \
 	magnet-ghosting \
 	magnet-slice-position \
 	magnet-slice-width \
 	magnet-snr-map \
 	magnet-spatial-resolution
+
+.PHONY: cli-magnet
+cli-magnet: cli-magnet-all	## Run the MagNET CLI tests
 
 # Calibre #
 
