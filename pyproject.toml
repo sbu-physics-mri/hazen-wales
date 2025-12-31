@@ -34,12 +34,15 @@ line-length = 79
 [dependency-groups]
 dev = [
     "flake8>=7.3.0",
+    "mypy>=1.19.1",
     "pytest>=8.4.1",
     "pytest-cov>=6.2.1",
     "ruff>=0.14.6",
+    "scipy-stubs>=1.16.3.3",
     "sphinx>=7.4.7",
     "sphinx-rtd-theme>=3.0.2",
     "sphinxcontrib-bibtex>=2.6.5",
+    "ty>=0.0.8",
 ]
 
 [tool.setuptools.packages.find]
