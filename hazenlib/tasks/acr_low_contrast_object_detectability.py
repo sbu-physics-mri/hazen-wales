@@ -73,6 +73,7 @@ if TYPE_CHECKING:
 
 # Python imports
 import copy
+import functools
 import logging
 from pathlib import Path
 from types import MappingProxyType
@@ -134,6 +135,8 @@ class ACRLowContrastObjectDetectability(HazenTask):
     _ALPHA: float = 0.05
     _OPTIMIZER: str = "TBPSA"
     _BUDGET: int = 100
+
+    NLOPT_METHOD: str = "Nelder-Mead"
 
     OBJECT_RIBBON_COLORS = ("#1E88E5", "#FFC107", "#004D40")
 
@@ -309,7 +312,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
     ) -> np.ndarray:
         """Count spokes with optional report data capture."""
         dcm = self._preprocess(raw)
-        template = self.find_spokes(slice_no)
+        template = self.get_current_slice_template(slice_no)
         spokes = template.spokes
 
         # Get analysis data
@@ -380,111 +383,74 @@ class ACRLowContrastObjectDetectability(HazenTask):
 
         return [s.passed for s in spokes]
 
-    def _improve_lcod_center_with_optimiser(
+    def _improve_template_with_optimiser(
         self,
-        cx: float,
-        cy: float,
-        center_search_tolerance: float = 5,  # mm
-    ) -> None:
-        cx, cy = float(cx), float(cy)
-
-        parametrization = ng.p.Instrumentation(
-            cx=ng.p.Scalar(
-                init=cx,
-                lower=cx - center_search_tolerance,
-                upper=cx + center_search_tolerance,
-            ),
-            cy=ng.p.Scalar(
-                init=cy,
-                lower=cy - center_search_tolerance,
-                upper=cy + center_search_tolerance,
-            ),
-        )
-
-        # Use all LCOD slices for center finding.
-        dcm_list = [
-            self._preprocess(dcm)
-            for dcm in self.ACR_obj.slice_stack[self.slice_range]
-        ]
-        theta_list = [
-            self._current_slice_rotation(cs)
-            for cs in range(
-                self.slice_range.start,
-                self.slice_range.stop,
-                self.slice_range.step,
-            )
-        ]
-
-        def minimiser(
-            cx: float,
-            cy: float,
-            effect_scale: float = 0.01,
-        ) -> float:
-            eps = 1e-12
-
-            total_log_pvalue = 0.0
-            total_effect_size = 0.0
-            n_objects = 0
-
-            for dcm, theta in zip(dcm_list, theta_list):
-                template = LCODTemplate(cx, cy, theta)
-                sp = self._get_params_and_p_vals(template, dcm)
-                p_vals_fdr, params_fdr = self._fdrcorrection(
-                    sp,
-                    alpha=self._ALPHA,
-                )
-
-                # Sum across all objects
-                for spoke_number, spoke in enumerate(template.spokes):
-                    for i, _ in enumerate(spoke):
-                        # Penalize high p-values continuously
-                        # Add small epsilon to avoid log(0)
-                        p_val = p_vals_fdr[spoke_number, i]
-                        total_log_pvalue += -np.log(p_val + eps)
-
-                        # Reward large positive effects
-                        param = params_fdr[spoke_number, i]
-                        total_effect_size += max(  # Only positive effects
-                            0,
-                            param,
-                        )
-
-                        n_objects += 1
-
-            # Combine metrics: want low p-values AND high effect sizes
-            # Normalize by number of objects
-            avg_log_pvalue = total_log_pvalue / n_objects
-            avg_effect_size = total_effect_size / n_objects
-
-            # Primary objective: maximize -log(p) (lower p = higher value)
-            # Secondary objective: maximize effect size
-            # Combine with weighted sum (tune weights as needed)
-            return -(avg_log_pvalue + effect_scale * avg_effect_size)
-
-        opt = ng.optimizers.registry[self._OPTIMIZER](
-            parametrization=parametrization,
-            budget=self._BUDGET,
-            num_workers=max(os.cpu_count() - 1, 1),
-        )
-
-        with futures.ThreadPoolExecutor(
-            max_workers=opt.num_workers,
-        ) as executor:
-            recommendation = opt.minimize(
-                minimiser,
-                executor=executor,
-                batch_mode=False,
-            )
-            _, values = recommendation.value
-
-        return (values["cx"], values["cy"])
-
-    def find_center(
-        self,
-        crop_ratio: float = 0.55,
+        template: LCODTemplate,
+        current_slice: int,
         *,
-        use_optimiser: bool = False,
-    ) -> tuple[float]:
+        spokes: list[int] | tuple[int] = (0, 1),
+        center_search_tol: float = 2, # in cm
+        theta_tol: float = 3 * np.pi / 180,
+    ) -> LCODTempalte:
+        """Improve the template with a non-linear optimiser."""
+        dcm = self.ACR_obj.slice_stack[-1]
+
+        selected_spokes = [
+            spoke for idx, spoke in enumerate(template.spokes) if idx in spokes
+        ]
+        profiles, coords = zip(
+            *[
+                spoke.profile(dcm, return_coords=True)
+                for spoke in selected_spokes
+            ],
+        )
+
+        intersection_points: tuple[tuple[float, float], ...] = (
+            self._get_intersection_points(
+                profiles,
+                coords,
+            )
+        )
+
+        def minimiser(vec: np.ndarray) -> float:
+            cx = vec[0]
+            cy = vec[1]
+            theta = vec[2]
+
+            loss = 0
+            distances = [d for spoke in selected_spokes for d in spoke.dist]
+            radii = [
+                spoke.diameter / 2
+                for spoke in selected_spokes
+                for _ in spoke.dist
+            ]
+            return sum(
+                (
+                    (xi - cx - di * np.sin(theta)) ** 2
+                    + (yi - cy - di * np.cos(theta)) ** 2
+                    - ri ** 2
+                )
+                for (xi, yi), di, ri in zip(
+                    intersection_points, distances, radii,
+                )
+            )
+
+        c_tol = center_search_tol / self.ACR_obj.dx
+        res = sp.optimize.minimize(
+            minimiser,
+            [template.cx, template.cy, template.theta],
+            method=self.NLOPT_METHOD,
+            bounds=(
+                [template.cx - c_tol, template.cx + c_tol],
+                [template.cy - c_tol, template.cy + c_tol],
+                [template.theta - theta_tol, template.theta + theta_tol],
+            ),
+        )
+        cx, cy, theta = res.x
+
+        return LCODTemplate(cx, cy, theta)
+
+    def find_center(self, crop_ratio: float = 0.55) -> tuple[float]:
         """Find the center of the LCOD phantom."""
         if self.lcod_center is not None:
             return self.lcod_center
@@ -545,11 +511,6 @@ class ACRLowContrastObjectDetectability(HazenTask):
 
         self.lcod_center = lcod_center
         lcod_r = detected_circles[2]
-
-        if use_optimiser:
-            self.lcod_center = self._improve_lcod_center_with_optimiser(
-                *lcod_center,
-            )
 
         if self.report:
             fig, axes = plt.subplots(2, 2, constrained_layout=True)
@@ -656,7 +617,8 @@ class ACRLowContrastObjectDetectability(HazenTask):
         )
         return self.rotation + rotation_offset
 
-    def find_spokes(
+    @functools.lru_cache
+    def get_current_slice_template(
         self,
         current_slice: int,
     ) -> LCODTemplate:
@@ -665,30 +627,28 @@ class ACRLowContrastObjectDetectability(HazenTask):
         theta = self._current_slice_rotation(current_slice)
 
         if self.lcod_center is None:
-            cx_0, cy_0 = self.find_center(use_optimiser=True)
+            cx_0, cy_0 = self.find_center()  # updates lcod_center
+        else:
+            cx_0, cy_0 = self.lcod_center
 
-            logger.debug(
-                "Updated LCOD center: (%s) -> (%f, %f)",
-                self.lcod_center,
-                cx_0,
-                cy_0,
-            )
-            self.lcod_center = cx_0, cy_0
+        template = self._improve_template_with_optimiser(
+            LCODTemplate(cx_0, cy_0, theta),
+            current_slice,
+        )
 
-            logger.info(
-                "Template generated for slice %i:"
-                "\nCenter:\t%s"
-                "\nRotation:\t%f (initial: %f + offset: %f)",
-                current_slice,
-                self.lcod_center,
-                theta,
-                self.rotation,
-                theta - self.rotation,
-            )
+        logger.info(
+            "Template generated for slice %i:"
+            "\nCenter:\t(%f, %f)"
+            "\nRotation:\t%f (initial: %f + offset: %f)",
+            current_slice,
+            template.cx,
+            template.cy,
+            template.theta,
+            self.rotation,
+            template.theta - self.rotation,
+        )
 
-        cx, cy = self.lcod_center
-
-        return LCODTemplate(cx, cy, theta)
+        return template
 
     def _analyze_profile(
         self,
@@ -1202,3 +1162,258 @@ class ACRLowContrastObjectDetectability(HazenTask):
             dcm[(0x0028, 0x0101)].value,  # Bits Stored
         )
         return processed
+
+    def _get_intersection_points(
+        self,
+        profiles: list[np.ndarray],
+        coords: list[tuple[np.ndarray, np.ndarray]],
+    ) -> tuple[tuple[float, float], ...]:
+        """Extract half-maximum intersection points from radial profiles.
+
+        This method processes radial intensity profiles to locate object
+        boundaries at half-maximum intensity (FWHM-like). These points can be
+        used to construct the loss function L(c_x, c_y, theta_c) described in
+        GitHub issue #56 for optimizing the LCOD template parameters.
+
+        For each 1D profile (containing 3 Gaussian-like peaks from the
+        low-contrast objects q1, q2, q3), the method finds the left and right
+        points where the intensity equals half of each peak's maximum. This
+        provides robust boundary detection that is less sensitive to noise and
+        intensity variations than using peak centers alone.
+
+        Args:
+            profiles: List of 1D intensity profiles along radial lines P
+            coords: List of (x_coords, y_coords) arrays for each profile point
+
+        Returns:
+            Tuple of (x, y) intersection points. Each profile contributes
+            up to 6 points (2 per peak), giving N_profiles x 6 total points.
+
+        """
+
+        all_points = []
+
+        for profile_idx, (profile, (x_coords, y_coords)) in enumerate(
+            zip(profiles, coords)
+        ):
+            try:
+                # Validate coordinate dimensions
+                if len(profile) != len(x_coords) or len(profile) != len(
+                    y_coords
+                ):
+                    logger.warning(
+                        f"Profile {profile_idx}: coordinate length mismatch. "
+                        f"Profile: {len(profile)}, X: {len(x_coords)}, Y: {len(y_coords)}"
+                    )
+                    continue
+
+                # De-trend profile to remove baseline variations
+                detrended = self._detrend_profile(profile)
+
+                # Apply light smoothing to reduce noise sensitivity
+                kernel = np.ones(3) / 3
+                smoothed = np.convolve(detrended, kernel, mode="same")
+
+                # Find the three main peaks by prominence
+                peak_indices = self._find_peaks(smoothed, num_peaks=3)
+
+                if len(peak_indices) != 3:
+                    logger.warning(
+                        f"Profile {profile_idx}: found {len(peak_indices)} peaks, "
+                        f"expected 3. Skipping profile."
+                    )
+                    continue
+
+                for peak_idx in peak_indices:
+                    # Get half-maximum points for this peak
+                    points = self._get_fwhm_points(
+                        smoothed, peak_idx, x_coords, y_coords
+                    )
+
+                    if len(points) < 2:
+                        logger.debug(
+                            f"Profile {profile_idx}, peak {peak_idx}: "
+                            f"Found only {len(points)} edges"
+                        )
+
+                    all_points.extend(points)
+
+            except Exception as e:
+                logger.error(
+                    f"Error processing profile {profile_idx}: {e}. "
+                    f"Traceback: {traceback.format_exc()}"
+                )
+                continue
+
+        return tuple(all_points)
+
+    def _detrend_profile(self, profile: np.ndarray) -> np.ndarray:
+        """Remove polynomial trend from profile using robust fitting."""
+        if np.std(profile) > self._STD_TOL:
+            x = np.linspace(0, 1, len(profile))
+            coeffs = np.polyfit(x, profile, self._DETREND_POLYNOMIAL_ORDER)
+            trend = np.polyval(coeffs, x)
+            return profile - trend
+        return profile.copy()
+
+    def _find_peaks(
+        self,
+        profile: np.ndarray,
+        num_peaks: int = 3,
+    ) -> np.ndarray:
+        """Find indices of top N peaks by prominence.
+
+        Uses scipy.signal.find_peaks with prominence-based filtering to
+        identify the most significant peaks, then selects the top N.
+        """
+        # Find peaks with prominence and distance constraints
+        peak_indices, properties = sp.signal.find_peaks(
+            profile,
+            prominence=0.05 * np.ptp(profile),  # 5% of full range
+            distance=len(profile) // (num_peaks * 2),  # Enforce separation
+            width=1,  # Minimum width of 1 sample
+        )
+
+        if len(peak_indices) < num_peaks:
+            logger.debug(
+                f"Found only {len(peak_indices)} peaks with prominence filter. "
+                "Falling back to highest points."
+            )
+            # Fallback: use highest points, ensuring minimum spacing
+            sorted_indices = np.argsort(profile)[::-1]
+            peak_indices = [sorted_indices[0]]
+
+            for idx in sorted_indices[1:]:
+                if all(abs(idx - existing) > 5 for existing in peak_indices):
+                    peak_indices.append(idx)
+                if len(peak_indices) == num_peaks:
+                    break
+
+            peak_indices = np.array(peak_indices)
+
+        # Select top N by prominence
+        prominences = properties.get("prominences", np.ones_like(peak_indices))
+        if len(prominences) != len(peak_indices):
+            # Fallback prominences
+            prominences = np.array([profile[i] for i in peak_indices])
+
+        top_indices = np.argsort(prominences)[-num_peaks:]
+
+        return peak_indices[top_indices]
+
+    def _get_fwhm_points(
+        self,
+        profile: np.ndarray,
+        peak_idx: int,
+        x_coords: np.ndarray,
+        y_coords: np.ndarray,
+    ) -> list[tuple[float, float]]:
+        """Find left and right half-maximum points for a peak.
+
+        Searches outward from peak_idx to find where profile crosses
+        half of the peak's maximum value.
+        """
+        peak_value = profile[peak_idx]
+        if peak_value <= 0:
+            logger.debug(
+                f"Peak at {peak_idx} has non-positive value {peak_value}"
+            )
+            return []
+
+        half_max = peak_value / 2
+        points = []
+
+        # Find left edge
+        left_idx = self._find_edge(profile, peak_idx, half_max, "left")
+        if left_idx is not None:
+            points.append(
+                self._interpolate_coordinate(left_idx, x_coords, y_coords)
+            )
+
+        # Find right edge
+        right_idx = self._find_edge(profile, peak_idx, half_max, "right")
+        if right_idx is not None:
+            points.append(
+                self._interpolate_coordinate(right_idx, x_coords, y_coords)
+            )
+
+        return points
+
+    def _find_edge(
+        self,
+        profile: np.ndarray,
+        peak_idx: int,
+        target_value: float,
+        direction: str,
+    ) -> float | None:
+        """Find interpolated index where profile crosses target value.
+
+        Searches from peak_idx outward until it finds where the profile
+        crosses target_value, then performs linear interpolation for
+        sub-pixel precision.
+        """
+        if direction == "left":
+            search_range = range(peak_idx - 1, -1, -1)
+            neighbor_offset = 1
+        elif direction == "right":
+            search_range = range(peak_idx + 1, len(profile))
+            neighbor_offset = -1
+        else:
+            raise ValueError("direction must be 'left' or 'right'")
+
+        for i in search_range:
+            current = profile[i]
+            neighbor = profile[i + neighbor_offset]
+
+            # Check if target is between current and neighbor
+            if (
+                min(current, neighbor)
+                <= target_value
+                <= max(current, neighbor)
+            ):
+                # Avoid division by zero for flat regions
+                if abs(neighbor - current) < 1e-10:
+                    return float(i)
+
+                # Linear interpolation
+                fraction = (target_value - current) / (neighbor - current)
+                return i + fraction * -neighbor_offset
+
+        return None
+
+    def _interpolate_coordinate(
+        self,
+        idx: float,
+        x_coords: np.ndarray,
+        y_coords: np.ndarray,
+    ) -> tuple[float, float]:
+        """Interpolate 2D coordinate at fractional index position.
+
+        Uses bilinear interpolation between the nearest integer indices
+        to compute precise (x, y) coordinates.
+        """
+        # Clamp index to valid range
+        n_points = len(x_coords)
+        idx = max(0.0, min(float(idx), n_points - 1))
+
+        # Handle exact integer index
+        if idx.is_integer():
+            idx_int = int(idx)
+            return float(x_coords[idx_int]), float(y_coords[idx_int])
+
+        # Bilinear interpolation
+        idx_int = int(np.floor(idx))
+        idx_frac = idx - idx_int
+
+        # Handle edge case at last point
+        if idx_int >= n_points - 1:
+            return float(x_coords[-1]), float(y_coords[-1])
+
+        x = x_coords[idx_int] + idx_frac * (
+            x_coords[idx_int + 1] - x_coords[idx_int]
+        )
+        y = y_coords[idx_int] + idx_frac * (
+            y_coords[idx_int + 1] - y_coords[idx_int]
+        )
+
+        return float(x), float(y)
