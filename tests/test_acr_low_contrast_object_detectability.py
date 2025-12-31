@@ -255,6 +255,29 @@ class TestLCODTemplateMask(unittest.TestCase):
             self.assertTrue(np.all(mask[p:, p:] == mask_shifted[:-p, :-p]))
 
 
+class TestACRLCODTemplateFinding(unittest.TestCase):
+    """Test for the centre finding for the LCOD test."""
+
+    ACR_DATA = Path(TEST_DATA_DIR / "acr" / "GE_Artist_1.5T_T1")
+
+    def setUp(self) -> None:
+        """Set up for the tests."""
+        input_files = get_dicom_files(self.ACR_DATA)
+
+        report_env = os.getenv("HAZEN_REPORT", "false").lower()
+        report = report_env in ("true", "1", "yes")
+        self.acr_object_detectability = ACRLowContrastObjectDetectability(
+            input_data=input_files,
+            report_dir=Path(TEST_REPORT_DIR),
+            report=report,
+        )
+
+    def test_find_center(self) -> None:
+        """Test the center finding."""
+        result = self.acr_object_detectability.get_current_slice_template(10)
+        self.assertTrue(result)
+
+
 class TestACRLowContrastObjectDetectability(unittest.TestCase):
     """Test Class for the LCOD task.
 
