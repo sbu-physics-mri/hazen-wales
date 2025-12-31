@@ -2,8 +2,9 @@ import pathlib
 import unittest
 
 import numpy as np
-from hazenlib.tasks.acr_sagittal_geometric_accuracy import \
-    ACRSagittalGeometricAccuracy
+from hazenlib.tasks.acr_sagittal_geometric_accuracy import (
+    ACRSagittalGeometricAccuracy,
+)
 from hazenlib.utils import get_dicom_files
 
 from tests import TEST_DATA_DIR, TEST_REPORT_DIR

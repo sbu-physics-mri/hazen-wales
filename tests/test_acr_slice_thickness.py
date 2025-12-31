@@ -1,11 +1,8 @@
-import os
 import unittest
 import pathlib
-import pydicom
 
 from hazenlib.utils import get_dicom_files
 from hazenlib.tasks.acr_slice_thickness import ACRSliceThickness
-from hazenlib.ACRObject import ACRObject
 from tests import TEST_DATA_DIR
 
 

@@ -1,12 +1,9 @@
-import os
 import unittest
 import pathlib
-import pydicom
 import numpy as np
 
 from hazenlib.utils import get_dicom_files
 from hazenlib.tasks.hazen_spatial_resolution import ACRSpatialResolution
-from hazenlib.ACRObject import ACRObject
 from tests import TEST_DATA_DIR, TEST_REPORT_DIR
 
 

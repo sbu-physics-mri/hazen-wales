@@ -9,7 +9,7 @@ import numpy as np
 
 # Local imports
 from hazenlib.tasks.snr_map import SNRMap
-from tests import TEST_DATA_DIR, TEST_REPORT_DIR
+from tests import TEST_DATA_DIR
 
 logger = logging.getLogger(__name__)
 

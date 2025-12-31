@@ -6,7 +6,6 @@ import unittest
 from pathlib import Path
 
 import hazenlib
-import numpy as np
 from hazenlib.tasks.relaxometry import Relaxometry
 from hazenlib.tasks.snr import SNR
 

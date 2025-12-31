@@ -2,7 +2,6 @@ import unittest
 import os
 
 import numpy as np
-import pydicom
 
 import hazenlib.utils as hazen_tools
 from hazenlib.utils import dcmread

@@ -1,7 +1,6 @@
 import unittest
 import pathlib
 
-import pydicom
 import os
 from tests import TEST_DATA_DIR, TEST_REPORT_DIR
 from hazenlib.utils import get_dicom_files
