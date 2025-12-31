@@ -12,6 +12,8 @@ on:
 jobs:
   ci-commit:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     defaults:
       run:
         shell: bash -l {0}

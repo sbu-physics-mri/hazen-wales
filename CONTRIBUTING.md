@@ -114,7 +114,7 @@ development and CI.
 
 | Tier | Trigger | Duration | Purpose | Make Target |
 |------|---------|----------|---------|-------------|
-| **Per-Commit** | Push to any branch (except `main`) | < 1 min | Fast feedback | `make ci-commit` |
+| **Per-Commit** | Push to feature branches | < 1 min | Fast feedback | `make ci-commit` |
 | **Pre-Merge** | Pull request to `main` | < 15 min | Comprehensive validation | `make ci-pr` |
 | **Release** | Push to `main` or `release/*` | < 30 min | Exhaustive verification | `make ci-release` |
 

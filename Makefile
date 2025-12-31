@@ -60,12 +60,21 @@ test-fast: ## Run tests without coverage (faster, excludes slow tests)
 .PHONY: test-ci
 test-ci: ## Run tests with coverage for CI (outputs JUnit XML and coverage text)
 	@echo "Running CI tests with coverage..."
-	$(VENV_CMD) pytest $(TEST_DIR) -v --junitxml=pytest.xml --cov-report=term-missing:skip-covered --cov=$(SRC_DIR) | tee pytest-coverage.txt
+	$(VENV_CMD) pytest $(TEST_DIR) -v \
+		--junitxml=pytest.xml \
+		--cov-report=term-missing:skip-covered \
+		--cov=$(SRC_DIR) \
+		| tee pytest-coverage.txt
 
 .PHONY: test-comprehensive
 test-comprehensive: ## Run all tests including slow tests with full coverage
 	@echo "Running comprehensive tests..."
-	$(VENV_CMD) pytest $(TEST_DIR) -v --junitxml=pytest.xml --cov-report=term-missing --cov=$(SRC_DIR) --cov-report=html | tee pytest-coverage.txt
+	$(VENV_CMD) pytest $(TEST_DIR) -v \
+		--junitxml=pytest.xml \
+		--cov-report=term-missing \
+		--cov=$(SRC_DIR) \
+		--cov-report=html \
+		| tee pytest-coverage.txt
 
 #################
 # Type Checking #
