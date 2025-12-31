@@ -390,7 +390,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
         *,
         spokes: list[int] | tuple[int] = (0, 1),
         center_search_tol: float = 2, # in cm
-        theta_tol: float = 3 * np.pi / 180,
+        theta_tol: float = 3,   # in degrees
     ) -> LCODTempalte:
         """Improve the template with a non-linear optimiser."""
         dcm = self.ACR_obj.slice_stack[-1]
@@ -415,7 +415,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
         def minimiser(vec: np.ndarray) -> float:
             cx = vec[0]
             cy = vec[1]
-            theta = vec[2]
+            theta = np.deg2rad(vec[2])
 
             loss = 0
             distances = [d for spoke in selected_spokes for d in spoke.dist]
