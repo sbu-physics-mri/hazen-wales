@@ -391,7 +391,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
         spokes: list[int] | tuple[int] = (0, 1),
         center_search_tol: float = 2, # in cm
         theta_tol: float = 3 * np.pi / 180,
-    ) -> LCODTempalte:
+    ) -> LCODTemplate:
         """Improve the template with a non-linear optimiser."""
         dcm = self.ACR_obj.slice_stack[-1]
 
