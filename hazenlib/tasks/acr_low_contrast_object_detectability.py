@@ -1532,15 +1532,21 @@ class ACRLowContrastObjectDetectability(HazenTask):
 
         # Mark half-maximum intersection points
         if len(intersection_indices) > 0:
-            ax.scatter(
-                intersection_indices,
-                profile[np.array(intersection_indices).astype(int)],
-                color="#388E3C",
-                marker="o",
-                s=60,
-                zorder=5,
-                label="Half-max points",
-            )
+            # Ensure indices are within bounds
+            valid_indices = [
+                idx for idx in intersection_indices 
+                if 0 <= idx < len(profile)
+            ]
+            if valid_indices:
+                ax.scatter(
+                    valid_indices,
+                    profile[np.array(valid_indices).astype(int)],
+                    color="#388E3C",
+                    marker="o",
+                    s=60,
+                    zorder=5,
+                    label="Half-max points",
+                )
 
         # Add vertical bands for object mask regions
         if object_mask is not None and object_mask.shape[1] > 0:
