@@ -274,7 +274,7 @@ class TestACRLCODTemplateFinding(unittest.TestCase):
 
     def test_get_current_slice_template(self) -> None:
         """Test that get_current_slice_template returns a template for a valid slice."""
-        result = self.acr_object_detectability.get_current_slice_template(10)
+        result = self.acr_object_detectability.get_current_slice_template(11)
         self.assertTrue(result)
 
 
