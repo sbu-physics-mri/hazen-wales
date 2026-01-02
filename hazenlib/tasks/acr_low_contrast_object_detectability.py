@@ -376,18 +376,18 @@ class ACRLowContrastObjectDetectability(HazenTask):
     def _improve_template_with_optimiser(
         self,
         template: LCODTemplate,
-        current_slice: int,
+        current_slice: int,     # ACR slice notation not index (i.e. 11 not 10)
         *,
-        spokes: list[int] | tuple[int] = (0, 1),
+        spokes: list[int] | tuple[int] = (0,),
         center_search_tol: float = 2,  # in cm
         theta_tol: float = 3 * np.pi / 180,
     ) -> LCODTemplate:
         """Improve the template with a non-linear optimiser."""
-        dcm = self.ACR_obj.slice_stack[current_slice]
+        dcm = self.ACR_obj.slice_stack[current_slice - 1]
 
         selected_spokes = [
             spoke for idx, spoke in enumerate(template.spokes) if idx in spokes
-        ]
+        ] if spokes else [0]
 
         # Collect profiles, coords, and object masks for debug plotting
         if self.report:
