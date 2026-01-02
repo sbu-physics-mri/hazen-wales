@@ -71,10 +71,8 @@ if TYPE_CHECKING:
 
 # Python imports
 import copy
-import functools
 import logging
-import os
-from concurrent import futures
+import traceback
 from pathlib import Path
 from types import MappingProxyType
 
@@ -83,7 +81,6 @@ import cv2
 import matplotlib as mpl
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
-import nevergrad as ng
 import numpy as np
 import scipy as sp
 import skimage.transform
@@ -215,7 +212,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
 
             # Add individual spoke measurements for debugging
             # and further analysis
-            # If this results in hose-pipping then it might be best to remove
+            # If this results in log flooding then it might be best to remove
             for j, r in enumerate(result):
                 spoke_no = j + 1
                 results.add_measurement(
@@ -267,10 +264,9 @@ class ACRLowContrastObjectDetectability(HazenTask):
         """Get a list of parameters and associated p-values."""
         sp = StatsParameters()
         for spoke in template.spokes:
-            profile, (x_coords, y_coords), object_mask = spoke.profile(
+            profile, object_mask = spoke.profile(
                 dcm,
                 size=self._RADIAL_PROFILE_LENGTH,
-                return_coords=True,
                 return_object_mask=True,
             )
 
@@ -380,29 +376,51 @@ class ACRLowContrastObjectDetectability(HazenTask):
     def _improve_template_with_optimiser(
         self,
         template: LCODTemplate,
-        current_slice: int,
+        current_slice: int,     # ACR slice notation not index (i.e. 11 not 10)
         *,
-        spokes: list[int] | tuple[int] = (0, 1),
-        center_search_tol: float = 2, # in cm
-        theta_tol: float = 3,   # in degrees
-    ) -> LCODTempalte:
+        spokes: list[int] | tuple[int] = (0,),
+        center_search_tol: float = 2,  # in mm
+        theta_tol: float = 3,
+    ) -> LCODTemplate:
         """Improve the template with a non-linear optimiser."""
-        dcm = self.ACR_obj.slice_stack[-1]
+        dcm = self.ACR_obj.slice_stack[current_slice - 1]
 
         selected_spokes = [
             spoke for idx, spoke in enumerate(template.spokes) if idx in spokes
-        ]
-        profiles, coords = zip(
-            *[
-                spoke.profile(dcm, return_coords=True)
-                for spoke in selected_spokes
-            ],
-        )
+        ] if spokes else [0]
+
+        # Collect profiles, coords, and object masks for debug plotting
+        if self.report:
+            profiles, coords, object_masks = zip(
+                *[
+                    spoke.profile(
+                        dcm,
+                        return_coords=True,
+                        return_object_mask=True,
+                    )
+                    for spoke in selected_spokes
+                ],
+                strict=True,
+            )
+            spoke_ids = list(spokes)
+        else:
+            profiles, coords = zip(
+                *[
+                    spoke.profile(dcm, return_coords=True)
+                    for spoke in selected_spokes
+                ],
+                strict=True,
+            )
+            object_masks = None
+            spoke_ids = None
 
         intersection_points: tuple[tuple[float, float], ...] = (
             self._get_intersection_points(
                 profiles,
                 coords,
+                object_masks=object_masks,
+                spoke_ids=spoke_ids,
+                slice_no=current_slice,
             )
         )
 
@@ -411,12 +429,17 @@ class ACRLowContrastObjectDetectability(HazenTask):
             cy = vec[1]
             theta = np.deg2rad(vec[2])
 
-            loss = 0
-            distances = [d for spoke in selected_spokes for d in spoke.dist]
+            distances = [
+                d
+                for spoke in selected_spokes
+                for d in spoke.dist
+                for _ in range(2)       # Two intersection points per object.
+            ]
             radii = [
                 spoke.diameter / 2
                 for spoke in selected_spokes
                 for _ in spoke.dist
+                for _ in range(2)
             ]
             return sum(
                 (
@@ -426,6 +449,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
                 )
                 for (xi, yi), di, ri in zip(
                     intersection_points, distances, radii,
+                    strict=True,
                 )
             )
 
@@ -500,6 +524,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
                     detected_circles[:2],
                     (offset_x, offset_y),
                     (self.ACR_obj.dx, self.ACR_obj.dy),
+                    strict=True,
                 )
             )
 
@@ -589,7 +614,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
             )
             axes[1, 1].add_patch(circle)
             axes[1, 1].set_title(
-                f"Detected Circle, optimiser used={use_optimiser}",
+                "Detected Circle",
             )
 
             fig.suptitle("LCOD Center Detection")
@@ -611,7 +636,6 @@ class ACRLowContrastObjectDetectability(HazenTask):
         )
         return self.rotation + rotation_offset
 
-    @functools.lru_cache
     def get_current_slice_template(
         self,
         current_slice: int,
@@ -818,7 +842,9 @@ class ACRLowContrastObjectDetectability(HazenTask):
                     alpha=0.8,
                 )
 
-            for obj, detected in zip(spoke_data.objects, spoke_data.detected):
+            for obj, detected in zip(
+                spoke_data.objects, spoke_data.detected, strict=True,
+            ):
                 color = "green" if detected else "red"
                 circle = Circle(
                     ((obj.x - offset_x) / px_x, (obj.y - offset_y) / px_y),
@@ -1043,7 +1069,11 @@ class ACRLowContrastObjectDetectability(HazenTask):
 
         for spoke_data in report_data:
             row = [f"{spoke_data.spoke_id + 1}"]
-            for p_val, param in zip(spoke_data.p_vals, spoke_data.params):
+            for p_val, param in zip(
+                spoke_data.p_vals,
+                spoke_data.params,
+                strict=True,
+            ):
                 # Compact formatting
                 p_str = (
                     f"{p_val:.2e}"
@@ -1136,8 +1166,8 @@ class ACRLowContrastObjectDetectability(HazenTask):
         lower, upper = bounds
         structure = np.ones((3, 3), dtype=int)
         for thr in np.arange(threshold_min, threshold_max, threshold_step):
-            ret, thresh = cv2.threshold(fdata, thr, 1, 0)
-            labelled, ncomponents = sp.ndimage.label(
+            _, thresh = cv2.threshold(fdata, thr, 1, 0)
+            labelled, _ = sp.ndimage.label(
                 thresh,
                 structure,
             )
@@ -1161,6 +1191,9 @@ class ACRLowContrastObjectDetectability(HazenTask):
         self,
         profiles: list[np.ndarray],
         coords: list[tuple[np.ndarray, np.ndarray]],
+        object_masks: list[np.ndarray] | None = None,
+        spoke_ids: list[int] | None = None,
+        slice_no: int | None = None,
     ) -> tuple[tuple[float, float], ...]:
         """Extract half-maximum intersection points from radial profiles.
 
@@ -1178,26 +1211,33 @@ class ACRLowContrastObjectDetectability(HazenTask):
         Args:
             profiles: List of 1D intensity profiles along radial lines P
             coords: List of (x_coords, y_coords) arrays for each profile point
+            object_masks: Optional list of object masks for debug plotting
+            spoke_ids: Optional list of spoke IDs for debug plotting
+            slice_no: Optional slice number for debug plotting
 
         Returns:
             Tuple of (x, y) intersection points. Each profile contributes
             up to 6 points (2 per peak), giving N_profiles x 6 total points.
 
         """
-
         all_points = []
 
         for profile_idx, (profile, (x_coords, y_coords)) in enumerate(
-            zip(profiles, coords)
+            zip(profiles, coords, strict=True),
         ):
             try:
                 # Validate coordinate dimensions
-                if len(profile) != len(x_coords) or len(profile) != len(
-                    y_coords
+                if (
+                    len(profile) != len(x_coords)
+                    or len(profile) != len(y_coords)
                 ):
                     logger.warning(
-                        f"Profile {profile_idx}: coordinate length mismatch. "
-                        f"Profile: {len(profile)}, X: {len(x_coords)}, Y: {len(y_coords)}"
+                        "Profile %i: coordinate length mismatch. "
+                        "Profile: %i, X: %i, Y: %i",
+                        profile_idx,
+                        len(profile),
+                        len(x_coords),
+                        len(y_coords),
                     )
                     continue
 
@@ -1213,24 +1253,53 @@ class ACRLowContrastObjectDetectability(HazenTask):
 
                 if len(peak_indices) != 3:
                     logger.warning(
-                        f"Profile {profile_idx}: found {len(peak_indices)} peaks, "
-                        f"expected 3. Skipping profile."
+                        "Profile %i: found %i peaks, expected 3."
+                        " Skipping profile.",
+                        profile_idx,
+                        len(peak_indices),
                     )
                     continue
 
+                # Collect intersection points for this profile
+                profile_intersection_points = []
                 for peak_idx in peak_indices:
                     # Get half-maximum points for this peak
                     points = self._get_fwhm_points(
-                        smoothed, peak_idx, x_coords, y_coords
+                        smoothed, peak_idx, x_coords, y_coords,
                     )
 
                     if len(points) < 2:
                         logger.debug(
-                            f"Profile {profile_idx}, peak {peak_idx}: "
-                            f"Found only {len(points)} edges"
+                            "Profile %i, peak %i: "
+                            "Found only %i edges",
+                            profile_idx,
+                            peak_idx,
+                            len(points),
                         )
+                    else:
+                        profile_intersection_points.extend(points)
 
-                    all_points.extend(points)
+                all_points.extend(profile_intersection_points)
+
+                # Generate debug plot if reporting is enabled
+                if (
+                    self.report
+                    and object_masks is not None
+                    and spoke_ids is not None
+                    and slice_no is not None
+                    and profile_idx < len(object_masks)
+                    and profile_idx < len(spoke_ids)
+                ):
+                    self._plot_profile_debug(
+                        smoothed,
+                        peak_indices,
+                        profile_intersection_points,
+                        spoke_ids[profile_idx],
+                        slice_no,
+                        object_masks[profile_idx],
+                        x_coords,
+                        y_coords,
+                    )
 
             except Exception as e:
                 logger.error(
@@ -1411,3 +1480,154 @@ class ACRLowContrastObjectDetectability(HazenTask):
         )
 
         return float(x), float(y)
+
+    def _plot_profile_debug(
+        self,
+        profile: np.ndarray,
+        peak_indices: np.ndarray,
+        intersection_points: list[tuple[float, float]],
+        spoke_id: int,
+        slice_no: int,
+        object_mask: np.ndarray,
+        x_coords: np.ndarray,
+        y_coords: np.ndarray,
+    ) -> None:
+        """Create debug plot for radial profile analysis.
+
+        Visualizes the profile data, detected peaks, half-maximum intersection
+        points, and object mask regions to help verify the intersection point
+        detection algorithm.
+
+        Args:
+            profile: Smoothed and detrended 1D intensity profile
+            peak_indices: Array of indices where peaks were detected
+            intersection_points: List of (x, y) coordinate tuples for
+                half-max points in image space
+            spoke_id: Spoke number (0-9)
+            slice_no: Slice number (8-11)
+            object_mask: Binary mask array indicating object locations (size x 3)
+            x_coords: X coordinates in image space for each profile point
+            y_coords: Y coordinates in image space for each profile point
+
+        """
+        if not self.report:
+            return
+
+        # Convert intersection points from image coordinates back to profile indices
+        # by finding the closest point in the profile coordinates
+        intersection_indices = []
+        for xi, yi in intersection_points:
+            distances = np.sqrt((x_coords - xi) ** 2 + (y_coords - yi) ** 2)
+            closest_idx = np.argmin(distances)
+            intersection_indices.append(closest_idx)
+
+        # Create figure
+        fig, ax = plt.subplots(figsize=(10, 4))
+
+        # Profile positions (0 to length-1)
+        profile_positions = np.arange(len(profile))
+
+        # Plot the smoothed profile
+        ax.plot(
+            profile_positions,
+            profile,
+            color="#1976D2",
+            linewidth=1.5,
+            label="Smoothed profile",
+        )
+
+        # Mark detected peaks
+        if len(peak_indices) > 0:
+            ax.scatter(
+                peak_indices,
+                profile[peak_indices],
+                color="#D32F2F",
+                marker="^",
+                s=80,
+                zorder=5,
+                label="Peaks",
+            )
+
+        # Mark half-maximum intersection points
+        if len(intersection_indices) > 0:
+            # Ensure indices are within bounds
+            valid_indices = [
+                idx for idx in intersection_indices
+                if 0 <= idx < len(profile)
+            ]
+            if valid_indices:
+                ax.scatter(
+                    valid_indices,
+                    profile[np.array(valid_indices).astype(int)],
+                    color="#388E3C",
+                    marker="o",
+                    s=60,
+                    zorder=5,
+                    label="Half-max points",
+                )
+
+        # Add vertical bands for object mask regions
+        if object_mask is not None and object_mask.shape[1] > 0:
+            for obj_idx in range(object_mask.shape[1]):
+                obj_mask_col = object_mask[:, obj_idx]
+                # Find contiguous regions where mask is True
+                mask_start = None
+                for i, is_masked in enumerate(obj_mask_col):
+                    if is_masked and mask_start is None:
+                        mask_start = i
+                    elif not is_masked and mask_start is not None:
+                        # End of masked region
+                        color = self.OBJECT_RIBBON_COLORS[
+                            obj_idx % len(self.OBJECT_RIBBON_COLORS)
+                        ]
+                        ax.axvspan(
+                            mask_start,
+                            i,
+                            alpha=0.15,
+                            color=color,
+                            zorder=1,
+                        )
+                        mask_start = None
+                # Handle case where mask extends to end
+                if mask_start is not None:
+                    color = self.OBJECT_RIBBON_COLORS[
+                        obj_idx % len(self.OBJECT_RIBBON_COLORS)
+                    ]
+                    ax.axvspan(
+                        mask_start,
+                        len(obj_mask_col),
+                        alpha=0.15,
+                        color=color,
+                        zorder=1,
+                    )
+
+        # Set axis limits with padding
+        profile_range = np.ptp(profile)
+        if profile_range > 0:
+            ax.set_ylim(
+                profile.min() - 0.1 * profile_range,
+                profile.max() + 0.1 * profile_range,
+            )
+
+        # Labels and title
+        ax.set_xlabel("Profile Position", fontsize=8)
+        ax.set_ylabel("Intensity", fontsize=8)
+        ax.set_title(
+            f"LCOD Profile Debug - Slice {slice_no}, Spoke {spoke_id}",
+            fontsize=9,
+        )
+        ax.legend(fontsize=7, loc="best")
+        ax.tick_params(labelsize=7)
+        ax.grid(True, alpha=0.3, linestyle="--", linewidth=0.5)
+
+        plt.tight_layout()
+
+        # Save figure
+        data_path = Path(self.dcm_list[0].filename).parent.name
+        img_path = (
+            Path(self.report_path)
+            / f"{data_path}_profile_debug_slice{slice_no}_spoke{spoke_id}.png"
+        )
+        fig.savefig(img_path, dpi=100, bbox_inches="tight")
+        plt.close(fig)
+        self.report_files.append(img_path)
