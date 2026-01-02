@@ -394,10 +394,13 @@ class ACRLowContrastObjectDetectability(HazenTask):
             profiles, coords, object_masks = zip(
                 *[
                     spoke.profile(
-                        dcm, return_coords=True, return_object_mask=True
+                        dcm,
+                        return_coords=True,
+                        return_object_mask=True,
                     )
                     for spoke in selected_spokes
                 ],
+                strict=True,
             )
             spoke_ids = list(spokes)
         else:
@@ -406,6 +409,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
                     spoke.profile(dcm, return_coords=True)
                     for spoke in selected_spokes
                 ],
+                strict=True,
             )
             object_masks = None
             spoke_ids = None
@@ -439,6 +443,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
                 )
                 for (xi, yi), di, ri in zip(
                     intersection_points, distances, radii,
+                    strict=True,
                 )
             )
 
@@ -513,6 +518,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
                     detected_circles[:2],
                     (offset_x, offset_y),
                     (self.ACR_obj.dx, self.ACR_obj.dy),
+                    strict=True,
                 )
             )
 
@@ -830,7 +836,9 @@ class ACRLowContrastObjectDetectability(HazenTask):
                     alpha=0.8,
                 )
 
-            for obj, detected in zip(spoke_data.objects, spoke_data.detected):
+            for obj, detected in zip(
+                spoke_data.objects, spoke_data.detected, strict=True,
+            ):
                 color = "green" if detected else "red"
                 circle = Circle(
                     ((obj.x - offset_x) / px_x, (obj.y - offset_y) / px_y),
@@ -1055,7 +1063,11 @@ class ACRLowContrastObjectDetectability(HazenTask):
 
         for spoke_data in report_data:
             row = [f"{spoke_data.spoke_id + 1}"]
-            for p_val, param in zip(spoke_data.p_vals, spoke_data.params):
+            for p_val, param in zip(
+                spoke_data.p_vals,
+                spoke_data.params,
+                strict=True,
+            ):
                 # Compact formatting
                 p_str = (
                     f"{p_val:.2e}"
@@ -1202,11 +1214,10 @@ class ACRLowContrastObjectDetectability(HazenTask):
             up to 6 points (2 per peak), giving N_profiles x 6 total points.
 
         """
-
         all_points = []
 
         for profile_idx, (profile, (x_coords, y_coords)) in enumerate(
-            zip(profiles, coords)
+            zip(profiles, coords, strict=True),
         ):
             try:
                 # Validate coordinate dimensions
