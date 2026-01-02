@@ -64,8 +64,6 @@ Implemented for Hazen by Alex Drysdale: alexander.drysdale@wales.nhs.uk
 # Typing
 from __future__ import annotations
 
-import os
-from concurrent import futures
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -73,8 +71,8 @@ if TYPE_CHECKING:
 
 # Python imports
 import copy
-import functools
 import logging
+import traceback
 from pathlib import Path
 from types import MappingProxyType
 
@@ -83,7 +81,6 @@ import cv2
 import matplotlib as mpl
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
-import nevergrad as ng
 import numpy as np
 import scipy as sp
 import skimage.transform
@@ -91,15 +88,9 @@ import statsmodels
 import statsmodels.api as sm
 from hazenlib.ACRObject import ACRObject
 from hazenlib.HazenTask import HazenTask
-from hazenlib.types import (
-    FailedStatsModel,
-    LCODTemplate,
-    Measurement,
-    P_HazenTask,
-    Result,
-    SpokeReportData,
-    StatsParameters,
-)
+from hazenlib.types import (FailedStatsModel, LCODTemplate, Measurement,
+                            P_HazenTask, Result, SpokeReportData,
+                            StatsParameters)
 from matplotlib.gridspec import GridSpec
 from matplotlib.patches import Circle
 
@@ -221,7 +212,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
 
             # Add individual spoke measurements for debugging
             # and further analysis
-            # If this results in hose-pipping then it might be best to remove
+            # If this results in log flooding then it might be best to remove
             for j, r in enumerate(result):
                 spoke_no = j + 1
                 results.add_measurement(
