@@ -264,10 +264,9 @@ class ACRLowContrastObjectDetectability(HazenTask):
         """Get a list of parameters and associated p-values."""
         sp = StatsParameters()
         for spoke in template.spokes:
-            profile, (x_coords, y_coords), object_mask = spoke.profile(
+            profile, object_mask = spoke.profile(
                 dcm,
                 size=self._RADIAL_PROFILE_LENGTH,
-                return_coords=True,
                 return_object_mask=True,
             )
 
