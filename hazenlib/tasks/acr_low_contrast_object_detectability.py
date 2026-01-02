@@ -1166,8 +1166,8 @@ class ACRLowContrastObjectDetectability(HazenTask):
         lower, upper = bounds
         structure = np.ones((3, 3), dtype=int)
         for thr in np.arange(threshold_min, threshold_max, threshold_step):
-            ret, thresh = cv2.threshold(fdata, thr, 1, 0)
-            labelled, ncomponents = sp.ndimage.label(
+            _, thresh = cv2.threshold(fdata, thr, 1, 0)
+            labelled, _ = sp.ndimage.label(
                 thresh,
                 structure,
             )
