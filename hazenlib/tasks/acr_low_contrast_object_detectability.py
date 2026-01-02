@@ -1227,12 +1227,17 @@ class ACRLowContrastObjectDetectability(HazenTask):
         ):
             try:
                 # Validate coordinate dimensions
-                if len(profile) != len(x_coords) or len(profile) != len(
-                    y_coords
+                if (
+                    len(profile) != len(x_coords)
+                    or len(profile) != len(y_coords)
                 ):
                     logger.warning(
-                        f"Profile {profile_idx}: coordinate length mismatch. "
-                        f"Profile: {len(profile)}, X: {len(x_coords)}, Y: {len(y_coords)}"
+                        "Profile %i: coordinate length mismatch. "
+                        "Profile: %i, X: %i, Y: %i",
+                        profile_idx,
+                        len(profile),
+                        len(x_coords),
+                        len(y_coords),
                     )
                     continue
 
@@ -1248,8 +1253,10 @@ class ACRLowContrastObjectDetectability(HazenTask):
 
                 if len(peak_indices) != 3:
                     logger.warning(
-                        f"Profile {profile_idx}: found {len(peak_indices)} peaks, "
-                        f"expected 3. Skipping profile."
+                        "Profile %i: found %i peaks, expected 3."
+                        " Skipping profile.",
+                        profile_idx,
+                        len(peak_indices),
                     )
                     continue
 
@@ -1258,16 +1265,19 @@ class ACRLowContrastObjectDetectability(HazenTask):
                 for peak_idx in peak_indices:
                     # Get half-maximum points for this peak
                     points = self._get_fwhm_points(
-                        smoothed, peak_idx, x_coords, y_coords
+                        smoothed, peak_idx, x_coords, y_coords,
                     )
 
                     if len(points) < 2:
                         logger.debug(
-                            f"Profile {profile_idx}, peak {peak_idx}: "
-                            f"Found only {len(points)} edges"
+                            "Profile %i, peak %i: "
+                            "Found only %i edges",
+                            profile_idx,
+                            peak_idx,
+                            len(points),
                         )
-
-                    profile_intersection_points.extend(points)
+                    else:
+                        profile_intersection_points.extend(points)
 
                 all_points.extend(profile_intersection_points)
 
@@ -1498,6 +1508,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
             object_mask: Binary mask array indicating object locations (size x 3)
             x_coords: X coordinates in image space for each profile point
             y_coords: Y coordinates in image space for each profile point
+
         """
         if not self.report:
             return
@@ -1541,7 +1552,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
         if len(intersection_indices) > 0:
             # Ensure indices are within bounds
             valid_indices = [
-                idx for idx in intersection_indices 
+                idx for idx in intersection_indices
                 if 0 <= idx < len(profile)
             ]
             if valid_indices:
