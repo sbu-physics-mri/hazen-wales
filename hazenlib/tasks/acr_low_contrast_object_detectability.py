@@ -424,23 +424,37 @@ class ACRLowContrastObjectDetectability(HazenTask):
             )
         )
 
+        distances = [
+            d
+            for spoke in selected_spokes
+            for idx, d in enumerate(spoke.dist)
+            for _ in range(2)   # Two intersection points per object.
+            if all(
+                p is not None for p in intersection_points[2 * idx: 2 * idx + 2]
+            )
+        ]
+        radii = [
+            spoke.diameter / 2
+            for spoke in selected_spokes
+            for _ in intersection_points
+        ]
+
+        complete_intersection_points = [
+            p
+            for idx, p in enumerate(intersection_points)
+            if (
+                p is not None
+                and intersection_points[
+                    idx + int(1 - (idx % 2) / 0.5)  # idx + 1 or idx - 1
+                ] is not None
+            )
+        ]
+
         def minimiser(vec: np.ndarray) -> float:
             cx = vec[0]
             cy = vec[1]
             theta = np.deg2rad(vec[2])
 
-            distances = [
-                d
-                for spoke in selected_spokes
-                for d in spoke.dist
-                for _ in range(2)       # Two intersection points per object.
-            ]
-            radii = [
-                spoke.diameter / 2
-                for spoke in selected_spokes
-                for _ in spoke.dist
-                for _ in range(2)
-            ]
             return sum(
                 (
                     (xi - cx - di * np.sin(theta)) ** 2
@@ -448,7 +462,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
                     - ri ** 2
                 )
                 for (xi, yi), di, ri in zip(
-                    intersection_points, distances, radii,
+                    complete_intersection_points, distances, radii,
                     strict=True,
                 )
             )
@@ -1276,6 +1290,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
                             peak_idx,
                             len(points),
                         )
+                        profile_intersection_points.extend([None, None])
                     else:
                         profile_intersection_points.extend(points)
 
