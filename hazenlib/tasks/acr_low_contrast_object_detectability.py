@@ -614,7 +614,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
             )
             axes[1, 1].add_patch(circle)
             axes[1, 1].set_title(
-                f"Detected Circle, optimiser used={use_optimiser}",
+                "Detected Circle",
             )
 
             fig.suptitle("LCOD Center Detection")
