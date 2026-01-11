@@ -64,16 +64,15 @@ Implemented for Hazen by Alex Drysdale: alexander.drysdale@wales.nhs.uk
 # Typing
 from __future__ import annotations
 
-import contextlib
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     import pydicom
 
 # Python imports
+import contextlib
 import copy
 import logging
-import traceback
 from pathlib import Path
 from types import MappingProxyType
 
@@ -257,26 +256,60 @@ class ACRLowContrastObjectDetectability(HazenTask):
 
         return results
 
+    def _get_template_ensemble(
+        self,
+        template: LCODTemplate,
+    ) -> list[LCODTemplate]:
+        cx, cy, theta = template.cx, template.cy, template.theta
+        inc = 2 * self.ACR_obj.dx
+        increments = ( -inc, 0, inc)
+
+        return [
+            LCODTemplate(
+                cx + dx,
+                cy + dy,
+                theta,
+            )
+            for dx in increments
+            for dy in increments
+        ]
+
     def _get_params_and_p_vals(
         self,
         template: LCODTemplate,
         dcm: pydicom.Dataset,
+        *,
+        use_ensemble_template: bool = False,
     ) -> StatsParameters:
         """Get a list of parameters and associated p-values."""
         sp = StatsParameters()
-        for spoke in template.spokes:
-            profile, object_mask = spoke.profile(
-                dcm,
-                size=self._RADIAL_PROFILE_LENGTH,
-                return_object_mask=True,
-            )
+        if use_ensemble_template:
+            templates = self._get_template_ensemble(template)
+        else:
+            templates = [template]
 
-            p_vals, params = self._analyze_profile(
-                profile,
-                object_mask,
-            )
-            sp.p_vals.append(p_vals)
-            sp.params.append(params)
+        for idx, _ in enumerate(template.spokes):
+            for t_idx, _template in enumerate(templates):
+                spoke = _template.spokes[idx]
+                profile, object_mask = spoke.profile(
+                    dcm,
+                    size=self._RADIAL_PROFILE_LENGTH,
+                    return_object_mask=True,
+                )
+
+                p_vals, params = self._analyze_profile(
+                    profile,
+                    object_mask,
+                )
+
+                if (
+                    t_idx == 0
+                    or (np.sum(p_vals) < np.sum(min_pvals) and all(params > 0))
+                ):
+                    min_pvals = p_vals
+                    min_params = params
+            sp.p_vals.append(min_pvals)
+            sp.params.append(min_params)
 
         return sp
 
@@ -307,8 +340,8 @@ class ACRLowContrastObjectDetectability(HazenTask):
         spokes = template.spokes
 
         # Get analysis data
-        sp = StatsParameters()
         report_data = [] if self.report else None
+
 
         for spoke_id, spoke in enumerate(spokes):
             profile, (x_coords, y_coords), object_mask = spoke.profile(
@@ -341,11 +374,10 @@ class ACRLowContrastObjectDetectability(HazenTask):
                         objects=spoke.objects,
                     ),
                 )
-            else:
-                p_vals, params = self._analyze_profile(profile, object_mask)
 
-            sp.p_vals.append(p_vals)
-            sp.params.append(params)
+        sp = self._get_params_and_p_vals(
+            template, dcm, use_ensemble_template=True,
+        )
 
         # FDR correction
         p_vals_fdr, params_fdr = self._fdrcorrection(sp, alpha=alpha)
