@@ -707,14 +707,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
         )
 
         # De-trend with robust polynomial fitting
-        if np.std(profile) > self._STD_TOL:
-            x = np.linspace(0, 1, len(profile))
-            coeffs = np.polyfit(x, profile, self._DETREND_POLYNOMIAL_ORDER)
-            trend = np.polyval(coeffs, x)
-        else:
-            trend = np.zeros_like(profile)
-
-        detrended = profile - trend
+        detrended, trend = self._detrend_profile(profile, return_trend=True)
         kernel = np.ones(3) / 3
         smoothed = np.convolve(
             detrended - np.mean(detrended),
