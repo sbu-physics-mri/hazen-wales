@@ -1427,7 +1427,13 @@ class ACRLowContrastObjectDetectability(HazenTask):
             )
             return []
 
-        half_max = peak_value / 2
+        # Due to detrending the intensities oscillate around 0
+        # hence 0 is a robust value to use for the half max value
+        # rather than dynamically calculate it.
+        # If the detrending process changes that such that this assumption
+        # is violated then this may need to change to something like:
+        # example snippet: half_max = (peak_value + profile.min()) / 2
+        half_max = 0
         points = []
 
         # Find left edge
