@@ -601,12 +601,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
 
         # De-trend with robust polynomial fitting
         detrended, trend = self._detrend_profile(profile, return_trend=True)
-        kernel = np.ones(3) / 3
-        smoothed = np.convolve(
-            detrended - np.mean(detrended),
-            kernel,
-            mode="same",
-        ).reshape((profile.size, 1))
+        smoothed = self._smooth_profile(detrended)
 
         # Prepare GLM
         data = np.column_stack((object_mask, np.ones_like(profile)))
