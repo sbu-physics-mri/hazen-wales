@@ -1109,14 +1109,16 @@ class ACRLowContrastObjectDetectability(HazenTask):
     ) -> np.ndarray:
         """Remove polynomial trend from profile using robust fitting."""
         # Ignores end of profile which sometimes includes outer disc.
-        stop_idx = len(profile) - 1 - np.argmax([
-            np.abs(profile[idx] - np.mean(profile[:idx]))
-            for idx in range(
-                len(profile) - 1,
-                int(len(profile) * 0.9) - 1,
-                -1,
-            )
-        ])
+        try:
+            stop_idx = np.where(
+                profile <= profile.max() * 0.75,
+            )[0][0]
+
+            if stop_idx <= len(profile) * 0.9:
+                stop_idx = int(len(profile) * 0.9)
+
+        except IndexError:
+            stop_idx = len(profile)
 
         trunc_profile = profile[:stop_idx]
 
