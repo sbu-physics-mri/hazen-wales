@@ -1200,6 +1200,13 @@ class ACRLowContrastObjectDetectability(HazenTask):
         )
         return processed
 
+    def _smooth_profile(
+        self, profile: np.ndarray, sigma: int = 5,
+    ) -> np.ndarray:
+        return sp.ndimage.gaussian_filter(
+            profile, sigma=sigma, mode="constant", cval=np.mean(profile),
+        )
+
     def _get_intersection_points(
         self,
         profiles: list[np.ndarray],
@@ -1238,100 +1245,122 @@ class ACRLowContrastObjectDetectability(HazenTask):
         for profile_idx, (profile, (x_coords, y_coords)) in enumerate(
             zip(profiles, coords, strict=True),
         ):
-            try:
-                # Validate coordinate dimensions
-                if (
-                    len(profile) != len(x_coords)
-                    or len(profile) != len(y_coords)
-                ):
-                    logger.warning(
-                        "Profile %i: coordinate length mismatch. "
-                        "Profile: %i, X: %i, Y: %i",
-                        profile_idx,
-                        len(profile),
-                        len(x_coords),
-                        len(y_coords),
-                    )
-                    continue
-
-                # De-trend profile to remove baseline variations
-                detrended = self._detrend_profile(profile)
-
-                # Apply light smoothing to reduce noise sensitivity
-                kernel = np.ones(3) / 3
-                smoothed = np.convolve(detrended, kernel, mode="same")
-
-                # Find the three main peaks by prominence
-                peak_indices = self._find_peaks(smoothed, num_peaks=3)
-
-                if len(peak_indices) != 3:
-                    logger.warning(
-                        "Profile %i: found %i peaks, expected 3."
-                        " Skipping profile.",
-                        profile_idx,
-                        len(peak_indices),
-                    )
-                    continue
-
-                # Collect intersection points for this profile
-                profile_intersection_points = []
-                for peak_idx in peak_indices:
-                    # Get half-maximum points for this peak
-                    points = self._get_fwhm_points(
-                        smoothed, peak_idx, x_coords, y_coords,
-                    )
-
-                    if len(points) < 2:
-                        logger.debug(
-                            "Profile %i, peak %i: "
-                            "Found only %i edges",
-                            profile_idx,
-                            peak_idx,
-                            len(points),
-                        )
-                        profile_intersection_points.extend([None, None])
-                    else:
-                        profile_intersection_points.extend(points)
-
-                all_points.extend(profile_intersection_points)
-
-                # Generate debug plot if reporting is enabled
-                if (
-                    self.report
-                    and object_masks is not None
-                    and spoke_ids is not None
-                    and slice_no is not None
-                    and profile_idx < len(object_masks)
-                    and profile_idx < len(spoke_ids)
-                ):
-                    self._plot_profile_debug(
-                        smoothed,
-                        peak_indices,
-                        profile_intersection_points,
-                        spoke_ids[profile_idx],
-                        slice_no,
-                        object_masks[profile_idx],
-                        x_coords,
-                        y_coords,
-                    )
-
-            except Exception as e:
-                logger.error(
-                    f"Error processing profile {profile_idx}: {e}. "
-                    f"Traceback: {traceback.format_exc()}"
+            # Validate coordinate dimensions
+            if (
+                len(profile) != len(x_coords)
+                or len(profile) != len(y_coords)
+            ):
+                logger.warning(
+                    "Profile %i: coordinate length mismatch. "
+                    "Profile: %i, X: %i, Y: %i",
+                    profile_idx,
+                    len(profile),
+                    len(x_coords),
+                    len(y_coords),
                 )
                 continue
 
+            # De-trend profile to remove baseline variations
+            detrended = self._detrend_profile(profile)
+
+            # Apply light smoothing to reduce noise sensitivity
+            smoothed = self._smooth_profile(detrended)
+
+            # Find the three main peaks by prominence
+            peak_indices = self._find_peaks(smoothed, num_peaks=3)
+
+            if len(peak_indices) != 3:
+                logger.warning(
+                    "Profile %i: found %i peaks, expected 3."
+                    " Skipping profile.",
+                    profile_idx,
+                    len(peak_indices),
+                )
+                continue
+
+            # Collect intersection points for this profile
+            profile_intersection_points = []
+            for peak_idx in peak_indices:
+                # Get half-maximum points for this peak
+                points = self._get_fwhm_points(
+                    smoothed, peak_idx, x_coords, y_coords,
+                )
+
+                if len(points) < 2:
+                    logger.debug(
+                        "Profile %i, peak %i: "
+                        "Found only %i edges",
+                        profile_idx,
+                        peak_idx,
+                        len(points),
+                    )
+                    profile_intersection_points.extend([None, None])
+                else:
+                    profile_intersection_points.extend(points)
+
+            all_points.extend(profile_intersection_points)
+
+            # Generate debug plot if reporting is enabled
+            if (
+                self.report
+                and object_masks is not None
+                and spoke_ids is not None
+                and slice_no is not None
+                and profile_idx < len(object_masks)
+                and profile_idx < len(spoke_ids)
+            ):
+                self._plot_profile_debug(
+                    detrended,
+                    smoothed,
+                    peak_indices,
+                    profile_intersection_points,
+                    spoke_ids[profile_idx],
+                    slice_no,
+                    object_masks[profile_idx],
+                    x_coords,
+                    y_coords,
+                )
+
         return tuple(all_points)
 
-    def _detrend_profile(self, profile: np.ndarray) -> np.ndarray:
+
+    def _detrend_profile(
+        self,
+        profile: np.ndarray,
+        *,
+        return_trend: bool = False,
+    ) -> np.ndarray:
         """Remove polynomial trend from profile using robust fitting."""
-        if np.std(profile) > self._STD_TOL:
-            x = np.linspace(0, 1, len(profile))
-            coeffs = np.polyfit(x, profile, self._DETREND_POLYNOMIAL_ORDER)
-            trend = np.polyval(coeffs, x)
-            return profile - trend
-        return profile.copy()
+        # Ignores end of profile which sometimes includes outer disc.
+        stop_idx = len(profile) - 1 - np.argmax([
+            np.abs(profile[idx] - np.mean(profile[:idx]))
+            for idx in range(
+                len(profile) - 1,
+                int(len(profile) * 0.9) - 1,
+                -1,
+            )
+        ])
+
+        trunc_profile = profile[:stop_idx]
+
+        if np.std(trunc_profile) > self._STD_TOL:
+            x = np.linspace(0, 1, len(trunc_profile))
+            coeffs = np.polyfit(
+                x,
+                trunc_profile,
+                self._DETREND_POLYNOMIAL_ORDER,
+            )
+            trend = np.zeros_like(profile)
+            trend[:stop_idx] = np.polyval(coeffs, x)
+            trend[stop_idx:] = profile[stop_idx:]
+        else:
+            trend = np.zeros_like(profile)
+
+        detrend = profile - trend
+
+        if return_trend:
+            return (detrend, trend)
+        return detrend
 
     def _find_peaks(
         self,
@@ -1378,6 +1407,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
 
         return peak_indices[top_indices]
 
+
     def _get_fwhm_points(
         self,
         profile: np.ndarray,
@@ -1415,6 +1445,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
             )
 
         return points
+
 
     def _find_edge(
         self,
@@ -1458,6 +1489,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
 
         return None
 
+
     def _interpolate_coordinate(
         self,
         idx: float,
@@ -1495,8 +1527,10 @@ class ACRLowContrastObjectDetectability(HazenTask):
 
         return float(x), float(y)
 
+
     def _plot_profile_debug(
         self,
+        detrended: np.ndarray,
         profile: np.ndarray,
         peak_indices: np.ndarray,
         intersection_points: list[tuple[float, float]],
@@ -1513,6 +1547,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
         detection algorithm.
 
         Args:
+            detrended: Detrended but not smoothed profile.
             profile: Smoothed and detrended 1D intensity profile
             peak_indices: Array of indices where peaks were detected
             intersection_points: List of (x, y) coordinate tuples for
@@ -1530,10 +1565,11 @@ class ACRLowContrastObjectDetectability(HazenTask):
         # Convert intersection points from image coordinates back to profile indices
         # by finding the closest point in the profile coordinates
         intersection_indices = []
-        for xi, yi in intersection_points:
-            distances = np.sqrt((x_coords - xi) ** 2 + (y_coords - yi) ** 2)
-            closest_idx = np.argmin(distances)
-            intersection_indices.append(closest_idx)
+        with contextlib.suppress(TypeError):
+            for xi, yi in intersection_points:
+                distances = np.sqrt((x_coords - xi) ** 2 + (y_coords - yi) ** 2)
+                closest_idx = np.argmin(distances)
+                intersection_indices.append(closest_idx)
 
         # Create figure
         fig, ax = plt.subplots(figsize=(10, 4))
@@ -1547,7 +1583,15 @@ class ACRLowContrastObjectDetectability(HazenTask):
             profile,
             color="#1976D2",
             linewidth=1.5,
-            label="Smoothed profile",
+            label="Smoothed + Detrended profile",
+        )
+        ax.plot(
+            profile_positions,
+            detrended,
+            color="#19D2A4",
+            linewidth=1.5,
+            linestyle="--",
+            label="Detrended profile",
         )
 
         # Mark detected peaks
@@ -1616,11 +1660,11 @@ class ACRLowContrastObjectDetectability(HazenTask):
                     )
 
         # Set axis limits with padding
-        profile_range = np.ptp(profile)
+        profile_range = np.ptp(detrended)
         if profile_range > 0:
             ax.set_ylim(
-                profile.min() - 0.1 * profile_range,
-                profile.max() + 0.1 * profile_range,
+                detrended.min() - 0.1 * profile_range,
+                detrended.max() + 0.1 * profile_range,
             )
 
         # Labels and title
