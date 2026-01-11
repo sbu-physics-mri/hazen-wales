@@ -1098,12 +1098,13 @@ class ACRLowContrastObjectDetectability(HazenTask):
 
     def _detrend_profile(
         self,
-        profile: np.ndarray,
+        profile_potentially_unsigned: np.ndarray,
         *,
         return_trend: bool = False,
     ) -> np.ndarray:
         """Remove polynomial trend from profile using robust fitting."""
         # Ignores end of profile which sometimes includes outer disc.
+        profile = profile_potentially_unsigned.astype(np.int16)
         try:
             stop_idx = np.where(
                 profile <= profile.max() * 0.75,
