@@ -64,6 +64,7 @@ Implemented for Hazen by Alex Drysdale: alexander.drysdale@wales.nhs.uk
 # Typing
 from __future__ import annotations
 
+import contextlib
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -100,7 +101,7 @@ logger = logging.getLogger(__name__)
 class ACRLowContrastObjectDetectability(HazenTask):
     """Low Contrast Object Detectability (LCOD) class for the ACR phantom.
 
-    Attributes
+    Attributes:
         SLICE_ANGLE_OFFSET : Angular offset between each subsequent slice
                 in radians (9 degrees converted to radians).
         START_ANGLE : Starting angle for slice 0 in radians
@@ -119,10 +120,10 @@ class ACRLowContrastObjectDetectability(HazenTask):
         },
     )
 
-    _DETREND_POLYNOMIAL_ORDER: int = 2
+    _DETREND_POLYNOMIAL_ORDER: int = 3
     _STD_TOL: float = 0.01
 
-    _RADIAL_PROFILE_LENGTH: int = 90
+    _RADIAL_PROFILE_LENGTH: int = 128
     _ALPHA: float = 0.05
     _OPTIMIZER: str = "TBPSA"
     _BUDGET: int = 100
@@ -395,6 +396,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
                 *[
                     spoke.profile(
                         dcm,
+                        size=self._RADIAL_PROFILE_LENGTH,
                         return_coords=True,
                         return_object_mask=True,
                     )
@@ -406,7 +408,11 @@ class ACRLowContrastObjectDetectability(HazenTask):
         else:
             profiles, coords = zip(
                 *[
-                    spoke.profile(dcm, return_coords=True)
+                    spoke.profile(
+                        dcm,
+                        size=self._RADIAL_PROFILE_LENGTH,
+                        return_coords=True,
+                    )
                     for spoke in selected_spokes
                 ],
                 strict=True,
