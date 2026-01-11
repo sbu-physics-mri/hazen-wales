@@ -494,9 +494,8 @@ class ACRLowContrastObjectDetectability(HazenTask):
             return self.lcod_center
 
         # Get ACR Phantom Center
-        dcm = self.ACR_obj.slice_stack[0]
         (main_cx, main_cy), main_radius = self.ACR_obj.find_phantom_center(
-            dcm.pixel_array,
+            self.ACR_obj.slice_stack[0]
             self.ACR_obj.dx,
             self.ACR_obj.dy,
         )
