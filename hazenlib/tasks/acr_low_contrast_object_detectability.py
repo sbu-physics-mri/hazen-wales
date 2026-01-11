@@ -495,60 +495,71 @@ class ACRLowContrastObjectDetectability(HazenTask):
 
         # Get ACR Phantom Center
         (main_cx, main_cy), main_radius = self.ACR_obj.find_phantom_center(
-            self.ACR_obj.slice_stack[0]
+            self.ACR_obj.slice_stack[0].pixel_array,
             self.ACR_obj.dx,
             self.ACR_obj.dy,
         )
 
         # Get cropped image of LCOD disk
-        dcm = self.ACR_obj.slice_stack[-1]
         r = main_radius * crop_ratio
+
+        lcod_r_init = self.LCOD_DISC_SIZE  # mm
         lcod_cy = main_cy + 5 / self.ACR_obj.dy
 
         offset_y = max(0, int(lcod_cy - r))
         offset_x = max(0, int(main_cx - r))
-        cropped_image = dcm.pixel_array[
-            offset_y : int(lcod_cy + r + 1),
-            offset_x : int(main_cx + r + 1),
-        ]
-        cropped_image = (
-            (cropped_image - cropped_image.min())
-            * 255.0
-            / (cropped_image.max() - cropped_image.min())
-        ).astype(np.uint8)
 
-        # Pre-processing for circle detection
-        img_blur = cv2.GaussianBlur(cropped_image, (5, 5), 0)
-        img_grad = img_blur.max() - img_blur
+        # Gets LCOD center and radius from each slice.
+        lcod_props = []
+        for dcm in self.ACR_obj.slice_stack[8:]:
+            cropped_image = dcm.pixel_array[
+                offset_y : int(lcod_cy + r + 1),
+                offset_x : int(main_cx + r + 1),
+            ]
+            cropped_image = (
+                (cropped_image - cropped_image.min())
+                * 255.0
+                / (cropped_image.max() - cropped_image.min())
+            ).astype(np.uint8)
 
-        lcod_r_init = self.LCOD_DISC_SIZE  # mm
-        try:
-            detected_circles = cv2.HoughCircles(
-                img_grad,
-                method=cv2.HOUGH_GRADIENT,
-                dp=2,
-                minDist=cropped_image.shape[0] // 2,
-                minRadius=int((lcod_r_init - 2) / self.ACR_obj.dy),
-                maxRadius=int((lcod_r_init + 2) / self.ACR_obj.dy),
-            ).flatten()
-        except AttributeError:
-            logger.warning("Failed to find LCOD center, using defaults.")
-            detected_circles = (main_cx, lcod_cy, lcod_r_init)
-            lcod_center = detected_circles[:2]
+            # Pre-processing for circle detection
+            img_blur = cv2.GaussianBlur(cropped_image, (5, 5), 0)
+            img_grad = img_blur.max() - img_blur
 
-        else:
-            lcod_center = tuple(
-                (dc + offset) * dv
-                for dc, offset, dv in zip(
-                    detected_circles[:2],
-                    (offset_x, offset_y),
-                    (self.ACR_obj.dx, self.ACR_obj.dy),
-                    strict=True,
+            try:
+                detected_circles = cv2.HoughCircles(
+                    img_grad,
+                    method=cv2.HOUGH_GRADIENT,
+                    dp=2,
+                    minDist=cropped_image.shape[0] // 2,
+                    minRadius=int((lcod_r_init - 2) / self.ACR_obj.dy),
+                    maxRadius=int((lcod_r_init + 2) / self.ACR_obj.dy),
+                ).flatten()
+            except AttributeError:
+                logger.warning("Failed to find LCOD center, using defaults.")
+                detected_circles = (main_cx, lcod_cy, lcod_r_init)
+                lcod_center = detected_circles[:2]
+
+            else:
+                lcod_center = tuple(
+                    (dc + offset) * dv
+                    for dc, offset, dv in zip(
+                        detected_circles[:2],
+                        (offset_x, offset_y),
+                        (self.ACR_obj.dx, self.ACR_obj.dy),
+                        strict=True,
+                    )
                 )
-            )
 
+            lcod_props.append((lcod_center, detected_circles[2]))
+
+        # Obtains the mean lcod center and radius.
+        lcod_center = (
+            np.mean([prop[0][0] for prop in lcod_props]),
+            np.mean([prop[0][1] for prop in lcod_props]),
+        )
+        lcod_r = np.mean([prop[1] for prop in lcod_props])
         self.lcod_center = lcod_center
-        lcod_r = detected_circles[2]
 
         if self.report:
             fig, axes = plt.subplots(2, 2, constrained_layout=True)
