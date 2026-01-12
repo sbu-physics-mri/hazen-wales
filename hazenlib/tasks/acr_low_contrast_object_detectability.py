@@ -1124,7 +1124,10 @@ class ACRLowContrastObjectDetectability(HazenTask):
         self, profile: np.ndarray, sigma: int = 5,
     ) -> np.ndarray:
         return sp.ndimage.gaussian_filter(
-            profile, sigma=sigma, mode="constant", cval=np.mean(profile),
+            profile,
+            sigma=sigma,
+            mode="constant",
+            cval=np.mean(profile),
         )
 
 
