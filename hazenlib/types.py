@@ -17,7 +17,8 @@ import functools
 import json
 from collections.abc import Sequence
 from dataclasses import asdict, dataclass, field
-from typing import Any, ParamSpec, get_args
+from typing import Any, get_args
+from typing_extensions import ParamSpec
 
 # Module imports
 import numpy as np
@@ -96,7 +97,7 @@ class JsonSerializableMixin:
 # The canonical result that every task must return #
 ####################################################
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class Measurement(JsonSerializableMixin):
     """Canonical result each measurment must have."""
 
@@ -115,7 +116,7 @@ class Measurement(JsonSerializableMixin):
         if self.type not in get_args(MEASUREMENT_TYPES):
             raise InvalidMeasurementTypeError(self.type)
 
-@dataclass(slots=True)
+@dataclass()
 class Metadata(JsonSerializableMixin):
     """Canonical dictionary for result metadata."""
 
@@ -432,20 +433,19 @@ class LCODTemplate:
                             obj.x, obj.y, obj.diameter,
                             dx, dy, *mask.shape,
                         )
-                match subset:
-                    case "all":
-                        object_considered_for_mask = True
-                    case "passed":
-                        object_considered_for_mask = obj.detected
-                    case "failed":
-                        object_considered_for_mask = not obj.detected
-                    case _:
-                        logger.warning(
-                            "Unrecognised mask subset %s."
-                            " Object included in mask.",
-                            subset,
-                        )
-                        object_considered_for_mask = True
+                if subset == "all":
+                    object_considered_for_mask = True
+                elif subset == "passed":
+                    object_considered_for_mask = obj.detected
+                elif subset == "failed":
+                    object_considered_for_mask = not obj.detected
+                else:
+                    logger.warning(
+                        "Unrecognised mask subset %s."
+                        " Object included in mask.",
+                        subset,
+                    )
+                    object_considered_for_mask = True
 
                 if object_considered_for_mask:
                     mask |= is_object
