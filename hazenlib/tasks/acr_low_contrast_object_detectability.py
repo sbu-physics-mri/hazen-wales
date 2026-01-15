@@ -137,11 +137,6 @@ class ACRLowContrastObjectDetectability(HazenTask):
         **kwargs: P_HazenTask.kwargs,
     ) -> None:
         """Initialise the LCOD object."""
-        # TODO(abdrysdale) : Validate and remove this warning.
-        logger.warning(
-            "The ACR Low Contrast Object Detectability test has not been"
-            " calibrated. Do not use these values for actual QA!",
-        )
         if kwargs.pop("verbose", None) is not None:
             logger.warning(
                 "verbose is not a supported argument for %s",
@@ -187,9 +182,6 @@ class ACRLowContrastObjectDetectability(HazenTask):
     def run(self) -> Result:
         """Run the LCOD analysis."""
         results = self.init_result_dict(desc=self.ACR_obj.acquisition_type())
-
-        # TODO(abdrysdale) : Validate and remove this description
-        results.desc = f"{results.desc} - INVALID!"
 
         results.files = [
             self.img_desc(f)
