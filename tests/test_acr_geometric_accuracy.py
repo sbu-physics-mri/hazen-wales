@@ -19,13 +19,14 @@ logger = logging.getLogger(__name__)
 # Siemens #
 ###########
 
+
 class TestACRGeometricAccuracySiemens(unittest.TestCase):
     """Geometric accuracy for legacy Siemens test data."""
 
     ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "Siemens")
     L1 = (191.41, 187.5)
-    L5 = (191.41, 187.5, 191.41, 190.43)
-    distortion_metrics = (-0.06, 2.5, 0.93)
+    L5 = (191.41, 187.5, 191.41, 191.41)
+    distortion_metrics = (0.11, 2.5, 0.97)
 
     def setUp(self) -> None:
         """Set up the test object."""
@@ -41,11 +42,15 @@ class TestACRGeometricAccuracySiemens(unittest.TestCase):
 
     def test_geometric_accuracy_slice_1(self) -> None:
         """Test Geometric Accuracy with Slice 1."""
-        slice1_vals = self.acr_geometric_accuracy_task.get_geometric_accuracy(0)
+        slice1_vals = self.acr_geometric_accuracy_task.get_geometric_accuracy(
+            0
+        )
         slice1_vals = np.round(slice1_vals, 2)
 
         logger.info(
-            "Slice 1:\nnew_release: %s\nfixed value: %s", slice1_vals, self.L1,
+            "Slice 1:\nnew_release: %s\nfixed value: %s",
+            slice1_vals,
+            self.L1,
         )
 
         assert (slice1_vals == self.L1).all()
@@ -59,7 +64,9 @@ class TestACRGeometricAccuracySiemens(unittest.TestCase):
         slice5_vals = np.round(slice5_vals, 2)
 
         logger.info(
-            "Slice 5:\nnew_release: %s\nfixed value: %s", slice5_vals, self.L5,
+            "Slice 5:\nnew_release: %s\nfixed value: %s",
+            slice5_vals,
+            self.L5,
         )
 
         assert (slice5_vals == self.L5).all()
@@ -85,7 +92,7 @@ class TestACRGeometricAccuracySiemensAeraT1(TestACRGeometricAccuracySiemens):
 
 
 class TestACRGeometricAccuracySiemensAeraT2(
-        TestACRGeometricAccuracySiemensAeraT1,
+    TestACRGeometricAccuracySiemensAeraT1,
 ):
     """Test Data for the Siemens_Aera_1.5T_T2 dataset."""
 
@@ -93,7 +100,7 @@ class TestACRGeometricAccuracySiemensAeraT2(
 
 
 class TestACRGeometricAccuracySiemensMagnetomSkyraT1(
-        TestACRGeometricAccuracySiemens,
+    TestACRGeometricAccuracySiemens,
 ):
     """Test Data for the Siemens_MagnetomSkyra_3T_T1 dataset."""
 
@@ -101,12 +108,12 @@ class TestACRGeometricAccuracySiemensMagnetomSkyraT1(
         pathlib.Path(TEST_DATA_DIR) / "acr" / "Siemens_MagnetomSkyra_3T_T1"
     )
     L1 = (192.38, 192.38)
-    L5 = (191.41, 191.41, 190.43, 190.43)
-    distortion_metrics = (1.41, 2.38, 0.42)
+    L5 = (191.41, 191.41, 191.41, 191.41)
+    distortion_metrics = (1.73, 2.38, 0.24)
 
 
 class TestACRGeometricAccuracySiemensMagnetomSkyraT2(
-        TestACRGeometricAccuracySiemensMagnetomSkyraT1,
+    TestACRGeometricAccuracySiemensMagnetomSkyraT1,
 ):
     """Test Data for the Siemens_MagnetomSkyra_3T_T2 dataset."""
 
@@ -120,8 +127,8 @@ class TestACRGeometricAccuracySiemensSolaT1(TestACRGeometricAccuracySiemens):
 
     ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "Siemens_Sola_1.5T_T1")
     L1 = (190.43, 189.45)
-    L5 = (189.45, 190.43, 190.43, 189.45)
-    distortion_metrics = (-0.06, 0.55, 0.26)
+    L5 = (189.45, 190.43, 191.41, 189.45)
+    distortion_metrics = (0.1, 1.41, 0.38)
 
 
 class TestACRGeometricAccuracySiemensSolaT2(
@@ -130,8 +137,17 @@ class TestACRGeometricAccuracySiemensSolaT2(
     """Test Data for the Siemens_Sola_1.5T_T2 dataset."""
 
     ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "Siemens_Sola_1.5T_T2")
-    L5 = (189.45, 190.43, 191.41, 189.45)
-    distortion_metrics = (0.1, 1.41, 0.38)
+    L5 = (189.45, 190.43, 189.45, 189.45)
+    distortion_metrics = (-0.22, 0.55, 0.24)
+
+
+class TestACRGeometricAccuracySiemensSolaFit(TestACRGeometricAccuracySiemens):
+    """Test Data for the Siemens Sola Fit dataset."""
+
+    ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "SiemensSolaFit")
+    L1 = (190.43, 190.43)
+    L5 = (189.45, 190.43, 191.41, 191.41)
+    distortion_metrics = (0.59, 1.41, 0.35)
 
 
 ######
@@ -143,9 +159,9 @@ class TestACRGeometricAccuracyGE(TestACRGeometricAccuracySiemens):
     """Test Data for the GE dataset."""
 
     ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "GE")
-    L1 = (190.42, 188.9)
-    L5 = (190.42, 189.41, 190.42, 189.41)
-    distortion_metrics = (-0.17, 1.1, 0.32)
+    L1 = (190.93, 188.9)
+    L5 = (190.42, 189.41, 190.43, 189.41)
+    distortion_metrics = (-0.08, 1.1, 0.38)
 
 
 class TestACRGeometricAccuracyGEArtistT1(TestACRGeometricAccuracyGE):
@@ -153,16 +169,16 @@ class TestACRGeometricAccuracyGEArtistT1(TestACRGeometricAccuracyGE):
 
     ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "GE_Artist_1.5T_T1")
     L1 = (190.44, 190.44)
-    L5 = (190.44, 190.44, 189.46, 190.44)
-    distortion_metrics = (0.28, 0.54, 0.19)
+    L5 = (190.44, 190.44, 189.46, 191.41)
+    distortion_metrics = (0.44, 1.41, 0.30)
 
 
 class TestACRGeometricAccuracyGEArtistT2(TestACRGeometricAccuracyGEArtistT1):
     """Test Data for the GE Artist 1.5T T2 dataset."""
 
     ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "GE_Artist_1.5T_T2")
-    L5 = (190.44, 190.44, 190.44, 191.41)
-    distortion_metrics = (0.6, 1.41, 0.19)
+    L5 = (190.44, 190.44, 189.46, 190.44)
+    distortion_metrics = (0.28, 0.54, 0.19)
 
 
 class TestACRGeometricAccuracyGEMR450WT1(TestACRGeometricAccuracyGE):
@@ -170,8 +186,8 @@ class TestACRGeometricAccuracyGEMR450WT1(TestACRGeometricAccuracyGE):
 
     ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "GE_MR450W_1.5T_T1")
     L1 = (188.48, 188.48)
-    L5 = (188.48, 188.48, 191.41, 191.41)
-    distortion_metrics = (-0.54, 1.52, 0.73)
+    L5 = (188.48, 188.48, 190.44, 191.41)
+    distortion_metrics = (-0.71, 1.52, 0.63)
 
 
 class TestACRGeometricAccuracyGEMR450WT2(TestACRGeometricAccuracyGEMR450WT1):
@@ -188,13 +204,28 @@ class TestACRGeometricAccuracyGESignaT1(TestACRGeometricAccuracyGE):
 
     ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "GE_Signa_3T_T1")
     L1 = (189.46, 189.46)
-    L5 = (190.44, 188.48, 189.46, 190.44)
-    distortion_metrics = (-0.38, 1.52, 0.36)
+    L5 = (190.44, 188.48, 191.41, 191.41)
+    distortion_metrics = (0.11, 1.52, 0.57)
 
 
 class TestACRGeometricAccuracyGESignaT2(TestACRGeometricAccuracyGESignaT1):
     """Test Data for the GE Signa 3T T2 dataset."""
 
     ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "GE_Signa_3T_T2")
-    L5 = (190.44, 188.48, 189.46, 191.41)
-    distortion_metrics = (-0.21, 1.52, 0.49)
+    L1 = (189.46, 189.46)
+    L5 = (190.44, 188.48, 191.41, 191.41)
+    distortion_metrics = (0.11, 1.52, 0.57)
+
+
+###########
+# Philips #
+###########
+
+
+class TestACRGeometricAccuracyPhilipsAchieva(TestACRGeometricAccuracySiemens):
+    """Test data for the Philips Achieva."""
+
+    ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "PhilipsAchieva")
+    L1 = 190.43, 189.45
+    L5 = 190.43, 189.45, 189.45, 189.45
+    distortion_metrics = (-0.22, 0.55, 0.24)

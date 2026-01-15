@@ -25,6 +25,7 @@ from hazenlib.HazenTask import HazenTask
 from hazenlib.logger import logger
 from hazenlib.types import Measurement, Result
 
+
 class ACRGhosting(HazenTask):
     """Ghosting measurement class for DICOM images of the ACR phantom."""
 
@@ -93,10 +94,10 @@ class ACRGhosting(HazenTask):
         r_large = np.ceil(80 / self.ACR_obj.dx).astype(int)
         dims = img.shape
 
-        mask = self.ACR_obj.get_mask_image(img)
         (centre_x, centre_y), _ = self.ACR_obj.find_phantom_center(
             img, self.ACR_obj.dx, self.ACR_obj.dy
         )
+        mask = self.ACR_obj.get_mask_image(img, (centre_x, centre_y))
 
         nx = np.linspace(1, dims[0], dims[0])
         ny = np.linspace(1, dims[1], dims[1])
@@ -143,7 +144,10 @@ class ACRGhosting(HazenTask):
         right_fov_to_centre = e_centre[1] + sad / 2 + 5
         # edge of ellipse towards right side of phantom (+ tolerance)
         centre_to_right_phantom = e_centre[1] - sad / 2 - 5
-        if right_fov_to_centre > dims[1] - 1 or centre_to_right_phantom < e_point:
+        if (
+            right_fov_to_centre > dims[1] - 1
+            or centre_to_right_phantom < e_point
+        ):
             diffs = [
                 dims[1] - 1 - right_fov_to_centre,
                 centre_to_right_phantom - e_point,
@@ -189,7 +193,10 @@ class ACRGhosting(HazenTask):
         bottom_fov_to_centre = s_centre[0] + sad / 2 + 5
         # edge of ellipse towards
         centre_to_bottom_phantom = s_centre[0] - sad / 2 - 5
-        if bottom_fov_to_centre > dims[0] - 1 or centre_to_bottom_phantom < s_point:
+        if (
+            bottom_fov_to_centre > dims[0] - 1
+            or centre_to_bottom_phantom < s_point
+        ):
             diffs = [
                 dims[0] - 1 - bottom_fov_to_centre,
                 centre_to_bottom_phantom - s_point,
@@ -243,8 +250,10 @@ class ACRGhosting(HazenTask):
             )
 
             axes[1].plot(
-                10.0 / self.ACR_obj.dx * np.cos(theta) / w_factor + w_centre[1],
-                10.0 / self.ACR_obj.dx * np.sin(theta) * 4 * w_factor + w_centre[0],
+                10.0 / self.ACR_obj.dx * np.cos(theta) / w_factor
+                + w_centre[1],
+                10.0 / self.ACR_obj.dx * np.sin(theta) * 4 * w_factor
+                + w_centre[0],
                 c="red",
             )
             axes[1].text(
@@ -255,8 +264,10 @@ class ACRGhosting(HazenTask):
             )
 
             axes[1].plot(
-                10.0 / self.ACR_obj.dx * np.cos(theta) / e_factor + e_centre[1],
-                10.0 / self.ACR_obj.dx * np.sin(theta) * 4 * e_factor + e_centre[0],
+                10.0 / self.ACR_obj.dx * np.cos(theta) / e_factor
+                + e_centre[1],
+                10.0 / self.ACR_obj.dx * np.sin(theta) * 4 * e_factor
+                + e_centre[0],
                 c="red",
             )
             axes[1].text(
@@ -267,8 +278,10 @@ class ACRGhosting(HazenTask):
             )
 
             axes[1].plot(
-                10.0 / self.ACR_obj.dx * np.cos(theta) * 4 * n_factor + n_centre[1],
-                10.0 / self.ACR_obj.dx * np.sin(theta) / n_factor + n_centre[0],
+                10.0 / self.ACR_obj.dx * np.cos(theta) * 4 * n_factor
+                + n_centre[1],
+                10.0 / self.ACR_obj.dx * np.sin(theta) / n_factor
+                + n_centre[0],
                 c="red",
             )
             axes[1].text(
@@ -279,8 +292,10 @@ class ACRGhosting(HazenTask):
             )
 
             axes[1].plot(
-                10.0 / self.ACR_obj.dx * np.cos(theta) * 4 * s_factor + s_centre[1],
-                10.0 / self.ACR_obj.dx * np.sin(theta) / s_factor + s_centre[0],
+                10.0 / self.ACR_obj.dx * np.cos(theta) * 4 * s_factor
+                + s_centre[1],
+                10.0 / self.ACR_obj.dx * np.sin(theta) / s_factor
+                + s_centre[0],
                 c="red",
             )
             axes[1].text(

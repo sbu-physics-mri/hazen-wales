@@ -6,13 +6,11 @@ import unittest
 from pathlib import Path
 
 import hazenlib
-import numpy as np
-import pydicom
 from hazenlib.tasks.relaxometry import Relaxometry
 from hazenlib.tasks.snr import SNR
 
 from hazenlib.types import Measurement, Result
-from hazenlib.utils import get_dicom_files
+from hazenlib.utils import dcmread, get_dicom_files
 
 # Local imports
 from tests import TEST_DATA_DIR
@@ -25,8 +23,10 @@ class TestCliParser(unittest.TestCase):
     maxDiff = None
 
     def setUp(self):
-        self.file = str(TEST_DATA_DIR / "resolution" / "philips" / "IM-0004-0002.dcm")
-        self.dcm = pydicom.dcmread(self.file)
+        self.file = str(
+            TEST_DATA_DIR / "resolution" / "philips" / "IM-0004-0002.dcm"
+        )
+        self.dcm = dcmread(self.file)
 
     def test_version(self):
         pyproject_path = Path(__file__).parent.parent / "pyproject.toml"
@@ -135,9 +135,10 @@ class TestCliParser(unittest.TestCase):
             )[0]
             self.assertAlmostEqual(m_r.value, m_d.value)
 
-
     def test_relaxometry(self):
-        path = str(TEST_DATA_DIR / "relaxometry" / "T1" / "site3_ge" / "plate4")
+        path = str(
+            TEST_DATA_DIR / "relaxometry" / "T1" / "site3_ge" / "plate4"
+        )
         files = get_dicom_files(path)
         relaxometry_task = Relaxometry(input_data=files, report=False)
         result = relaxometry_task.run(calc="T1", plate_number=4, verbose=False)

@@ -77,7 +77,7 @@ class Ghosting(HazenTask):
 
         if ghost is None or phantom is None or noise is None:
             raise Exception(
-                f"At least one of ghost, phantom and noise ROIs is empty or null"
+                "At least one of ghost, phantom and noise ROIs is empty or null"
             )
 
         ghost_mean = np.mean(ghost)
@@ -86,7 +86,7 @@ class Ghosting(HazenTask):
 
         if phantom_mean < ghost_mean or phantom_mean < noise_mean:
             raise Exception(
-                f"The mean phantom signal is lower than the ghost or the noise signal. This can't be the case "
+                "The mean phantom signal is lower than the ghost or the noise signal. This can't be the case "
             )
 
         return 100 * abs(ghost_mean - noise_mean) / phantom_mean
@@ -137,7 +137,9 @@ class Ghosting(HazenTask):
         centre_column = (left_column + right_column) // 2
         idxs = (
             np.array(
-                range(centre_column - slice_radius, centre_column + slice_radius),
+                range(
+                    centre_column - slice_radius, centre_column + slice_radius
+                ),
                 dtype=np.intp,
             )[:, np.newaxis],
             np.array(
@@ -162,10 +164,16 @@ class Ghosting(HazenTask):
         if (
             get_pe_direction(dcm) == "ROW"
         ):  # phase encoding is left -right i.e. increases with columns
-            if signal_centre[1] < dcm.Rows * 0.5:  # phantom is in top half of image
-                background_rois_row = round(dcm.Rows * 0.75)  # in the bottom quadrant
+            if (
+                signal_centre[1] < dcm.Rows * 0.5
+            ):  # phantom is in top half of image
+                background_rois_row = round(
+                    dcm.Rows * 0.75
+                )  # in the bottom quadrant
             else:  # phantom is bottom half of image
-                background_rois_row = round(dcm.Rows * 0.25)  # in the top quadrant
+                background_rois_row = round(
+                    dcm.Rows * 0.25
+                )  # in the top quadrant
             background_rois.append((signal_centre[0], background_rois_row))
 
             if signal_centre[0] > round(dcm.Columns / 2):
@@ -184,7 +192,9 @@ class Ghosting(HazenTask):
                 ]
 
         else:  # phase encoding is top-down i.e. increases with rows (y-axis)
-            if signal_centre[0] < dcm.Columns * 0.5:  # phantom is in left half of image
+            if (
+                signal_centre[0] < dcm.Columns * 0.5
+            ):  # phantom is in left half of image
                 background_rois_column = round(
                     dcm.Columns * 0.75
                 )  # in the right quadrant
@@ -223,10 +233,12 @@ class Ghosting(HazenTask):
         slices = [
             (
                 np.array(
-                    range(roi[0] - slice_radius, roi[0] + slice_radius), dtype=np.intp
+                    range(roi[0] - slice_radius, roi[0] + slice_radius),
+                    dtype=np.intp,
                 )[:, np.newaxis],
                 np.array(
-                    range(roi[1] - slice_radius, roi[1] + slice_radius), dtype=np.intp
+                    range(roi[1] - slice_radius, roi[1] + slice_radius),
+                    dtype=np.intp,
                 ),
             )
             for roi in background_rois
@@ -262,17 +274,13 @@ class Ghosting(HazenTask):
                     right_column + padding_from_box, dcm.Columns - slice_radius
                 )
                 eligible_rows = range(upper_row, lower_row)
-                ghost_slice = np.array(
-                    range(right_column + padding_from_box, dcm.Columns - slice_radius),
-                    dtype=np.intp,
-                )[:, np.newaxis], np.array(range(upper_row, lower_row))
+
             else:
                 # signal is in right half
-                eligible_columns = range(slice_radius, left_column - padding_from_box)
+                eligible_columns = range(
+                    slice_radius, left_column - padding_from_box
+                )
                 eligible_rows = range(upper_row, lower_row)
-                ghost_slice = np.array(
-                    range(slice_radius, left_column - padding_from_box), dtype=np.intp
-                )[:, np.newaxis], np.array(range(upper_row, lower_row))
 
         else:
             if upper_row < dcm.Rows / 2:
@@ -281,17 +289,13 @@ class Ghosting(HazenTask):
                     lower_row + padding_from_box, dcm.Rows - slice_radius
                 )
                 eligible_columns = range(left_column, right_column)
-                ghost_slice = np.array(
-                    range(lower_row + padding_from_box, dcm.Rows - slice_radius),
-                    dtype=np.intp,
-                )[:, np.newaxis], np.array(range(left_column, right_column))
+
             else:
                 # signal is in bottom half
-                eligible_rows = range(slice_radius, upper_row - padding_from_box)
+                eligible_rows = range(
+                    slice_radius, upper_row - padding_from_box
+                )
                 eligible_columns = range(left_column, right_column)
-                ghost_slice = np.array(
-                    range(slice_radius, upper_row - padding_from_box), dtype=np.intp
-                )[:, np.newaxis], np.array(range(left_column, right_column))
 
         return eligible_columns, eligible_rows
 
@@ -309,9 +313,13 @@ class Ghosting(HazenTask):
         eligible_area = self.get_eligible_area(
             signal_bounding_box, dcm, slice_radius=slice_radius
         )
-        ghost_slice = np.array(
-            range(min(eligible_area[1]), max(eligible_area[1])), dtype=np.intp
-        )[:, np.newaxis], np.array(range(min(eligible_area[0]), max(eligible_area[0])))
+        ghost_slice = (
+            np.array(
+                range(min(eligible_area[1]), max(eligible_area[1])),
+                dtype=np.intp,
+            )[:, np.newaxis],
+            np.array(range(min(eligible_area[0]), max(eligible_area[0]))),
+        )
         return ghost_slice
 
     def get_ghosting(self, dcm) -> float:
@@ -335,7 +343,9 @@ class Ghosting(HazenTask):
             bbox, dcm, slice_radius=slice_radius
         )
         ghost = dcm.pixel_array[(ghost_col, ghost_row)]
-        signal_col, signal_row = self.get_signal_slice(bbox, slice_radius=slice_radius)
+        signal_col, signal_row = self.get_signal_slice(
+            bbox, slice_radius=slice_radius
+        )
         phantom = dcm.pixel_array[(signal_row, signal_col)]
 
         noise = np.concatenate(
@@ -347,7 +357,9 @@ class Ghosting(HazenTask):
             ]
         )
 
-        eligible_area = self.get_eligible_area(bbox, dcm, slice_radius=slice_radius)
+        eligible_area = self.get_eligible_area(
+            bbox, dcm, slice_radius=slice_radius
+        )
 
         ghosting = self.calculate_ghost_intensity(ghost, phantom, noise)
 
@@ -371,7 +383,9 @@ class Ghosting(HazenTask):
                 y1 = roi[1] - 5
                 x2 = roi[0] + 5
                 y2 = roi[1] + 5
-                img = cv.rectangle(img.copy(), (x1, y1), (x2, y2), (255, 0, 0), 1)
+                img = cv.rectangle(
+                    img.copy(), (x1, y1), (x2, y2), (255, 0, 0), 1
+                )
 
             x1 = ghost_row.min()
             y1 = ghost_col.min()

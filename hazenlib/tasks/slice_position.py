@@ -3,6 +3,7 @@ Local Otsu thresholding
 http://scikit-image.org/docs/0.11.x/auto_examples/plot_local_otsu.html
 
 """
+
 import copy
 import os
 
@@ -40,7 +41,9 @@ class SlicePosition(HazenTask):
             raise Exception("Need 60 DICOM")
 
         slice_data = copy.deepcopy(self.dcm_list)
-        slice_data.sort(key=lambda x: x.SliceLocation)  # sort by slice location
+        slice_data.sort(
+            key=lambda x: x.SliceLocation
+        )  # sort by slice location
         truncated_data = slice_data[10:50]  # ignore first and last 10 dicom
 
         results = self.init_result_dict()
@@ -75,7 +78,7 @@ class SlicePosition(HazenTask):
                 ),
             )
 
-        except Exception as e:
+        except Exception:
             raise
 
         # only return reports if requested
@@ -128,7 +131,7 @@ class SlicePosition(HazenTask):
         try:
             x, y, r = shape_detector.get_shape("circle")
 
-        except hazenlib.exceptions.MultipleShapesError as e:
+        except hazenlib.exceptions.MultipleShapesError:
             # logger.info(f'Warning: found multiple shapes: {list(shape_detector.shapes.keys())}')
             shape_detector.find_contours()
             shape_detector.detect()
@@ -151,13 +154,15 @@ class SlicePosition(HazenTask):
 
         arr = dcm.pixel_array
         clipped = np.zeros_like(arr)
-        clipped[y - y_window : y + y_window, x - x_window : x + x_window] = arr[
-            y - y_window : y + y_window, x - x_window : x + x_window
-        ]
+        clipped[y - y_window : y + y_window, x - x_window : x + x_window] = (
+            arr[y - y_window : y + y_window, x - x_window : x + x_window]
+        )
 
         threshold = filters.threshold_otsu(clipped, 2)
 
-        clipped_thresholded = clipped <= threshold  # binarise using otsu threshold
+        clipped_thresholded = (
+            clipped <= threshold
+        )  # binarise using otsu threshold
 
         labels, num = measure.label(clipped_thresholded, return_num=True)
         measured_objects = measure.regionprops(label_image=labels)
@@ -197,7 +202,10 @@ class SlicePosition(HazenTask):
         """
         # TODO: split function so there is no looping
         # TODO: combine this with the function above so rod coords are not recorded again
-        left_rod, right_rod = {"x_pos": [], "y_pos": []}, {"x_pos": [], "y_pos": []}
+        left_rod, right_rod = (
+            {"x_pos": [], "y_pos": []},
+            {"x_pos": [], "y_pos": []},
+        )
         nominal_positions = []
         for i, dcm in enumerate(data):
             # print(dcm.SpacingBetweenSlices) # constant
@@ -272,13 +280,17 @@ class SlicePosition(HazenTask):
         # get rod positions and nominal positions
         left_rod, right_rod, nominal_positions = self.get_rods(data)
         # Correct for phantom rotation
-        left_rod, right_rod = self.correct_rods_for_rotation(left_rod, right_rod)
+        left_rod, right_rod = self.correct_rods_for_rotation(
+            left_rod, right_rod
+        )
 
         fov = hazenlib.utils.get_field_of_view(data[0])
 
         # x_length_mm = np.subtract(right_rod['x_pos'], left_rod['x_pos']) * fov/data[0].Columns
         y_length_mm = (
-            np.subtract(left_rod["y_pos"], right_rod["y_pos"]) * fov / data[0].Columns
+            np.subtract(left_rod["y_pos"], right_rod["y_pos"])
+            * fov
+            / data[0].Columns
         )
 
         z_length_mm = np.divide(y_length_mm, 2)
@@ -288,7 +300,8 @@ class SlicePosition(HazenTask):
 
         # Correct for zero offset
         nominal_positions = [
-            x - nominal_positions[18] + z_length_mm[18] for x in nominal_positions
+            x - nominal_positions[18] + z_length_mm[18]
+            for x in nominal_positions
         ]
         positions = np.subtract(z_length_mm, nominal_positions)
         distances = [abs(x) for x in positions]

@@ -88,13 +88,13 @@ class ACRGeometricAccuracy(HazenTask):
         try:
             lengths_5 = self.get_geometric_accuracy(4)
             for len_5, t in zip(
-                    lengths_5,
-                    (
-                        "Horizontal",
-                        "Vertical",
-                        "Diagonal SW",
-                        "Diagonal SE",
-                    ),
+                lengths_5,
+                (
+                    "Horizontal",
+                    "Vertical",
+                    "Diagonal SW",
+                    "Diagonal SE",
+                ),
             ):
                 results.add_measurement(
                     Measurement(
@@ -102,7 +102,7 @@ class ACRGeometricAccuracy(HazenTask):
                         type="measured",
                         subtype=f"{t} distance",
                         description=self.img_desc(self.ACR_obj.slice_stack[4]),
-                        value= round(len_5, 2),
+                        value=round(len_5, 2),
                         unit="",
                     ),
                 )
@@ -168,10 +168,12 @@ class ACRGeometricAccuracy(HazenTask):
         """
         img_dcm = self.ACR_obj.slice_stack[slice_index]
         img = img_dcm.pixel_array
-        mask = self.ACR_obj.get_mask_image(img)
-        cxy, _ = self.ACR_obj.find_phantom_center(img, self.ACR_obj.dx, self.ACR_obj.dy)
+        cxy, _ = self.ACR_obj.find_phantom_center(
+            img, self.ACR_obj.dx, self.ACR_obj.dy
+        )
+        mask = self.ACR_obj.get_mask_image(img, cxy)
 
-        length_dict = self.ACR_obj.measure_orthogonal_lengths(mask, slice_index)
+        length_dict = self.ACR_obj.measure_orthogonal_lengths(mask, cxy)
         if slice_index == 4:
             sw_dict, se_dict = self.diagonal_lengths(mask, cxy, 4)
 
@@ -213,15 +215,19 @@ class ACRGeometricAccuracy(HazenTask):
                 )
                 axes[2].legend(
                     [
-                        str(np.round(length_dict["Horizontal Distance"], 2)) + "mm",
-                        str(np.round(length_dict["Vertical Distance"], 2)) + "mm",
+                        str(np.round(length_dict["Horizontal Distance"], 2))
+                        + "mm",
+                        str(np.round(length_dict["Vertical Distance"], 2))
+                        + "mm",
                     ]
                 )
                 axes[2].axis("off")
                 axes[2].set_title("Geometric Accuracy for Slice 1")
 
                 img_path = os.path.realpath(
-                    os.path.join(self.report_path, f"{self.img_desc(img_dcm)}.png")
+                    os.path.join(
+                        self.report_path, f"{self.img_desc(img_dcm)}.png"
+                    )
                 )
                 fig.savefig(img_path)
                 self.report_files.append(img_path)
@@ -278,8 +284,10 @@ class ACRGeometricAccuracy(HazenTask):
 
                 axes[2].legend(
                     [
-                        str(np.round(length_dict["Horizontal Distance"], 2)) + "mm",
-                        str(np.round(length_dict["Vertical Distance"], 2)) + "mm",
+                        str(np.round(length_dict["Horizontal Distance"], 2))
+                        + "mm",
+                        str(np.round(length_dict["Vertical Distance"], 2))
+                        + "mm",
                         str(np.round(sw_dict["Distance"], 2)) + "mm",
                         str(np.round(se_dict["Distance"], 2)) + "mm",
                     ]
@@ -288,7 +296,9 @@ class ACRGeometricAccuracy(HazenTask):
                 axes[2].set_title("Geometric Accuracy for Slice 5")
 
                 img_path = os.path.realpath(
-                    os.path.join(self.report_path, f"{self.img_desc(img_dcm)}.png")
+                    os.path.join(
+                        self.report_path, f"{self.img_desc(img_dcm)}.png"
+                    )
                 )
                 fig.savefig(img_path)
                 self.report_files.append(img_path)
@@ -301,7 +311,9 @@ class ACRGeometricAccuracy(HazenTask):
                 se_dict["Distance"],
             )
         else:
-            return length_dict["Horizontal Distance"], length_dict["Vertical Distance"]
+            return length_dict["Horizontal Distance"], length_dict[
+                "Vertical Distance"
+            ]
 
     def diagonal_lengths(self, img, cxy, slice_index):
         """Measure diagonal lengths. \n
@@ -320,10 +332,12 @@ class ACRGeometricAccuracy(HazenTask):
         # Calculate geometric mean of the x and y pixel spacing components,
         # due to the possibility of pixels being rectangular,
         # ie. the length and width of pixels can differ.
-        eff_res = np.sqrt(np.mean(np.square((self.ACR_obj.dx, self.ACR_obj.dy))))
+        eff_res = np.sqrt(
+            np.mean(np.square((self.ACR_obj.dx, self.ACR_obj.dy)))
+        )
         img_rotate = skimage.transform.rotate(img, 45, center=(cxy[0], cxy[1]))
 
-        length_dict = self.ACR_obj.measure_orthogonal_lengths(img_rotate, slice_index)
+        length_dict = self.ACR_obj.measure_orthogonal_lengths(img_rotate, cxy)
         extent_h = length_dict["Horizontal Extent"]
 
         origin = (cxy[0], cxy[1])
@@ -333,7 +347,11 @@ class ACRGeometricAccuracy(HazenTask):
         se_x_end, se_y_end = ACRObject.rotate_point(origin, end, 45)
 
         dist_se = (
-            np.sqrt(np.sum(np.square([se_x_end - se_x_start, se_y_end - se_y_start])))
+            np.sqrt(
+                np.sum(
+                    np.square([se_x_end - se_x_start, se_y_end - se_y_start])
+                )
+            )
             * eff_res
         )
         se_dict = {
@@ -351,7 +369,11 @@ class ACRGeometricAccuracy(HazenTask):
         sw_x_end, sw_y_end = ACRObject.rotate_point(origin, end, 45)
 
         dist_sw = (
-            np.sqrt(np.sum(np.square([sw_x_end - sw_x_start, sw_y_end - sw_y_start])))
+            np.sqrt(
+                np.sum(
+                    np.square([sw_x_end - sw_x_start, sw_y_end - sw_y_start])
+                )
+            )
             * eff_res
         )
         sw_dict = {
