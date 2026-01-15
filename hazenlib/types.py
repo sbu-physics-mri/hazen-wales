@@ -279,7 +279,7 @@ class Spoke:
     dist: tuple[float, float, float] = (12.5, 25.0, 38.5)
 
     # Spoke length (mm)
-    length: float = 42.0
+    length: float = 43.0
 
     passed: bool = False
 

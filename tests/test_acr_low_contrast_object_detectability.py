@@ -255,6 +255,29 @@ class TestLCODTemplateMask(unittest.TestCase):
             self.assertTrue(np.all(mask[p:, p:] == mask_shifted[:-p, :-p]))
 
 
+class TestACRLCODTemplateFinding(unittest.TestCase):
+    """Test for the centre finding for the LCOD test."""
+
+    ACR_DATA = Path(TEST_DATA_DIR / "acr" / "GE_Artist_1.5T_T1")
+
+    def setUp(self) -> None:
+        """Set up for the tests."""
+        input_files = get_dicom_files(self.ACR_DATA)
+
+        report_env = os.getenv("HAZEN_REPORT", "false").lower()
+        report = report_env in ("true", "1", "yes")
+        self.acr_object_detectability = ACRLowContrastObjectDetectability(
+            input_data=input_files,
+            report_dir=Path(TEST_REPORT_DIR),
+            report=report,
+        )
+
+    def test_get_current_slice_template(self) -> None:
+        """Test that get_current_slice_template returns a template for a valid slice."""
+        result = self.acr_object_detectability.get_current_slice_template(11)
+        self.assertTrue(result)
+
+
 class TestACRLowContrastObjectDetectability(unittest.TestCase):
     """Test Class for the LCOD task.
 
@@ -263,13 +286,13 @@ class TestACRLowContrastObjectDetectability(unittest.TestCase):
 
     ACR_DATA = Path(TEST_DATA_DIR / "acr" / "GE_Artist_1.5T_T1")
     SCORES = (
-        SliceScore(8, 2),
-        SliceScore(9, 3),
-        SliceScore(10, 9),
+        SliceScore(8, 10),
+        SliceScore(9, 10),
+        SliceScore(10, 10),
         SliceScore(11, 10),
     )
-    SLICE_TOLERANCE: int = 2  # Accepted +- slice tolerance
-    TOTAL_TOLERANCE: int = 5  # Accepted +- total tolerance
+    SLICE_TOLERANCE: int = 1  # Accepted +- slice tolerance
+    TOTAL_TOLERANCE: int = 2  # Accepted +- total tolerance
 
     def setUp(self) -> None:
         """Set up for the tests."""
@@ -310,6 +333,11 @@ class TestACRLowContrastObjectDetectability(unittest.TestCase):
             report=report,
         )
         self.results = self.acr_object_detectability.run()
+
+    def test_result_reproducability(self) -> None:
+        """Test the results are the same for each identical run."""
+        results = self.acr_object_detectability.run()
+        self.assertEqual(results, self.results)
 
     def _score_testing(self, score: SliceScore) -> None:
         result = self.results.get_measurement(
@@ -369,10 +397,10 @@ class TestACRLowContrastObjectDetectabilitySiemensAera(
 
     ACR_DATA = Path(TEST_DATA_DIR / "acr" / "Siemens_Aera_1.5T_T1")
     SCORES = (
-        SliceScore(8, 3),
-        SliceScore(9, 6),
-        SliceScore(10, 8),
-        SliceScore(11, 8),
+        SliceScore(8, 10),
+        SliceScore(9, 10),
+        SliceScore(10, 9),
+        SliceScore(11, 10),
     )
 
 
@@ -383,10 +411,10 @@ class TestACRLowContrastObjectDetectabilitySiemensSkyra(
 
     ACR_DATA = Path(TEST_DATA_DIR / "acr" / "Siemens_MagnetomSkyra_3T_T1")
     SCORES = (
-        SliceScore(8, 4),
-        SliceScore(9, 5),
-        SliceScore(10, 6),
-        SliceScore(11, 5),
+        SliceScore(8, 10),
+        SliceScore(9, 10),
+        SliceScore(10, 10),
+        SliceScore(11, 10),
     )
 
 
@@ -397,14 +425,13 @@ class TestACRLowContrastObjectDetectabilitySiemensSolaFit(
 
     ACR_DATA = Path(TEST_DATA_DIR / "acr" / "SiemensSolaFit")
     SCORES = (
-        SliceScore(8, 2),
-        SliceScore(9, 6),
-        SliceScore(10, 6),
-        SliceScore(11, 6),
+        SliceScore(8, 10),
+        SliceScore(9, 8),
+        SliceScore(10, 9),
+        SliceScore(11, 9),
     )
 
 
-@unittest.skip("Need to improve LCOD for Philips scanners.")
 class TestACRLowContrastObjectDetectabilityPhilipsAchieva(
     TestACRLowContrastObjectDetectability,
 ):
