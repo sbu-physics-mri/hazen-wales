@@ -261,18 +261,31 @@ class ACRLowContrastObjectDetectability(HazenTask):
         template: LCODTemplate,
     ) -> list[LCODTemplate]:
         cx, cy, theta = template.cx, template.cy, template.theta
-        inc = 2 * self.ACR_obj.dx
-        increments = ( -inc, 0, inc)
-
-        return [
-            LCODTemplate(
-                cx + dx,
-                cy + dy,
-                theta,
+        max_inc = 3
+        step = 2
+        increments = [
+            self.ACR_obj.dx * i
+            for i in range(
+                - max_inc,
+                max_inc + 1,
+                step,
             )
-            for dx in increments
-            for dy in increments
         ]
+        if 0 not in increments:
+            increments.append(0)
+
+        return sorted(
+            [
+                LCODTemplate(
+                    cx + dx,
+                    cy + dy,
+                    theta,
+                )
+                for dx in increments
+                for dy in increments
+            ],
+            key=lambda t: t.cx ** 2 + t.cy ** 2,
+        )
 
     def _get_params_and_p_vals(
         self,
@@ -304,7 +317,10 @@ class ACRLowContrastObjectDetectability(HazenTask):
 
                 if (
                     t_idx == 0
-                    or (np.sum(p_vals) < np.sum(min_pvals) and all(params > 0))
+                    or (
+                        np.sum(p_vals) < np.sum(min_pvals)      # noqa: F821
+                        and all(params > 0)
+                    )
                 ):
                     min_pvals = p_vals
                     min_params = params
