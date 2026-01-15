@@ -9,8 +9,7 @@ import csv
 import logging
 import sys
 from pathlib import Path
-from typing import Any, Literal, Mapping, TextIO
-from typing_extensions import TypeAlias
+from typing import Any, Literal, Mapping, TextIO, TypeAlias
 
 logger = logging.getLogger(__name__)
 
@@ -78,16 +77,18 @@ def _format_results(
 
     The function assumes *out_fh* is already opened and will **not** close it.
     """
-    if fmt == "json":
-        print(data.to_json(), file=out_fh)
-    elif fmt == "csv":
-        _write_csv(data, out_fh, delimiter=",")
-    elif fmt == "tsv":
-        _write_csv(data, out_fh, delimiter="\t")
-    else:
-        msg = f"Unrecognised format {fmt!r}"
-        logger.critical(msg)
-        raise ValueError(msg)
+    match fmt:
+        case "json":
+            print(data.to_json(), file=out_fh)
+        case "csv":
+            _write_csv(data, out_fh, delimiter=",")
+        case "tsv":
+            _write_csv(data, out_fh, delimiter="\t")
+        case _:
+            msg = f"Unrecognised format {fmt!r}"
+            logger.critical(msg)
+            raise ValueError(msg)
+
 
 def _write_csv(
     data: Mapping[str, Any],

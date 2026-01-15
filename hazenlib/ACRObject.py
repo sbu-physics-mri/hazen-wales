@@ -890,26 +890,11 @@ class ACRObject:
             mean (float): non-zero mean of the dataset.
 
         """
-
-        def weighted_quantile(values, q, weights):
-            values = np.asarray(values)
-            weights = np.asarray(weights)
-
-            sorter = np.argsort(values)
-            values = values[sorter]
-            weights = weights[sorter]
-
-            cumulative = np.cumsum(weights)
-            cutoff = q * cumulative[-1]
-
-            return values[np.searchsorted(cumulative, cutoff)]
-
         search_data = data[data > 0]
         hist, bins = np.histogram(search_data, bins=256)
         edges = np.histogram_bin_edges(search_data, bins=256)
         mean_bins = np.mean(np.vstack([edges[:-1], edges[1:]]), axis=0)
-        #mean = np.quantile(mean_bins, 0.945, method='inverted_cdf', weights=hist)
-        mean = weighted_quantile(mean_bins, 0.945, hist)
+        mean = np.quantile(mean_bins, 0.945, method='inverted_cdf', weights=hist)
         #mean = np.quantile(mean_bins, 0.90, method='inverted_cdf', weights=hist)
         logger.info(f'Histogram mean: {mean}')
         return mean
