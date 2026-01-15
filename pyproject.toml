@@ -48,3 +48,9 @@ dev = [
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["hazenlib", "tests"]
+
+[tool.pytest.ini_options]
+markers = [
+    "slow: marks tests as slow (excluded from test-fast)",
+    "smoke: marks tests as smoke tests (essential functionality)",
+]

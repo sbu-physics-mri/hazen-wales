@@ -1,0 +1,51 @@
+# Pre-merge CI: Comprehensive validation on pull requests
+# Duration target: < 15 minutes
+# Runs: lint, format-check, type-check, tests with coverage, and CLI smoke tests
+
+name: Pre-Merge CI
+
+on:
+  pull_request:
+
+jobs:
+  ci-pr:
+    runs-on: ${{ matrix.os }}
+    permissions:
+      pull-requests: write
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest ]
+        python-version: [ '3.11', '3.12', '3.13' ]
+    defaults:
+      run:
+        shell: bash -l {0}
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v6
+      with:
+        version: "latest"
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install dependencies
+      run: uv sync --group dev
+
+    - name: Display installed packages
+      run: uv tree
+
+    - name: Run pre-merge CI checks
+      run: make ci-pr
+
+    - name: Pytest coverage comment
+      id: coverageComment
+      uses: MishaKav/pytest-coverage-comment@main
+      with:
+        pytest-coverage-path: ./pytest-coverage.txt
+        junitxml-path: ./pytest.xml
