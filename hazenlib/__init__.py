@@ -116,6 +116,12 @@ TASK_REGISTRY = {
         single_image=False,
         phantom=PhantomType.ACR,
     ),
+    "acr_sagittal_geometric_accuracy": TaskMetadata(
+        module_name="acr_sagittal_geometric_accuracy",
+        class_name="ACRSagittalGeometricAccuracy",
+        single_image=False,
+        phantom=PhantomType.ACR,
+    ),
     "acr_uniformity": TaskMetadata(
         module_name="acr_uniformity",
         class_name="ACRUniformity",
