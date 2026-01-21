@@ -38,40 +38,27 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
 
-```
-# Clone hazen repo
+```bash
+# Clone hazen repo (GSTT-CSC)
 # - this will create a folder named 'hazen' in the current working directory
 git clone https://github.com/GSTT-CSC/hazen.git
-```
 
-for hazen-wales please use the following to clone the repo (and not the previous command):
-
-```bash
+# Or, for hazen-wales use the following instead (and not the previous command):
 git clone git@github.com:sbu-physics-mri/hazen-wales.git
-```
 
-```bash
-# Go to local copy of hazen repo
+# Go to local copy of the repo
+# - use 'cd hazen' for the GSTT-CSC repo, or 'cd hazen-wales' for the hazen-wales fork
 cd hazen
-```
 
-```bash
 # Install hazen and its dependencies (including dev dependencies)
 uv sync --group dev
-```
 
-```bash
 # Run tests to ensure everything is working on your local machine, prior to development
 # They take a while to run all of the tests so we recommend making a cup of tea at this point.
 uv run pytest tests/
-```
 
-```bash
 # After making a code change, run tests on the relevant code you have edited, e.g.:
 uv run hazen snr tests/data/snr/GE
-```
-
-```bash
 # You can also run specific Tasks or scripts without installing the module by directly executing the local file, e.g.:
 uv run python hazenlib/__init__.py snr tests/data/snr/GE
 ```
