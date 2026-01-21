@@ -52,6 +52,11 @@ for dist_name in distributions:
 
 if __version__ is None:
     pyproject_path = pathlib.Path(__file__).parent.parent / "pyproject.toml"
-    with pyproject_path.open("rb") as f:
-        data = tomllib.load(f)
-        __version__ = data["project"]["version"] + "+dev"
+    try:
+        with pyproject_path.open("rb") as f:
+            data = tomllib.load(f)
+    except tomllib.TOMLDecodeError as exc:
+        raise RuntimeError(
+            f"Failed to parse {pyproject_path} as TOML while resolving hazenlib version"
+        ) from exc
+    __version__ = data["project"]["version"] + "+dev"
