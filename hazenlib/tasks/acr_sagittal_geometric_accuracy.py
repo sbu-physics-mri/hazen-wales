@@ -194,7 +194,7 @@ class ACRSagittalGeometricAccuracy(HazenTask):
         cxy, _ = self.ACR_obj.find_phantom_center(
             img, self.ACR_obj.dx, self.ACR_obj.dy, False
         )
-        mask = self.ACR_obj.get_mask_image(img, cxy)
+        mask = self.ACR_obj.get_mask_image(img, cxy, mag_threshold=0.1)
 
         offset = (int(np.round(-15 / self.ACR_obj.dx)), 0)
 
