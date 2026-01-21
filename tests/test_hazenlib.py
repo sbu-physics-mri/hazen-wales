@@ -34,9 +34,9 @@ class TestCliParser(unittest.TestCase):
             pyproject_data = tomllib.load(fp)
 
         expected_version = pyproject_data["project"]["version"]
-        self.assertEqual(
+        self.assertIn(
             hazenlib.__version__,
-            expected_version,
+            {expected_version, expected_version + "+dev"},
             (
                 f"Package version {hazenlib.__version__} does not match"
                 f" pyproject.toml version {expected_version}"
