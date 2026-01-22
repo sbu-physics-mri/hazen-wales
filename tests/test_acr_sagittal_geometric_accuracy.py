@@ -56,3 +56,16 @@ class TestACRSagittalGeometricAccuracyPhilipsAchieva(
 
     ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "PhilipsAchievaLocalizer")
     L1 = 146.48
+
+
+class TestACRSagittalGeometricAccuracyGESigna(
+    TestACRSagittalGeometricAccuracySiemens,
+):
+    """Base test class for the GE Sagittal Localizer Geometric Accuracy."""
+
+    ACR_DATA = (
+        pathlib.Path(TEST_DATA_DIR)
+        / "acr"
+        / "GE_Signa_1.5T_Sagittal_Localizer"
+    )
+    L1 = 150.0
