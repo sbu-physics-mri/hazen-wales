@@ -1,20 +1,28 @@
+"""Module to test the ACR sagittal localiser."""
+
+# ruff: noqa:PT009
+
+import logging
 import pathlib
 import unittest
 
 import numpy as np
-from hazenlib.tasks.acr_sagittal_geometric_accuracy import (
-    ACRSagittalGeometricAccuracy,
-)
+from hazenlib.tasks.acr_sagittal_geometric_accuracy import \
+    ACRSagittalGeometricAccuracy
 from hazenlib.utils import get_dicom_files
 
 from tests import TEST_DATA_DIR, TEST_REPORT_DIR
 
+logger = logging.getLogger(__name__)
 
 class TestACRSagittalGeometricAccuracySiemens(unittest.TestCase):
+    """Base test class for the Siemens Sagittal Localizer Geometric Accuracy."""
+
     ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "SiemensSolaFitLocalizer")
     L1 = 149.41
 
-    def setUp(self):
+    def setUp(self) -> None:
+        """Set up the test case."""
         input_files = get_dicom_files(self.ACR_DATA)
 
         self.acr_geometric_accuracy_task = ACRSagittalGeometricAccuracy(
