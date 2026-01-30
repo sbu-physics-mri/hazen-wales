@@ -190,3 +190,18 @@ class TestACRPhilipsSliceThicknessLineProfileLocalMinimaIssue(
     dz_3x = 7.5
     top_dz = 4.7
     bottom_dz = 5.5
+
+
+class TestACRGESignaSliceThickness(
+    TestACRSliceThicknessSiemens
+):
+    ACR_DATA = pathlib.Path(
+        TEST_DATA_DIR
+        / "acr"
+        / "GE_Signa_1.5T_T1"
+    )
+    centers = [(83.0, 2.0), (73.0, 2.0)]
+    dz = 5.19
+    dz_3x = 7.94
+    top_dz = 5.48
+    bottom_dz = 5.10
