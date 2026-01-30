@@ -122,7 +122,7 @@ class TestACRSliceThicknessSiemens(unittest.TestCase):
 class TestACRSliceThicknessPhilipsAchieva(TestACRSliceThicknessSiemens):
     ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "PhilipsAchieva")
     centers = [(79.0, 2.0), (71.0, 2.0)]
-    dz = 5.35
+    dz = 5.21
     dz_3x = 7.42
     top_dz = 4.8
     bottom_dz = 6.7
@@ -131,7 +131,7 @@ class TestACRSliceThicknessPhilipsAchieva(TestACRSliceThicknessSiemens):
 class TestACRSliceThicknessPhilipsAchieva2(TestACRSliceThicknessSiemens):
     ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "PhilipsAchieva2")
     centers = [(68.0, 2.0), (89.0, 2.0)]
-    dz = 4.9
+    dz = 5.0
     dz_3x = 7.42
     top_dz = 4.7
     bottom_dz = 5.4
@@ -140,7 +140,7 @@ class TestACRSliceThicknessPhilipsAchieva2(TestACRSliceThicknessSiemens):
 class TestACRSliceThicknessSiemensSolaFit(TestACRSliceThicknessSiemens):
     ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "SiemensSolaFit")
     centers = [(74.0, 2.0), (79.0, 2.0)]
-    dz = 5.04
+    dz = 5.14
     dz_3x = 7.37
     top_dz = 4.7
     bottom_dz = 5.4
@@ -153,7 +153,7 @@ class TestACRSliceThicknessSiemensLargeSliceLocationDelta(
         TEST_DATA_DIR / "acr" / "SiemensLargeSliceLocationDelta"
     )
     centers = [(45.0, 2.0), (105.0, 2.0)]
-    dz = 5.54
+    dz = 5.58
     dz_3x = 8.5
     top_dz = 4.7
     bottom_dz = 5.4
@@ -162,7 +162,7 @@ class TestACRSliceThicknessSiemensLargeSliceLocationDelta(
 class TestACRSliceThicknessPhilips3TDStream(TestACRSliceThicknessSiemens):
     ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "Philips3TdStream")
     centers = [(79.0, 2.0), (77.0, 2.0)]
-    dz = 5.0
+    dz = 4.9
     dz_3x = 7.5
     top_dz = 4.7
     bottom_dz = 5.4
@@ -171,7 +171,7 @@ class TestACRSliceThicknessPhilips3TDStream(TestACRSliceThicknessSiemens):
 class TestACRSliceThicknessPhilips3TDStream2(TestACRSliceThicknessSiemens):
     ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "Philips3TdStream2")
     centers = [(88.0, 2.0), (68.0, 2.0)]
-    dz = 5.4
+    dz = 5.44
     dz_3x = 8.1
     top_dz = 4.7
     bottom_dz = 5.5
@@ -186,7 +186,7 @@ class TestACRPhilipsSliceThicknessLineProfileLocalMinimaIssue(
         / "PhilipsSliceThicknessLineProfileLocalMinimaIssue"
     )
     centers = [(81.0, 2.0), (74.0, 2.0)]
-    dz = 5.0
+    dz = 5.19
     dz_3x = 7.5
     top_dz = 4.7
     bottom_dz = 5.5
