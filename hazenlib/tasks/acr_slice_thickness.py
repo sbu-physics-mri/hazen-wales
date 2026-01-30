@@ -504,12 +504,11 @@ class ACRSliceThickness(HazenTask):
         Returns:
             tuple: center point of ramp (x, y), width.
         """
-        blurred = self.ACR_obj.filter_with_gaussian(ramp, 1 / self.ACR_obj.dx)
         y_mid = int(np.round(ramp.shape[0] // 2))
         offset, max_width = self.find_ramp_max_width(ramp, y_mid)
         samples = [
             skimage.measure.profile_line(
-                blurred,
+                ramp,
                 (y_mid - 1, i),
                 (y_mid + 1, i),
                 mode="constant",
