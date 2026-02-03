@@ -18,6 +18,7 @@ import logging
 import os
 
 from hazenlib._version import __version__
+from hazenlib.execution import timed_execution
 from hazenlib.formatters import write_result
 from hazenlib.logger import logger
 from hazenlib.types import PhantomType, TaskMetadata
@@ -195,6 +196,12 @@ def get_parser() -> argparse.ArgumentParser:
 
     # General options available for all tasks
     parser.add_argument(
+        "--profile",
+        action="store_true",
+        help="Include execution time metadata in results",
+    )
+
+    parser.add_argument(
         "--report",
         action="store_true",
         help="Whether to generate visualisation of the measurement steps",
@@ -290,10 +297,13 @@ def get_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main():
-    """Main entrypoint to hazen"""
+def main() -> None:
+    """Primary entrypoint to hazen."""
     parser = get_parser()
     args = parser.parse_args()
+
+    execution_wrapper = timed_execution if args.profile else (lambda f, *a, **k: f(*a, **k))
+
     single_image_tasks = [
         task for task in TASK_REGISTRY.values() if task.single_image
     ]
@@ -332,7 +342,7 @@ def main():
             measured_slice_width=args.measured_slice_width,
             coil=args.coil,
         )
-        result = task.run()
+        result = execution_wrapper(task.run)
     elif selected_task == "acr_snr":
         task = init_task(
             selected_task,
@@ -342,7 +352,7 @@ def main():
             subtract=args.subtract,
             measured_slice_width=args.measured_slice_width,
         )
-        result = task.run()
+        result = execution_wrapper(task.run)
     elif selected_task == "relaxometry":
         missing_args = []
         if args.calc is None:
@@ -352,10 +362,11 @@ def main():
         if missing_args:
             parser.error(
                 f"relaxometry task requires the following arguments: "
-                f"{', '.join(missing_args)}"
+                f"{', '.join(missing_args)}",
             )
         task = init_task(selected_task, files, report, report_dir)
-        result = task.run(
+        result = execution_wrapper(
+            task.run,
             calc=args.calc,
             plate_number=args.plate_number,
             verbose=verbose,
@@ -366,7 +377,7 @@ def main():
             # for now these are most likely not enhanced, single-frame
             for f in files:
                 task = init_task(selected_task, [f], report, report_dir)
-                result = task.run()
+                result = execution_wrapper(task.run)
                 write_result(result, fmt=fmt, path=result_file)
             return
         # Slice Position task, all ACR tasks except SNR
@@ -380,12 +391,8 @@ def main():
             report_dir,
             verbose=verbose,
         )
-        result = task.run()
+        result = execution_wrapper(task.run)
 
-        task = init_task(
-            selected_task, files, report, report_dir, verbose=verbose
-        )
-        result = task.run()
         write_result(result, fmt=fmt, path=result_file)
         return
 
