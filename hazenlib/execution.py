@@ -1,4 +1,13 @@
-"""Module containing task execution related functions."""
+"""Task execution instrumentation and orchestration primitives.
+
+Provides wrappers and utilities for managing the lifecycle of Hazen analysis
+tasks. Currently focused on execution timing and performance metadata collection
+via :func:`timed_execution`.
+
+This module serves as the foundation for future multi-task orchestration
+capabilities, including aggregate metrics, parallel execution, and pipeline
+coordination.
+"""
 
 from __future__ import annotations
 
@@ -22,7 +31,21 @@ def timed_execution(
     *args: P.args,
     **kwargs: P.kwargs,
 ) -> Result:
-    """Execute task method and append timing metadata to result."""
+    """Execute task method and append timing metadata to result.
+
+    Example:
+        >>> result = timed_run(task.run, calc='T1', plate_number=4)
+        >>> # result.measurements now contains ExecutionMetadata entry
+
+    Args:
+        task_method: Callable that returns a Result object
+        *args: Positional arguments passed to task_method
+        **kwargs: Keyword arguments passed to task_method
+
+    Returns:
+        Result: The original result with added execution timing measurement
+
+    """
     start: float = time.perf_counter()
 
     # Execute the actual task
