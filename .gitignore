@@ -32,6 +32,7 @@ report*
 hazenlib/data
 dump/
 tests/data
+data/
 
 # docs
 docs/_build
