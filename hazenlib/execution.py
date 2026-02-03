@@ -26,6 +26,7 @@ from hazenlib.types import Measurement, Result
 
 P = ParamSpec("P")
 
+
 def timed_execution(
     task_method: Callable[P, Result],
     *args: P.args,
@@ -34,7 +35,7 @@ def timed_execution(
     """Execute task method and append timing metadata to result.
 
     Example:
-        >>> result = timed_run(task.run, calc='T1', plate_number=4)
+        >>> result = timed_execution(task.run, calc='T1', plate_number=4)
         >>> # result.measurements now contains ExecutionMetadata entry
 
     Args:
