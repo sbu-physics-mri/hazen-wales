@@ -2,14 +2,12 @@ import logging
 import pathlib
 import unittest
 
-import numpy as np
-
 from hazenlib.tasks.acr_spatial_resolution import ACRSpatialResolution
 from hazenlib.utils import get_dicom_files
 
 from tests import TEST_DATA_DIR, TEST_REPORT_DIR
 
-# noqa: ruff: S101
+# noqa: S101
 
 logger = logging.getLogger(__name__)
 
@@ -31,9 +29,21 @@ class TestACRSpatialResolutionSiemens(unittest.TestCase):
         )
 
         self.dcm = self.acr_spatial_resolution_task.ACR_obj.slice_stack[0]
-        self.detected_rows = self.acr_spatial_resolution_task.get_spatially_resolved_rows(self.dcm)
-        self.resolved_arrays = self.acr_spatial_resolution_task.get_resolved_arrays(self.detected_rows)
-        self.ul_resolution, self.lr_resolution, self.best_resolution = self.acr_spatial_resolution_task.get_best_resolution(self.resolved_arrays)
+        self.detected_rows = (
+            self.acr_spatial_resolution_task.get_spatially_resolved_rows(
+                self.dcm
+            )
+        )
+        self.resolved_arrays = (
+            self.acr_spatial_resolution_task.get_resolved_arrays(
+                self.detected_rows
+            )
+        )
+        self.ul_resolution, self.lr_resolution, self.best_resolution = (
+            self.acr_spatial_resolution_task.get_best_resolution(
+                self.resolved_arrays
+            )
+        )
 
     def test_get_best_resolution(self):
         assert self.EXPECTED_UL_RESOLUTION == self.ul_resolution
@@ -41,7 +51,9 @@ class TestACRSpatialResolutionSiemens(unittest.TestCase):
         assert self.EXPECTED_RESOLUTION == self.best_resolution
 
     def test_unresolved_array(self):
-        unresolved_resolutions = [k for k, v in self.resolved_arrays.items() if not v['resolved']]
+        unresolved_resolutions = [
+            k for k, v in self.resolved_arrays.items() if not v["resolved"]
+        ]
         assert unresolved_resolutions == self.EXPECTED_UNRESOLVED_ARRAY
 
     def test_get_spatially_resolved_rows(self):

@@ -1,4 +1,4 @@
-""" Application-specific errors"""
+"""Application-specific errors"""
 
 # Local imports
 from hazenlib.constants import MEASUREMENT_NAMES, MEASUREMENT_TYPES

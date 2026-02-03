@@ -146,9 +146,12 @@ class ACRSpatialResolution(HazenTask):
         Returns:
             np.ndarray: subset of a pixel array with given width
         """
-        crop_x, crop_y = (x - width // 2, x + width // 2), (
-            y - width // 2,
-            y + width // 2,
+        crop_x, crop_y = (
+            (x - width // 2, x + width // 2),
+            (
+                y - width // 2,
+                y + width // 2,
+            ),
         )
         crop_img = img[crop_y[0] : crop_y[1], crop_x[0] : crop_x[1]]
 
@@ -173,7 +176,9 @@ class ACRSpatialResolution(HazenTask):
             np.abs(np.diff(edge_sum_cols)), 1
         )
 
-        edge_type = "vertical" if pk_rows_height > pk_cols_height else "horizontal"
+        edge_type = (
+            "vertical" if pk_rows_height > pk_cols_height else "horizontal"
+        )
 
         thresh_roi_crop = crop_img > 0.6 * np.max(crop_img)
         edge_dir = (
@@ -184,7 +189,9 @@ class ACRSpatialResolution(HazenTask):
         if edge_type == "vertical":
             direction = "downward" if edge_dir[-1] > edge_dir[0] else "upward"
         else:
-            direction = "leftward" if edge_dir[-1] > edge_dir[0] else "rightward"
+            direction = (
+                "leftward" if edge_dir[-1] > edge_dir[0] else "rightward"
+            )
 
         return edge_type, direction
 
@@ -225,8 +232,12 @@ class ACRSpatialResolution(HazenTask):
             tuple of floats: slope, surface
         """
         thresh_roi_crop = crop_img > 0.6 * np.max(crop_img)
-        temp_x = np.linspace(1, thresh_roi_crop.shape[1], thresh_roi_crop.shape[1])
-        temp_y = np.linspace(1, thresh_roi_crop.shape[0], thresh_roi_crop.shape[0])
+        temp_x = np.linspace(
+            1, thresh_roi_crop.shape[1], thresh_roi_crop.shape[1]
+        )
+        temp_y = np.linspace(
+            1, thresh_roi_crop.shape[0], thresh_roi_crop.shape[0]
+        )
         x, y = np.meshgrid(temp_x, temp_y)
 
         bright = max(crop_img[thresh_roi_crop])
@@ -259,13 +270,21 @@ class ACRSpatialResolution(HazenTask):
         )
 
         popt, pcov = scipy.optimize.curve_fit(
-            func, x_data, crop_img.ravel(), p0=[0, 0, bright, dark], maxfev=1000
+            func,
+            x_data,
+            crop_img.ravel(),
+            p0=[0, 0, bright, dark],
+            maxfev=1000,
         )
         surface = func(x_data, popt[0], popt[1], popt[2], popt[3]).reshape(
             crop_img.shape
         )
 
-        slope = 1 / popt[0] if direction in ("leftward", "upward") else -1 / popt[0]
+        slope = (
+            1 / popt[0]
+            if direction in ("leftward", "upward")
+            else -1 / popt[0]
+        )
 
         return slope, surface
 
@@ -283,17 +302,23 @@ class ACRSpatialResolution(HazenTask):
         resamp_factor = 8
         if edge_type == "horizontal":
             resample_crop_img = cv2.resize(
-                crop_img, (crop_img.shape[0] * resamp_factor, crop_img.shape[1])
+                crop_img,
+                (crop_img.shape[0] * resamp_factor, crop_img.shape[1]),
             )
         else:
             resample_crop_img = cv2.resize(
-                crop_img, (crop_img.shape[0], crop_img.shape[1] * resamp_factor)
+                crop_img,
+                (crop_img.shape[0], crop_img.shape[1] * resamp_factor),
             )
 
         mid_loc = [i / 2 for i in resample_crop_img.shape]
 
-        temp_x = np.linspace(1, resample_crop_img.shape[1], resample_crop_img.shape[1])
-        temp_y = np.linspace(1, resample_crop_img.shape[0], resample_crop_img.shape[0])
+        temp_x = np.linspace(
+            1, resample_crop_img.shape[1], resample_crop_img.shape[1]
+        )
+        temp_y = np.linspace(
+            1, resample_crop_img.shape[0], resample_crop_img.shape[0]
+        )
         x_resample, y_resample = np.meshgrid(temp_x, temp_y)
 
         erf = []
@@ -302,10 +327,15 @@ class ACRSpatialResolution(HazenTask):
             diffY = (y_resample - 1) - mid_loc[0]
             x_prime = x_resample + resamp_factor * diffY * slope
 
-            x_min, x_max = np.min(x_prime).astype(int), np.max(x_prime).astype(int)
+            x_min, x_max = (
+                np.min(x_prime).astype(int),
+                np.max(x_prime).astype(int),
+            )
 
             for k in range(x_min, x_max):
-                erf_val = np.mean(resample_crop_img[(x_prime >= k) & (x_prime < k + 1)])
+                erf_val = np.mean(
+                    resample_crop_img[(x_prime >= k) & (x_prime < k + 1)]
+                )
                 erf.append(erf_val)
                 number_nonzero = np.count_nonzero(
                     resample_crop_img[(x_prime >= k) & (x_prime < k + 1)]
@@ -315,10 +345,15 @@ class ACRSpatialResolution(HazenTask):
             diffX = (x_resample.shape[0] - 1) - x_resample - mid_loc[1]
             y_prime = np.flipud(y_resample) + resamp_factor * diffX * slope
 
-            y_min, y_max = np.min(y_prime).astype(int), np.max(y_prime).astype(int)
+            y_min, y_max = (
+                np.min(y_prime).astype(int),
+                np.max(y_prime).astype(int),
+            )
 
             for k in range(y_min, y_max):
-                erf_val = np.mean(resample_crop_img[(y_prime >= k) & (y_prime < k + 1)])
+                erf_val = np.mean(
+                    resample_crop_img[(y_prime >= k) & (y_prime < k + 1)]
+                )
                 erf.append(erf_val)
                 number_nonzero = np.count_nonzero(
                     resample_crop_img[(y_prime >= k) & (y_prime < k + 1)]
@@ -373,7 +408,12 @@ class ACRSpatialResolution(HazenTask):
             maxfev=5000,
         )
         erf_fit = func(
-            np.arange(1, len(erf) + 1), popt[0], popt[1], popt[2], popt[3], popt[4]
+            np.arange(1, len(erf) + 1),
+            popt[0],
+            popt[1],
+            popt[2],
+            popt[3],
+            popt[4],
         )
 
         return erf_fit
@@ -439,14 +479,18 @@ class ACRSpatialResolution(HazenTask):
             tuple: _description_
         """
         img = dcm.pixel_array
-        cxy, _ = self.ACR_obj.find_phantom_center(img, self.ACR_obj.dx, self.ACR_obj.dy)
+        cxy, _ = self.ACR_obj.find_phantom_center(
+            img, self.ACR_obj.dx, self.ACR_obj.dy
+        )
 
         ramp_x = int(cxy[0])
         ramp_y = int(self.y_position_for_ramp(img, cxy))
         width = int(13 * img.shape[0] / 256)
         crop_img = self.crop_image(img, ramp_x, ramp_y, width)
         edge_type, direction = self.get_edge_type(crop_img)
-        slope, surface = self.fit_normcdf_surface(crop_img, edge_type, direction)
+        slope, surface = self.fit_normcdf_surface(
+            crop_img, edge_type, direction
+        )
         erf = self.sample_erf(crop_img, slope, edge_type)
         erf_fit = self.fit_erf(erf)
 

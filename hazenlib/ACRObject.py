@@ -15,10 +15,17 @@ import scipy
 import skimage
 
 from hazenlib.logger import logger
-from hazenlib.utils import (detect_centroid, detect_circle,
-                            determine_orientation, expand_data_range,
-                            get_datatype_max, get_datatype_min,
-                            get_image_spacing, is_enhanced_dicom, split_dicom)
+from hazenlib.utils import (
+    detect_centroid,
+    detect_circle,
+    determine_orientation,
+    expand_data_range,
+    get_datatype_max,
+    get_datatype_min,
+    get_image_spacing,
+    is_enhanced_dicom,
+    split_dicom,
+)
 
 
 class ACRObject:
@@ -44,7 +51,9 @@ class ACRObject:
         first_dcm = dcm_list[0]
         self.dx, self.dy = get_image_spacing(first_dcm)
         self.dx, self.dy = float(self.dx), float(self.dy)
-        logger.info(f'In-plane acquisition resolution is {self.dx} x {self.dy}')
+        logger.info(
+            f"In-plane acquisition resolution is {self.dx} x {self.dy}"
+        )
 
         if is_enhanced_dicom(first_dcm):
             # We do not need to sort an enhanced multiframe object
@@ -55,8 +64,9 @@ class ACRObject:
 
             # Perform sorting of the image slices based on phantom orientation
             self.slice_stack = self.order_phantom_slices(sorted_dcms)
-        logger.info(f'Ordered slices => {[sl.InstanceNumber for sl in self.slice_stack]}')
-
+        logger.info(
+            f"Ordered slices => {[sl.InstanceNumber for sl in self.slice_stack]}"
+        )
 
     def acquisition_type(self, *, strict: bool = True) -> str:
         """Get the acquisition type (T1w, T2w, Sagittal Localiser.
@@ -70,17 +80,17 @@ class ACRObject:
         * Older protocols use 20mm
         """
         try:
-            TR = self.slice_stack[0][(0x0018, 0x0080)].value        # noqa: N806
-            TE = self.slice_stack[0][(0x0018, 0x0081)].value        # noqa: N806
+            TR = self.slice_stack[0][(0x0018, 0x0080)].value  # noqa: N806
+            TE = self.slice_stack[0][(0x0018, 0x0081)].value  # noqa: N806
         except KeyError:
             # Assuming enhanced DICOM
             logger.debug(self.slice_stack[0])
-            TR = (      # noqa: N806
+            TR = (  # noqa: N806
                 self.slice_stack[0]
-                .SharedFunctionalGroupsSequence[0] [(0x0018,0x9112)][0]
+                .SharedFunctionalGroupsSequence[0][(0x0018, 0x9112)][0]
                 .RepetitionTime
             )
-            TE = (      # noqa: N806
+            TE = (  # noqa: N806
                 self.slice_stack[0]
                 .PerFrameFunctionalGroupsSequence[0]
                 .MREchoSequence[0]
@@ -98,9 +108,8 @@ class ACRObject:
         rel_tol = 1e-9 if strict else 1e-2
 
         for sequence, (tr, te) in sequence_params.items():
-            if (
-                is_close(TE, te, rel_tol=rel_tol)
-                and is_close(TR, tr, rel_tol=rel_tol)
+            if is_close(TE, te, rel_tol=rel_tol) and is_close(
+                TR, tr, rel_tol=rel_tol
             ):
                 msgs = []
                 if te != TE:
@@ -125,10 +134,11 @@ class ACRObject:
         logger.error(
             "Could not match acquisition type from TE (%f) and TR (%f)"
             " setting acquisition type to %s",
-            TE, TR, sequence,
+            TE,
+            TR,
+            sequence,
         )
         return sequence
-
 
     def sort_dcms(self, dcm_list):
         """Sort a stack of DICOM images based on slice position.
@@ -143,7 +153,7 @@ class ACRObject:
         if orientation == "unexpected":
             # TODO: error out for now,
             # in future allow manual override based on optional CLI args
-            logger.error(f'Unknown orientation detected => {orientation}')
+            logger.error(f"Unknown orientation detected => {orientation}")
             sys.exit()
 
         logger.info("image orientation is %s", orientation)
@@ -174,11 +184,17 @@ class ACRObject:
         detected_circles_last = detect_circle(last_slice, self.dx)
 
         # It is assumed that only the first or the last slice has circles
-        if detected_circles_first is not None and detected_circles_last is None:
+        if (
+            detected_circles_first is not None
+            and detected_circles_last is None
+        ):
             # If first slice has the circle then slice order is correct
             logger.info("Slice order inversion is not required.")
             return dcm_list
-        if detected_circles_first is None and detected_circles_last is not None:
+        if (
+            detected_circles_first is None
+            and detected_circles_last is not None
+        ):
             # If last slice has the circle then slice order needs to be reversed
             logger.info("Performing slice order inversion.")
             return dcm_list[::-1]
@@ -263,7 +279,9 @@ class ACRObject:
 
         logger.info(
             "Phantom center found at (%i,%i) with radius %s",
-            centre_x, centre_y, radius,
+            centre_x,
+            centre_y,
+            radius,
         )
         return (centre_x, centre_y), radius
 
@@ -293,9 +311,13 @@ class ACRObject:
             list of np.ndarray: List of arrays containing rectangle points in space.
         """
         normalized = ACRObject.normalize(img)
-        img_blur = ACRObject.filter_with_gaussian(normalized, dtype=normalized.dtype)
+        img_blur = ACRObject.filter_with_gaussian(
+            normalized, dtype=normalized.dtype
+        )
         canny = cv2.Canny(img_blur, 10, 240)
-        contours = cv2.findContours(canny, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)[0]
+        contours = cv2.findContours(
+            canny, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE
+        )[0]
 
         rectangles = []
         for c in contours:
@@ -446,16 +468,16 @@ class ACRObject:
         """
         img = dcm.pixel_array
         dtype = img.dtype
-        slope = dcm.get('RescaleSlope', 1)
-        intercept = dcm.get('RescaleIntercept', 1)
-        center = dcm.get('WindowCenter', None)
-        width = dcm.get('WindowWidth', None)
+        slope = dcm.get("RescaleSlope", 1)
+        intercept = dcm.get("RescaleIntercept", 1)
+        center = dcm.get("WindowCenter", None)
+        width = dcm.get("WindowWidth", None)
 
         def get_from_frame_voi_lut_sequence(prop: str) -> Any:
             return dcm[
-                (0x5200,0x9230) # Per-Frame Functional Groups Sequence
+                (0x5200, 0x9230)  # Per-Frame Functional Groups Sequence
             ][0][
-                (0x0028,0x9132) # Frame VOI LUT Sequence
+                (0x0028, 0x9132)  # Frame VOI LUT Sequence
             ][0][prop].value
 
         if center is None:
@@ -464,15 +486,27 @@ class ACRObject:
         if width is None:
             width = get_from_frame_voi_lut_sequence("WindowWidth")
 
-        voi_lut_function = dcm.get('VOILUTFunction', 'linear').lower()
-        float_data = img.copy().astype(np.float32)  # Cast to float to maintain precision
+        voi_lut_function = dcm.get("VOILUTFunction", "linear").lower()
+        float_data = img.copy().astype(
+            np.float32
+        )  # Cast to float to maintain precision
         rescaled = ACRObject.rescale_data(float_data, slope, intercept)
-        windowed = ACRObject.apply_window_center_width(rescaled, center, width, voi_lut_function, dtype)
-        rounded_window = np.round(windowed.data)    # Round so that we have integers. Realistically, we should only be
-                                                    # dealing with uint16, but adjust this step if there's other data.
-        return img, np.round(rescaled).astype(dtype), rounded_window.astype(dtype)  # Cast back to original type, allow truncation
+        windowed = ACRObject.apply_window_center_width(
+            rescaled, center, width, voi_lut_function, dtype
+        )
+        rounded_window = np.round(
+            windowed.data
+        )  # Round so that we have integers. Realistically, we should only be
+        # dealing with uint16, but adjust this step if there's other data.
+        return (
+            img,
+            np.round(rescaled).astype(dtype),
+            rounded_window.astype(dtype),
+        )  # Cast back to original type, allow truncation
 
-    def get_mask_image(self, image, centre, mag_threshold=0.07, open_threshold=500):
+    def get_mask_image(
+        self, image, centre, mag_threshold=0.07, open_threshold=500
+    ):
         """Create a masked pixel array. \n
         Mask an image by magnitude threshold before applying morphological opening to remove small unconnected
         features. The convex hull is calculated in order to accommodate for potential air bubbles.
@@ -490,9 +524,9 @@ class ACRObject:
         test_image = image * test_mask
         # get range of values in the mask
         test_vals = test_image[np.nonzero(test_image)]
-        if np.percentile(test_vals, 80) - np.percentile(test_vals, 10) > 0.9 * np.max(
-            image
-        ):
+        if np.percentile(test_vals, 80) - np.percentile(
+            test_vals, 10
+        ) > 0.9 * np.max(image):
             logger.warning(
                 "Large intensity variations detected in image."
                 " Using local thresholding!"
@@ -536,7 +570,9 @@ class ACRObject:
 
         return mask
 
-    def measure_orthogonal_lengths(self, mask, cxy, h_offset=(0,0), v_offset=(0,0)):
+    def measure_orthogonal_lengths(
+        self, mask, cxy, h_offset=(0, 0), v_offset=(0, 0)
+    ):
         """Compute the horizontal and vertical lengths of a mask, based on the centroid.
 
         Args:
@@ -563,7 +599,9 @@ class ACRObject:
             mask, horizontal_start, horizontal_end
         )
         horizontal_extent = np.nonzero(horizontal_line_profile)[0]
-        horizontal_distance = (horizontal_extent[-1] - horizontal_extent[0]) * self.dx
+        horizontal_distance = (
+            horizontal_extent[-1] - horizontal_extent[0]
+        ) * self.dx
 
         vertical_start = (0 + v_offset[1], vertical + v_offset[0])
         vertical_end = (dims[1] - 1 + v_offset[1], vertical + v_offset[0])
@@ -571,7 +609,9 @@ class ACRObject:
             mask, vertical_start, vertical_end
         )
         vertical_extent = np.nonzero(vertical_line_profile)[0]
-        vertical_distance = (vertical_extent[-1] - vertical_extent[0]) * self.dy
+        vertical_distance = (
+            vertical_extent[-1] - vertical_extent[0]
+        ) * self.dy
 
         length_dict = {
             "Horizontal Start": horizontal_start,
@@ -602,8 +642,12 @@ class ACRObject:
         theta = np.radians(angle)
         c, s = np.cos(theta), np.sin(theta)
 
-        x_prime = origin[0] + c * (point[0] - origin[0]) - s * (point[1] - origin[1])
-        y_prime = origin[1] + s * (point[0] - origin[0]) + c * (point[1] - origin[1])
+        x_prime = (
+            origin[0] + c * (point[0] - origin[0]) - s * (point[1] - origin[1])
+        )
+        y_prime = (
+            origin[1] + s * (point[0] - origin[0]) + c * (point[1] - origin[1])
+        )
         return x_prime, y_prime
 
     @staticmethod
@@ -628,7 +672,9 @@ class ACRObject:
         peak_heights = pk_heights[
             (-pk_heights).argsort()[:n]
         ]  # find n highest peak amplitudes
-        peak_locs = pk_ind[(-pk_heights).argsort()[:n]]  # find n highest peak locations
+        peak_locs = pk_ind[
+            (-pk_heights).argsort()[:n]
+        ]  # find n highest peak locations
 
         return np.sort(peak_locs), np.sort(peak_heights)
 
@@ -649,7 +695,9 @@ class ACRObject:
         return np.add(np.multiply(slope, data), intercept)
 
     @staticmethod
-    def apply_linear_window_center_width(data, center, width, dtmin=0, dtmax=255):
+    def apply_linear_window_center_width(
+        data, center, width, dtmin=0, dtmax=255
+    ):
         """Filters data by the specified center and width using the DICOM linear equation.
         See `C.11.2.1.2.1 Default LINEAR Function <https://dicom.nema.org/medical/dicom/current/output/chtml/part03/sect_C.11.2.html#sect_C.11.2.1.2.1>`_.
 
@@ -678,25 +726,33 @@ class ACRObject:
             np.ndarray: Windowed data
         """
         width = 1 if width <= 0 else width
-        logger.info(f'Applying Window Settings using the Linear method => Center: {center} Width: {width}')
+        logger.info(
+            f"Applying Window Settings using the Linear method => Center: {center} Width: {width}"
+        )
         adjusted_width = width - 1
         half_width = adjusted_width / 2
         lower_bound = center - 0.5 - half_width
         upper_bound = center - 0.5 + half_width
-        logger.info(f'Half Width: {half_width} Lower Window Bound: {lower_bound} Upper Window Bound: {upper_bound}')
-        logger.info(f'Min: {dtmin} Max: {dtmax}')
+        logger.info(
+            f"Half Width: {half_width} Lower Window Bound: {lower_bound} Upper Window Bound: {upper_bound}"
+        )
+        logger.info(f"Min: {dtmin} Max: {dtmax}")
         lower_mask = data <= lower_bound
         upper_mask = data > upper_bound
         mid_mask = lower_mask ^ upper_mask
         data_copy = data.copy()
         # Apply thresholds
-        data_copy[~mid_mask] = ((data_copy[~mid_mask] - (center - 0.5)) / adjusted_width + 0.5) * (dtmax - dtmin) + dtmin
+        data_copy[~mid_mask] = (
+            (data_copy[~mid_mask] - (center - 0.5)) / adjusted_width + 0.5
+        ) * (dtmax - dtmin) + dtmin
         data_copy[lower_mask] = dtmin
         data_copy[upper_mask] = dtmax
         return data_copy
 
     @staticmethod
-    def apply_linear_exact_window_center_width(data, center, width, dtmin=0, dtmax=255):
+    def apply_linear_exact_window_center_width(
+        data, center, width, dtmin=0, dtmax=255
+    ):
         """Filters data by the specified center and width using the DICOM linear exact equation.
         See `C.11.2.1.2.1 LINEAR_EXACT Function <https://dicom.nema.org/medical/dicom/current/output/chtml/part03/sect_C.11.2.html#sect_C.11.2.1.3.2>`_.
 
@@ -728,24 +784,32 @@ class ACRObject:
             np.ndarray: Windowed data
         """
         width = 1 if width <= 0 else width
-        logger.info(f'Applying Window Settings using the Linear Exact method => Center: {center} Width: {width}')
+        logger.info(
+            f"Applying Window Settings using the Linear Exact method => Center: {center} Width: {width}"
+        )
         half_width = width / 2
         lower_bound = center - half_width
         upper_bound = center + half_width
-        logger.info(f'Half Width: {half_width} Lower Window Bound: {lower_bound} Upper Window Bound: {upper_bound}')
-        logger.info(f'Min: {dtmin} Max: {dtmax}')
+        logger.info(
+            f"Half Width: {half_width} Lower Window Bound: {lower_bound} Upper Window Bound: {upper_bound}"
+        )
+        logger.info(f"Min: {dtmin} Max: {dtmax}")
         lower_mask = data <= lower_bound
         upper_mask = data > upper_bound
         mid_mask = lower_mask ^ upper_mask
         data_copy = data.copy()
         # Apply thresholds
-        data_copy[~mid_mask] = ((data_copy[~mid_mask] - center) / width + 0.5) * (dtmax - dtmin) + dtmin
+        data_copy[~mid_mask] = (
+            (data_copy[~mid_mask] - center) / width + 0.5
+        ) * (dtmax - dtmin) + dtmin
         data_copy[lower_mask] = dtmin
         data_copy[upper_mask] = dtmax
         return data_copy
 
     @staticmethod
-    def apply_sigmoid_window_center_width(data, center, width, dtmin=0, dtmax=255):
+    def apply_sigmoid_window_center_width(
+        data, center, width, dtmin=0, dtmax=255
+    ):
         """Filters data by the specified center and width using the DICOM sigmoid equation.
         See `C.11.2.1.2.1 SIGMOID Function <https://dicom.nema.org/medical/dicom/current/output/chtml/part03/sect_C.11.2.html#sect_C.11.2.1.3.1>`_.
 
@@ -763,15 +827,22 @@ class ACRObject:
         Returns:
             np.ndarray: Windowed data
         """
-        logger.info(f'Applying Window Settings using the Sigmoid method => Center: {center} Width: {width}')
+        logger.info(
+            f"Applying Window Settings using the Sigmoid method => Center: {center} Width: {width}"
+        )
         mid_mask = dtmin <= data <= dtmax
         data_copy = data.copy()
         # Apply thresholds
-        data_copy[~mid_mask] = ((dtmax - dtmin) / (1 + np.exp((-4 * data_copy[~mid_mask] - center) / width))) + dtmin
+        data_copy[~mid_mask] = (
+            (dtmax - dtmin)
+            / (1 + np.exp((-4 * data_copy[~mid_mask] - center) / width))
+        ) + dtmin
         return data_copy
 
     @staticmethod
-    def apply_clip_window_center_width(data, center, width, dtmin=0, dtmax=255):
+    def apply_clip_window_center_width(
+        data, center, width, dtmin=0, dtmax=255
+    ):
         """Filters data by the specified center and width using the custom clip method. This method is not a standard
         DICOM windowing method. It is a modified form of the linear_exact method. We basically do not rescale the window
         data. It uses numpy.clip() to generate the window data.
@@ -795,24 +866,32 @@ class ACRObject:
         Returns:
             np.ndarray: Windowed data
         """
-        logger.info(f'Applying Window Settings using the Clip method => Center: {center} Width: {width}')
+        logger.info(
+            f"Applying Window Settings using the Clip method => Center: {center} Width: {width}"
+        )
         half_width = width / 2
         upper_grey = center + half_width
         lower_grey = center - half_width
-        logger.info(f'Half Width: {half_width} Lower Window Bound: {lower_grey} Upper Window Bound: {upper_grey}')
-        logger.info(f'Min: {dtmin} Max: {dtmax}')
+        logger.info(
+            f"Half Width: {half_width} Lower Window Bound: {lower_grey} Upper Window Bound: {upper_grey}"
+        )
+        logger.info(f"Min: {dtmin} Max: {dtmax}")
         upper_mask = data > upper_grey
         lower_mask = data <= lower_grey
         mid_mask = lower_mask ^ upper_mask
         data_copy = data.copy()
         # Apply thresholds
-        data_copy[~mid_mask] = np.clip(data_copy[~mid_mask], lower_grey, upper_grey)
+        data_copy[~mid_mask] = np.clip(
+            data_copy[~mid_mask], lower_grey, upper_grey
+        )
         data_copy[lower_mask] = dtmin
         data_copy[upper_mask] = dtmax
         return data_copy
 
     @staticmethod
-    def apply_window_center_width(data, center, width, function='linear', dtype=None):
+    def apply_window_center_width(
+        data, center, width, function="linear", dtype=None
+    ):
         """Filters data by the specified center and width. We support 3 functions defined by the DICOM standard. These
         functions are linear (default), linear_exact, and sigmoid.
 
@@ -838,13 +917,21 @@ class ACRObject:
         dtype = data.dtype if dtype is None else dtype
         dtype_min = get_datatype_min(dtype)
         dtype_max = get_datatype_max(dtype)
-        if function == 'linear_exact':
-            return ACRObject.apply_linear_exact_window_center_width(data, center, width, dtype_min, dtype_max)
-        if function == 'sigmoid':
-            return ACRObject.apply_sigmoid_window_center_width(data, center, width, dtype_min, dtype_max)
-        if function == 'clip':
-            return ACRObject.apply_clip_window_center_width(data, center, width, dtype_min, dtype_max)
-        return ACRObject.apply_linear_window_center_width(data, center, width, dtype_min, dtype_max)
+        if function == "linear_exact":
+            return ACRObject.apply_linear_exact_window_center_width(
+                data, center, width, dtype_min, dtype_max
+            )
+        if function == "sigmoid":
+            return ACRObject.apply_sigmoid_window_center_width(
+                data, center, width, dtype_min, dtype_max
+            )
+        if function == "clip":
+            return ACRObject.apply_clip_window_center_width(
+                data, center, width, dtype_min, dtype_max
+            )
+        return ACRObject.apply_linear_window_center_width(
+            data, center, width, dtype_min, dtype_max
+        )
 
     @staticmethod
     def compute_center_and_width(data):
@@ -860,7 +947,9 @@ class ACRObject:
                 width (float): The desired Window Width setting.
 
         """
-        return np.round(ACRObject.compute_histogram_mean(data)), np.round(ACRObject.compute_histogram_width(data))
+        return np.round(ACRObject.compute_histogram_mean(data)), np.round(
+            ACRObject.compute_histogram_width(data)
+        )
 
     @staticmethod
     def compute_histogram_mode(data):
@@ -876,7 +965,7 @@ class ACRObject:
         search_data = data[data > 0]
         hist, bins = np.histogram(search_data, bins=256)
         mode = bins[np.argmax(hist)]
-        logger.info(f'Histogram mode: {mode}')
+        logger.info(f"Histogram mode: {mode}")
         return mode
 
     @staticmethod
@@ -894,9 +983,11 @@ class ACRObject:
         hist, bins = np.histogram(search_data, bins=256)
         edges = np.histogram_bin_edges(search_data, bins=256)
         mean_bins = np.mean(np.vstack([edges[:-1], edges[1:]]), axis=0)
-        mean = np.quantile(mean_bins, 0.945, method='inverted_cdf', weights=hist)
-        #mean = np.quantile(mean_bins, 0.90, method='inverted_cdf', weights=hist)
-        logger.info(f'Histogram mean: {mean}')
+        mean = np.quantile(
+            mean_bins, 0.945, method="inverted_cdf", weights=hist
+        )
+        # mean = np.quantile(mean_bins, 0.90, method='inverted_cdf', weights=hist)
+        logger.info(f"Histogram mean: {mean}")
         return mean
 
     @staticmethod
@@ -914,9 +1005,8 @@ class ACRObject:
         search_data = data[data > 0]
         hist, bins = np.histogram(search_data, bins=256)
         std = bins.max() - bins.min()
-        logger.info(f'Histogram width: {std}')
+        logger.info(f"Histogram width: {std}")
         return std
-
 
     @staticmethod
     def compute_percentile(data, percentile):
@@ -990,7 +1080,9 @@ class ACRObject:
         return data[i]
 
     @staticmethod
-    def filter_with_dog(data, sigma1=1, sigma2=2, gamma=1.0, iterations=1, ksize=(0, 0)):
+    def filter_with_dog(
+        data, sigma1=1, sigma2=2, gamma=1.0, iterations=1, ksize=(0, 0)
+    ):
         """Performs two Gaussian convolutions with each taking a sigma. Subtracts the second from the first. The idea is
         to eliminate noise.
 
@@ -1045,11 +1137,19 @@ class ACRObject:
 
         """
         dtype = data.dtype
-        working_data = ACRObject.normalize(data.copy(), max=1, dtype=cv2.CV_32FC1)
+        working_data = ACRObject.normalize(
+            data.copy(), max=1, dtype=cv2.CV_32FC1
+        )
         for i in range(iterations):
-            working_data = ACRObject.apply_gamma_correction(working_data, gamma)
-            blurred = cv2.GaussianBlur(working_data, ksize, sigmaX=sigma1, sigmaY=sigma1)
-            blurred2 = cv2.GaussianBlur(blurred, ksize, sigmaX=sigma2, sigmaY=sigma2)
+            working_data = ACRObject.apply_gamma_correction(
+                working_data, gamma
+            )
+            blurred = cv2.GaussianBlur(
+                working_data, ksize, sigmaX=sigma1, sigmaY=sigma1
+            )
+            blurred2 = cv2.GaussianBlur(
+                blurred, ksize, sigmaX=sigma2, sigmaY=sigma2
+            )
             working_data = cv2.subtract(blurred, blurred2)
         working_data = expand_data_range(working_data, target_type=dtype)
         return working_data
@@ -1087,7 +1187,13 @@ class ACRObject:
         Returns:
             np.ndarray: smoothed image.
         """
-        noise_removed = cv2.GaussianBlur(data, ksize=ksize, sigmaX=sigma, sigmaY=sigma, borderType=cv2.BORDER_ISOLATED)
+        noise_removed = cv2.GaussianBlur(
+            data,
+            ksize=ksize,
+            sigmaX=sigma,
+            sigmaY=sigma,
+            borderType=cv2.BORDER_ISOLATED,
+        )
         return expand_data_range(noise_removed, target_type=dtype)
 
     @staticmethod
@@ -1124,7 +1230,9 @@ class ACRObject:
         Returns:
             np.ndarray: resampled image.
         """
-        return cv2.resize(data, dsize=None, fx=dx, fy=dy, interpolation=cv2.INTER_CUBIC)
+        return cv2.resize(
+            data, dsize=None, fx=dx, fy=dy, interpolation=cv2.INTER_CUBIC
+        )
 
     @staticmethod
     def zoom(data, level=1):
@@ -1153,13 +1261,13 @@ class ACRObject:
         """
         bin = expand_data_range(img, target_type=np.uint8)
         thr = ACRObject.compute_percentile(bin, percentile)
-        logger.info(f'Binarization threshold selected => {thr}')
+        logger.info(f"Binarization threshold selected => {thr}")
         bin[bin > thr] = 255
         bin[bin <= thr] = 0
         return bin
 
     @staticmethod
-    def crop_image(img, x, y, width, height=None, mode='center'):
+    def crop_image(img, x, y, width, height=None, mode="center"):
         """Return a rectangular subset of a pixel array
 
         Args:
@@ -1175,24 +1283,24 @@ class ACRObject:
             np.ndarray: subset of a pixel array with given width
         """
         height = width if height is None else height
-        if isinstance(mode, str) and mode == 'center':
-            crop_x, crop_y = ((
-                int(x - width / 2),
-                int(x + width / 2)),
-                              (
-                int(y - height / 2),
-                int(y + height / 2),
-            ))
+        if isinstance(mode, str) and mode == "center":
+            crop_x, crop_y = (
+                (int(x - width / 2), int(x + width / 2)),
+                (
+                    int(y - height / 2),
+                    int(y + height / 2),
+                ),
+            )
         else:
-            crop_x, crop_y = ((
-                int(x),
-                int(x + width)),
-                              (
-                int(y),
-                int(y + height),
-            ))
+            crop_x, crop_y = (
+                (int(x), int(x + width)),
+                (
+                    int(y),
+                    int(y + height),
+                ),
+            )
 
-        crop_img = img[crop_y[0]:crop_y[1], crop_x[0]:crop_x[1]]
+        crop_img = img[crop_y[0] : crop_y[1], crop_x[0] : crop_x[1]]
 
         return crop_img
 
@@ -1253,13 +1361,19 @@ class ACRObject:
 
             # Step 7, calculate true center of peak considered.
             # I don't use the raw peak as the center because that could be biased by outliers.
-            cx = (horizontal_half[0] + np.round(fwhm / 2))
+            cx = horizontal_half[0] + np.round(fwhm / 2)
 
             return cx, fwhm
         except Exception as w:
             logger.warning(w)
-            logger.warning('Received an empty line sample. This often happens if region of interest is empty.')
-            logger.warning('Defaulting line x coordinate to {} and fwhm to {}!'.format(default_cx, default_fwhm))
+            logger.warning(
+                "Received an empty line sample. This often happens if region of interest is empty."
+            )
+            logger.warning(
+                "Defaulting line x coordinate to {} and fwhm to {}!".format(
+                    default_cx, default_fwhm
+                )
+            )
         return default_cx, default_fwhm
 
     @staticmethod
@@ -1281,10 +1395,7 @@ class ACRObject:
         )
 
         resamp_factor = 8
-        Fs = 1 / (
-            np.sqrt(np.mean(np.square((dx, dy))))
-            * (1 / resamp_factor)
-        )
+        Fs = 1 / (np.sqrt(np.mean(np.square((dx, dy)))) * (1 / resamp_factor))
         freq = n * Fs / N
         MTF = np.abs(np.fft.fftshift(np.fft.fft(lsf)))
         MTF = MTF / np.max(MTF)
@@ -1294,4 +1405,3 @@ class ACRObject:
         MTF = MTF[zero_freq:]
 
         return freq, lsf, MTF
-

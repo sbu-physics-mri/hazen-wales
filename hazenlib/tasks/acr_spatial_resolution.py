@@ -81,11 +81,11 @@ class ACRSpatialResolution(HazenTask):
     Inherits from HazenTask class
     """
 
-    ROI_OFFSET = 23         #: 23mm separation between ROIs
-    BASE_X_OFFSET = -14     #: -14mm from centroid for 1.1mm resolution array
-    BASE_Y_OFFSET = 40      #: 40mm from centroid for 1.1mm resolution array
+    ROI_OFFSET = 23  #: 23mm separation between ROIs
+    BASE_X_OFFSET = -14  #: -14mm from centroid for 1.1mm resolution array
+    BASE_Y_OFFSET = 40  #: 40mm from centroid for 1.1mm resolution array
     DEFAULT_GROUP_SIZE = 2  #: If a dataset is a 1mm resolution, the crop roi is sized such that we can check a row's
-                            #: value by looking at pairs of rows in data
+    #: value by looking at pairs of rows in data
 
     def __init__(self, **kwargs):
         if kwargs.pop("verbose", None) is not None:
@@ -155,34 +155,31 @@ class ACRSpatialResolution(HazenTask):
 
         return results
 
-    def write_report(self, dcm, img, center, roi_coords, processed_rois, width):
+    def write_report(
+        self, dcm, img, center, roi_coords, processed_rois, width
+    ):
         import matplotlib.patches as patches
         import matplotlib.pyplot as plt
 
         fig, axes = plt.subplot_mosaic(
             [
-                ['main', 'main', 'main', 'main', 'main'],
-                ['main', 'main', 'main', 'main', 'main'],
-                ['main', 'main', 'main', 'main', 'main'],
-                ['main', 'main', 'main', 'main', 'main'],
-                ['main', 'main', 'main', 'main', 'main'],
-                ['.', '.', '.', '.', '.'],
-                ['.', 'ul1', 'ul2', 'ul3', '.'],
-                ['.', '.', '.', '.', '.'],
-                ['.', '.', '.', '.', '.']
+                ["main", "main", "main", "main", "main"],
+                ["main", "main", "main", "main", "main"],
+                ["main", "main", "main", "main", "main"],
+                ["main", "main", "main", "main", "main"],
+                ["main", "main", "main", "main", "main"],
+                [".", ".", ".", ".", "."],
+                [".", "ul1", "ul2", "ul3", "."],
+                [".", ".", ".", ".", "."],
+                [".", ".", ".", ".", "."],
             ],
             layout="constrained",
-            per_subplot_kw={
-                'main': {
-                    'xbound': (0, 750),
-                    'ybound': (0, 500)
-                }
-            }
+            per_subplot_kw={"main": {"xbound": (0, 750), "ybound": (0, 500)}},
         )
         fig.set_size_inches(8, 10)
-        #fig.tight_layout(pad=1)
+        # fig.tight_layout(pad=1)
 
-        axes['main'].imshow(img, interpolation="none")
+        axes["main"].imshow(img, interpolation="none")
         for i in range(len(roi_coords)):
             roi_center = roi_coords[i]
             rect = patches.Rectangle(
@@ -193,23 +190,33 @@ class ACRSpatialResolution(HazenTask):
                 edgecolor="w",
                 facecolor="none",
             )
-            axes['main'].add_patch(rect)
-        axes['main'].scatter(center[0], center[1], c="red", s=1)
-        axes['main'].axis("off")
-        axes['main'].set_title("Centroid + ROI Placement")
+            axes["main"].add_patch(rect)
+        axes["main"].scatter(center[0], center[1], c="red", s=1)
+        axes["main"].axis("off")
+        axes["main"].set_title("Centroid + ROI Placement")
 
         roi_center = roi_coords[0]
-        axes['ul1'].annotate("UL", (-30, roi_center[1] / 2.5), xycoords='axes pixels', fontsize='large')
-        axes['ul1'].annotate("LR", (-30, roi_center[1] / 5), xycoords='axes pixels', fontsize='large')
+        axes["ul1"].annotate(
+            "UL",
+            (-30, roi_center[1] / 2.5),
+            xycoords="axes pixels",
+            fontsize="large",
+        )
+        axes["ul1"].annotate(
+            "LR",
+            (-30, roi_center[1] / 5),
+            xycoords="axes pixels",
+            fontsize="large",
+        )
 
-        axes['ul1'].set_title("1.1mm")
-        axes['ul2'].set_title("1.0mm")
-        axes['ul3'].set_title("0.9mm")
+        axes["ul1"].set_title("1.1mm")
+        axes["ul2"].set_title("1.0mm")
+        axes["ul3"].set_title("0.9mm")
 
         for i in range(len(processed_rois)):
             ul = processed_rois[i][1]
             indx = i + 1
-            ul_name = f'ul{indx}'
+            ul_name = f"ul{indx}"
             axes[ul_name].imshow(ul, interpolation="none")
             axes[ul_name].axis("off")
             axes[ul_name].set_xlabel(ul_name.upper())
@@ -236,12 +243,12 @@ class ACRSpatialResolution(HazenTask):
             ul = detected_rows[i]
             lr = detected_rows[i + 1]
             resolved = min(ul, lr) != -1
-            resolution = np.round(1.1 - 0.1 * int(i / self.DEFAULT_GROUP_SIZE), 1)
-            resolved_arrays.update({resolution: {
-                "UL": ul,
-                "LR": lr,
-                "resolved": resolved
-            }})
+            resolution = np.round(
+                1.1 - 0.1 * int(i / self.DEFAULT_GROUP_SIZE), 1
+            )
+            resolved_arrays.update(
+                {resolution: {"UL": ul, "LR": lr, "resolved": resolved}}
+            )
         return resolved_arrays
 
     def get_best_resolution(self, hole_arrays):
@@ -261,13 +268,13 @@ class ACRSpatialResolution(HazenTask):
         lr_resolution = 99
         best_resolution = 99
         for k, v in hole_arrays.items():
-            ul = v['UL']
-            lr = v['LR']
+            ul = v["UL"]
+            lr = v["LR"]
             if ul > -1 and k < ul_resolution:
                 ul_resolution = k
             if lr > -1 and k < lr_resolution:
                 lr_resolution = k
-            if v['resolved']:
+            if v["resolved"]:
                 best_resolution = k
         return ul_resolution, lr_resolution, best_resolution
 
@@ -339,19 +346,26 @@ class ACRSpatialResolution(HazenTask):
         row_length = roi.shape[1]
         vals = np.zeros((roi.shape[0], 1))
         for i in range(len(vals)):
-            peaks, intensities = self.ACR_obj.find_n_highest_peaks(roi[i], row_length)
+            peaks, intensities = self.ACR_obj.find_n_highest_peaks(
+                roi[i], row_length
+            )
             vals[i] = len(peaks)
-        vals = np.trim_zeros(vals, 'f')
-        vals = [np.max(vals[i:i + grouping_size]).astype(np.int_) for i in range(0, len(vals), grouping_size)]
-        vals = np.trim_zeros(vals, 'b')
-        vals = vals[0:3]  # We should only have 4 rows; anything else is an artefact and cannot be relied on as true.
-                          # If we have not resolved any rows within the first 4, this array is probably unresolvable.
-                          # Ignore the 4th row because we now keep the full array (ul + lr components) to avoid
-                          # interpolation artefacts. As a result, the 4th row contains spots for both the ul and lr
-                          # components which can make an array pass inadvertently. ALso, has the added benefit of
-                          # enforcing strictness here which can only be a good thing in terms of exceeding quality
-                          # controls prescribed by the ACR.
-        logger.info(f'Row spots detected {vals}')
+        vals = np.trim_zeros(vals, "f")
+        vals = [
+            np.max(vals[i : i + grouping_size]).astype(np.int_)
+            for i in range(0, len(vals), grouping_size)
+        ]
+        vals = np.trim_zeros(vals, "b")
+        vals = vals[
+            0:3
+        ]  # We should only have 4 rows; anything else is an artefact and cannot be relied on as true.
+        # If we have not resolved any rows within the first 4, this array is probably unresolvable.
+        # Ignore the 4th row because we now keep the full array (ul + lr components) to avoid
+        # interpolation artefacts. As a result, the 4th row contains spots for both the ul and lr
+        # components which can make an array pass inadvertently. ALso, has the added benefit of
+        # enforcing strictness here which can only be a good thing in terms of exceeding quality
+        # controls prescribed by the ACR.
+        logger.info(f"Row spots detected {vals}")
         for i in range(len(vals)):
             if vals[i] == 4:
                 return i + 1
@@ -394,7 +408,9 @@ class ACRSpatialResolution(HazenTask):
             task_args.append((rescaled, width, width, (x, y)))
             roi_coords.append((x, y))
 
-        processed_rois = wait_on_parallel_results(self.get_processed_roi, task_args)
+        processed_rois = wait_on_parallel_results(
+            self.get_processed_roi, task_args
+        )
 
         # Detect resolved row/column in each ROI.
         group_size = int(np.round(self.DEFAULT_GROUP_SIZE / dx))
@@ -403,9 +419,11 @@ class ACRSpatialResolution(HazenTask):
             roi = processed_rois[i][1]
             task_args.append((roi, group_size, True))
             task_args.append((roi, group_size, False))
-        detected_rows = wait_on_parallel_results(self.find_resolved_row, task_args)
+        detected_rows = wait_on_parallel_results(
+            self.find_resolved_row, task_args
+        )
 
-        logger.info(f'Detected rows => {detected_rows}')
+        logger.info(f"Detected rows => {detected_rows}")
 
         if self.report:
             self.write_report(dcm, img, cxy, roi_coords, processed_rois, width)

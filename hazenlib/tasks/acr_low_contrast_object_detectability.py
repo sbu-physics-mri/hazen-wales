@@ -64,14 +64,13 @@ Implemented for Hazen by Alex Drysdale: alexander.drysdale@wales.nhs.uk
 # Typing
 from __future__ import annotations
 
-import os
-from concurrent import futures
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     import pydicom
 
 # Python imports
+import contextlib
 import copy
 import logging
 from pathlib import Path
@@ -82,7 +81,6 @@ import cv2
 import matplotlib as mpl
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
-import nevergrad as ng
 import numpy as np
 import scipy as sp
 import skimage.transform
@@ -90,15 +88,9 @@ import statsmodels
 import statsmodels.api as sm
 from hazenlib.ACRObject import ACRObject
 from hazenlib.HazenTask import HazenTask
-from hazenlib.types import (
-    FailedStatsModel,
-    LCODTemplate,
-    Measurement,
-    P_HazenTask,
-    Result,
-    SpokeReportData,
-    StatsParameters,
-)
+from hazenlib.types import (FailedStatsModel, LCODTemplate, Measurement,
+                            P_HazenTask, Result, SpokeReportData,
+                            StatsParameters)
 from matplotlib.gridspec import GridSpec
 from matplotlib.patches import Circle
 
@@ -108,7 +100,7 @@ logger = logging.getLogger(__name__)
 class ACRLowContrastObjectDetectability(HazenTask):
     """Low Contrast Object Detectability (LCOD) class for the ACR phantom.
 
-    Attributes
+    Attributes:
         SLICE_ANGLE_OFFSET : Angular offset between each subsequent slice
                 in radians (9 degrees converted to radians).
         START_ANGLE : Starting angle for slice 0 in radians
@@ -127,13 +119,15 @@ class ACRLowContrastObjectDetectability(HazenTask):
         },
     )
 
-    _DETREND_POLYNOMIAL_ORDER: int = 2
+    _DETREND_POLYNOMIAL_ORDER: int = 3
     _STD_TOL: float = 0.01
 
-    _RADIAL_PROFILE_LENGTH: int = 90
+    _RADIAL_PROFILE_LENGTH: int = 128
     _ALPHA: float = 0.05
     _OPTIMIZER: str = "TBPSA"
     _BUDGET: int = 100
+
+    NLOPT_METHOD: str = "Nelder-Mead"
 
     OBJECT_RIBBON_COLORS = ("#1E88E5", "#FFC107", "#004D40")
 
@@ -143,11 +137,6 @@ class ACRLowContrastObjectDetectability(HazenTask):
         **kwargs: P_HazenTask.kwargs,
     ) -> None:
         """Initialise the LCOD object."""
-        # TODO(abdrysdale) : Validate and remove this warning.
-        logger.warning(
-            "The ACR Low Contrast Object Detectability test has not been"
-            " calibrated. Do not use these values for actual QA!",
-        )
         if kwargs.pop("verbose", None) is not None:
             logger.warning(
                 "verbose is not a supported argument for %s",
@@ -163,7 +152,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
         # Initialise ACR object
         self.ACR_obj = ACRObject(self.dcm_list)
         self.rotation = self.ACR_obj.determine_rotation(
-                self.ACR_obj.slice_stack[0].pixel_array,
+            self.ACR_obj.slice_stack[0].pixel_array,
         )
         self.lcod_center = None
 
@@ -194,9 +183,6 @@ class ACRLowContrastObjectDetectability(HazenTask):
         """Run the LCOD analysis."""
         results = self.init_result_dict(desc=self.ACR_obj.acquisition_type())
 
-        # TODO(abdrysdale) : Validate and remove this description
-        results.desc = f"{results.desc} - INVALID!"
-
         results.files = [
             self.img_desc(f)
             for f in self.ACR_obj.slice_stack[self.slice_range]
@@ -207,7 +193,9 @@ class ACRLowContrastObjectDetectability(HazenTask):
         for i, dcm in enumerate(self.ACR_obj.slice_stack[self.slice_range]):
             slice_no = 1 + self.slice_range.step * i + self.slice_range.start
             result = self.count_spokes(
-                dcm, slice_no=slice_no, alpha=self.alpha,
+                dcm,
+                slice_no=slice_no,
+                alpha=self.alpha,
             )
             try:
                 num_spokes = min(i for i, r in enumerate(result) if not r)
@@ -216,7 +204,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
 
             # Add individual spoke measurements for debugging
             # and further analysis
-            # If this results in hose-pipping then it might be best to remove
+            # If this results in log flooding then it might be best to remove
             for j, r in enumerate(result):
                 spoke_no = j + 1
                 results.add_measurement(
@@ -260,27 +248,76 @@ class ACRLowContrastObjectDetectability(HazenTask):
 
         return results
 
+    def _get_template_ensemble(
+        self,
+        template: LCODTemplate,
+    ) -> list[LCODTemplate]:
+        cx, cy, theta = template.cx, template.cy, template.theta
+        max_inc = 3
+        step = 2
+        increments = [
+            self.ACR_obj.dx * i
+            for i in range(
+                - max_inc,
+                max_inc + 1,
+                step,
+            )
+        ]
+        if 0 not in increments:
+            increments.append(0)
+
+        return sorted(
+            [
+                LCODTemplate(
+                    cx + dx,
+                    cy + dy,
+                    theta,
+                )
+                for dx in increments
+                for dy in increments
+            ],
+            key=lambda t: t.cx ** 2 + t.cy ** 2,
+        )
+
     def _get_params_and_p_vals(
         self,
         template: LCODTemplate,
         dcm: pydicom.Dataset,
+        *,
+        use_ensemble_template: bool = False,
     ) -> StatsParameters:
         """Get a list of parameters and associated p-values."""
         sp = StatsParameters()
-        for spoke in template.spokes:
-            profile, (x_coords, y_coords), object_mask = spoke.profile(
-                dcm,
-                size=self._RADIAL_PROFILE_LENGTH,
-                return_coords=True,
-                return_object_mask=True,
-            )
+        if use_ensemble_template:
+            templates = self._get_template_ensemble(template)
+        else:
+            templates = [template]
 
-            p_vals, params = self._analyze_profile(
-                profile,
-                object_mask,
-            )
-            sp.p_vals.append(p_vals)
-            sp.params.append(params)
+        for idx, _ in enumerate(template.spokes):
+            for t_idx, _template in enumerate(templates):
+                spoke = _template.spokes[idx]
+                profile, object_mask = spoke.profile(
+                    dcm,
+                    size=self._RADIAL_PROFILE_LENGTH,
+                    return_object_mask=True,
+                )
+
+                p_vals, params = self._analyze_profile(
+                    profile,
+                    object_mask,
+                )
+
+                if (
+                    t_idx == 0
+                    or (
+                        np.sum(p_vals) < np.sum(min_pvals)      # noqa: F821
+                        and all(params > 0)
+                    )
+                ):
+                    min_pvals = p_vals
+                    min_params = params
+            sp.p_vals.append(min_pvals)
+            sp.params.append(min_params)
 
         return sp
 
@@ -307,12 +344,12 @@ class ACRLowContrastObjectDetectability(HazenTask):
     ) -> np.ndarray:
         """Count spokes with optional report data capture."""
         dcm = self._preprocess(raw)
-        template = self.find_spokes(slice_no)
+        template = self.get_current_slice_template(slice_no)
         spokes = template.spokes
 
         # Get analysis data
-        sp = StatsParameters()
         report_data = [] if self.report else None
+
 
         for spoke_id, spoke in enumerate(spokes):
             profile, (x_coords, y_coords), object_mask = spoke.profile(
@@ -345,11 +382,10 @@ class ACRLowContrastObjectDetectability(HazenTask):
                         objects=spoke.objects,
                     ),
                 )
-            else:
-                p_vals, params = self._analyze_profile(profile, object_mask)
 
-            sp.p_vals.append(p_vals)
-            sp.params.append(params)
+        sp = self._get_params_and_p_vals(
+            template, dcm, use_ensemble_template=True,
+        )
 
         # FDR correction
         p_vals_fdr, params_fdr = self._fdrcorrection(sp, alpha=alpha)
@@ -378,175 +414,78 @@ class ACRLowContrastObjectDetectability(HazenTask):
 
         return [s.passed for s in spokes]
 
-    def _improve_lcod_center_with_optimiser(
-        self,
-        cx: float,
-        cy: float,
-        center_search_tolerance: float = 5,     # mm
-    ) -> None:
-        cx, cy = float(cx), float(cy)
-
-        parametrization = ng.p.Instrumentation(
-            cx=ng.p.Scalar(
-                init=cx,
-                lower=cx - center_search_tolerance,
-                upper=cx + center_search_tolerance,
-            ),
-            cy=ng.p.Scalar(
-                init=cy,
-                lower=cy - center_search_tolerance,
-                upper=cy + center_search_tolerance,
-            ),
-        )
-
-        # Use all LCOD slices for center finding.
-        dcm_list = [
-            self._preprocess(dcm)
-            for dcm in self.ACR_obj.slice_stack[self.slice_range]
-        ]
-        theta_list = [
-            self._current_slice_rotation(cs)
-            for cs in range(
-                self.slice_range.start,
-                self.slice_range.stop,
-                self.slice_range.step,
-            )
-        ]
-
-        def minimiser(
-            cx: float,
-            cy: float,
-            effect_scale: float = 0.01,
-        ) -> float:
-            eps = 1e-12
-    
-            total_log_pvalue = 0.0
-            total_effect_size = 0.0
-            n_objects = 0
-
-            for dcm, theta in zip(dcm_list, theta_list):
-                template = LCODTemplate(cx, cy, theta)
-                sp = self._get_params_and_p_vals(template, dcm)
-                p_vals_fdr, params_fdr = self._fdrcorrection(
-                    sp, alpha=self._ALPHA,
-                )
-
-                # Sum across all objects
-                for spoke_number, spoke in enumerate(template.spokes):
-                    for i, _ in enumerate(spoke):
-                        # Penalize high p-values continuously
-                        # Add small epsilon to avoid log(0)
-                        p_val = p_vals_fdr[spoke_number, i]
-                        total_log_pvalue += -np.log(p_val + eps)
-
-                        # Reward large positive effects
-                        param = params_fdr[spoke_number, i]
-                        total_effect_size += max(  # Only positive effects
-                            0,
-                            param,
-                        )
-
-                        n_objects += 1
-
-            # Combine metrics: want low p-values AND high effect sizes
-            # Normalize by number of objects
-            avg_log_pvalue = total_log_pvalue / n_objects
-            avg_effect_size = total_effect_size / n_objects
-
-            # Primary objective: maximize -log(p) (lower p = higher value)
-            # Secondary objective: maximize effect size
-            # Combine with weighted sum (tune weights as needed)
-            return -(avg_log_pvalue + effect_scale * avg_effect_size)
-
-        opt = ng.optimizers.registry[self._OPTIMIZER](
-            parametrization=parametrization,
-            budget=self._BUDGET,
-            num_workers=max(os.cpu_count() - 1, 1),
-        )
-
-        with futures.ThreadPoolExecutor(
-            max_workers=opt.num_workers,
-        ) as executor:
-            recommendation = opt.minimize(
-                minimiser,
-                executor=executor,
-                batch_mode=False,
-            )
-            _, values = recommendation.value
-
-        return (values["cx"], values["cy"])
-
-    def find_center(
-        self,
-        crop_ratio: float = 0.55,
-        *,
-        use_optimiser: bool = False,
-    ) -> tuple[float]:
+    def find_center(self, crop_ratio: float = 0.55) -> tuple[float]:
         """Find the center of the LCOD phantom."""
         if self.lcod_center is not None:
             return self.lcod_center
 
         # Get ACR Phantom Center
-        dcm = self.ACR_obj.slice_stack[0]
         (main_cx, main_cy), main_radius = self.ACR_obj.find_phantom_center(
-            dcm.pixel_array,
+            self.ACR_obj.slice_stack[0].pixel_array,
             self.ACR_obj.dx,
             self.ACR_obj.dy,
         )
 
         # Get cropped image of LCOD disk
-        dcm = self.ACR_obj.slice_stack[-1]
         r = main_radius * crop_ratio
+
+        lcod_r_init = self.LCOD_DISC_SIZE  # mm
         lcod_cy = main_cy + 5 / self.ACR_obj.dy
 
         offset_y = max(0, int(lcod_cy - r))
         offset_x = max(0, int(main_cx - r))
-        cropped_image = dcm.pixel_array[
-            offset_y : int(lcod_cy + r + 1),
-            offset_x : int(main_cx + r + 1),
-        ]
-        cropped_image = (
-            (cropped_image - cropped_image.min())
-            * 255.0
-            / (cropped_image.max() - cropped_image.min())
-        ).astype(np.uint8)
 
-        # Pre-processing for circle detection
-        img_blur = cv2.GaussianBlur(cropped_image, (5, 5), 0)
-        img_grad = img_blur.max() - img_blur
+        # Gets LCOD center and radius from each slice.
+        lcod_props = []
+        for dcm in self.ACR_obj.slice_stack[8:]:
+            cropped_image = dcm.pixel_array[
+                offset_y : int(lcod_cy + r + 1),
+                offset_x : int(main_cx + r + 1),
+            ]
+            cropped_image = (
+                (cropped_image - cropped_image.min())
+                * 255.0
+                / (cropped_image.max() - cropped_image.min())
+            ).astype(np.uint8)
 
-        lcod_r_init = self.LCOD_DISC_SIZE  # mm
-        try:
-            detected_circles = cv2.HoughCircles(
-                img_grad,
-                method=cv2.HOUGH_GRADIENT,
-                dp=2,
-                minDist=cropped_image.shape[0] // 2,
-                minRadius=int((lcod_r_init - 2) / self.ACR_obj.dy),
-                maxRadius=int((lcod_r_init + 2) / self.ACR_obj.dy),
-            ).flatten()
-        except AttributeError:
-            logger.warning("Failed to find LCOD center, using defaults.")
-            detected_circles = (main_cx, lcod_cy, lcod_r_init)
-            lcod_center = detected_circles[:2]
+            # Pre-processing for circle detection
+            img_blur = cv2.GaussianBlur(cropped_image, (5, 5), 0)
+            img_grad = img_blur.max() - img_blur
 
-        else:
-            lcod_center = tuple(
-                (dc + offset) * dv
-                for dc, offset, dv in zip(
+            try:
+                detected_circles = cv2.HoughCircles(
+                    img_grad,
+                    method=cv2.HOUGH_GRADIENT,
+                    dp=2,
+                    minDist=cropped_image.shape[0] // 2,
+                    minRadius=int((lcod_r_init - 2) / self.ACR_obj.dy),
+                    maxRadius=int((lcod_r_init + 2) / self.ACR_obj.dy),
+                ).flatten()
+            except AttributeError:
+                logger.warning("Failed to find LCOD center, using defaults.")
+                detected_circles = (main_cx, lcod_cy, lcod_r_init)
+                lcod_center = detected_circles[:2]
+
+            else:
+                lcod_center = tuple(
+                    (dc + offset) * dv
+                    for dc, offset, dv in zip(
                         detected_circles[:2],
                         (offset_x, offset_y),
                         (self.ACR_obj.dx, self.ACR_obj.dy),
+                        strict=True,
+                    )
                 )
-            )
 
+            lcod_props.append((lcod_center, detected_circles[2]))
+
+        # Obtains the mean lcod center and radius.
+        lcod_center = (
+            np.mean([prop[0][0] for prop in lcod_props]),
+            np.mean([prop[0][1] for prop in lcod_props]),
+        )
+        lcod_r = np.mean([prop[1] for prop in lcod_props])
         self.lcod_center = lcod_center
-        lcod_r = detected_circles[2]
-
-        if use_optimiser:
-            self.lcod_center = self._improve_lcod_center_with_optimiser(
-                *lcod_center,
-            )
 
         if self.report:
             fig, axes = plt.subplots(2, 2, constrained_layout=True)
@@ -631,7 +570,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
             )
             axes[1, 1].add_patch(circle)
             axes[1, 1].set_title(
-                f"Detected Circle, optimiser used={use_optimiser}",
+                "Detected Circle - Final",
             )
 
             fig.suptitle("LCOD Center Detection")
@@ -653,7 +592,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
         )
         return self.rotation + rotation_offset
 
-    def find_spokes(
+    def get_current_slice_template(
         self,
         current_slice: int,
     ) -> LCODTemplate:
@@ -662,30 +601,25 @@ class ACRLowContrastObjectDetectability(HazenTask):
         theta = self._current_slice_rotation(current_slice)
 
         if self.lcod_center is None:
-            cx_0, cy_0 = self.find_center(use_optimiser=True)
+            cx_0, cy_0 = self.find_center()  # updates lcod_center
+        else:
+            cx_0, cy_0 = self.lcod_center
 
-            logger.debug(
-                "Updated LCOD center: (%s) -> (%f, %f)",
-                self.lcod_center,
-                cx_0,
-                cy_0,
-            )
-            self.lcod_center = cx_0, cy_0
+        template = LCODTemplate(cx_0, cy_0, theta)
 
-            logger.info(
-                "Template generated for slice %i:"
-                "\nCenter:\t%s"
-                "\nRotation:\t%f (initial: %f + offset: %f)",
-                current_slice,
-                self.lcod_center,
-                theta,
-                self.rotation,
-                theta - self.rotation,
-            )
+        logger.info(
+            "Template generated for slice %i:"
+            "\nCenter:\t(%f, %f)"
+            "\nRotation:\t%f (initial: %f + offset: %f)",
+            current_slice,
+            template.cx,
+            template.cy,
+            template.theta,
+            self.rotation,
+            template.theta - self.rotation,
+        )
 
-        cx, cy = self.lcod_center
-
-        return LCODTemplate(cx, cy, theta)
+        return template
 
     def _analyze_profile(
         self,
@@ -706,20 +640,8 @@ class ACRLowContrastObjectDetectability(HazenTask):
         )
 
         # De-trend with robust polynomial fitting
-        if np.std(profile) > self._STD_TOL:
-            x = np.linspace(0, 1, len(profile))
-            coeffs = np.polyfit(x, profile, self._DETREND_POLYNOMIAL_ORDER)
-            trend = np.polyval(coeffs, x)
-        else:
-            trend = np.zeros_like(profile)
-
-        detrended = profile - trend
-        kernel = np.ones(3) / 3
-        smoothed = np.convolve(
-            detrended - np.mean(detrended),
-            kernel,
-            mode="same",
-        ).reshape((profile.size, 1))
+        detrended, trend = self._detrend_profile(profile, return_trend=True)
+        smoothed = self._smooth_profile(detrended)
 
         # Prepare GLM
         data = np.column_stack((object_mask, np.ones_like(profile)))
@@ -861,7 +783,9 @@ class ACRLowContrastObjectDetectability(HazenTask):
                     alpha=0.8,
                 )
 
-            for obj, detected in zip(spoke_data.objects, spoke_data.detected):
+            for obj, detected in zip(
+                spoke_data.objects, spoke_data.detected, strict=True,
+            ):
                 color = "green" if detected else "red"
                 circle = Circle(
                     ((obj.x - offset_x) / px_x, (obj.y - offset_y) / px_y),
@@ -920,7 +844,12 @@ class ACRLowContrastObjectDetectability(HazenTask):
             zorder=3,
         )
         ax_top.plot(
-            x, spoke_data.trend, "g--", label="Trend", linewidth=0.8, zorder=3,
+            x,
+            spoke_data.trend,
+            "g--",
+            label="Trend",
+            linewidth=0.8,
+            zorder=3,
         )
         ax_bottom.plot(x, spoke_data.detrended, "k-", linewidth=1, zorder=3)
 
@@ -936,7 +865,8 @@ class ACRLowContrastObjectDetectability(HazenTask):
         orig_range = orig_max - orig_min
         det_range = det_max - det_min
         ax_top.set_ylim(
-            orig_min - 0.05 * orig_range, orig_max + 0.05 * orig_range,
+            orig_min - 0.05 * orig_range,
+            orig_max + 0.05 * orig_range,
         )
         ax_bottom.set_ylim(
             det_min - 0.05 * det_range,
@@ -969,7 +899,8 @@ class ACRLowContrastObjectDetectability(HazenTask):
         n_objects = spoke_data.object_mask.shape[1]
         for obj_idx in range(n_objects):
             obj_mask = spoke_data.object_mask[
-                :, obj_idx,
+                :,
+                obj_idx,
             ]  # Get mask for this object
             color = self.OBJECT_RIBBON_COLORS[obj_idx]
 
@@ -983,21 +914,41 @@ class ACRLowContrastObjectDetectability(HazenTask):
                 # Draw prominent vertical ribbons (behind profile lines)
                 ax_top.axvspan(start, end, alpha=0.45, color=color, zorder=0)
                 ax_bottom.axvspan(
-                    start, end, alpha=0.45, color=color, zorder=0,
+                    start,
+                    end,
+                    alpha=0.45,
+                    color=color,
+                    zorder=0,
                 )
 
                 # Add subtle edge
                 ax_top.axvline(
-                    start, color=color, alpha=0.7, linewidth=0.5, zorder=1,
+                    start,
+                    color=color,
+                    alpha=0.7,
+                    linewidth=0.5,
+                    zorder=1,
                 )
                 ax_top.axvline(
-                    end, color=color, alpha=0.7, linewidth=0.5, zorder=1,
+                    end,
+                    color=color,
+                    alpha=0.7,
+                    linewidth=0.5,
+                    zorder=1,
                 )
                 ax_bottom.axvline(
-                    start, color=color, alpha=0.7, linewidth=0.5, zorder=1,
+                    start,
+                    color=color,
+                    alpha=0.7,
+                    linewidth=0.5,
+                    zorder=1,
                 )
                 ax_bottom.axvline(
-                    end, color=color, alpha=0.7, linewidth=0.5, zorder=1,
+                    end,
+                    color=color,
+                    alpha=0.7,
+                    linewidth=0.5,
+                    zorder=1,
                 )
 
                 # Annotate p-value at object center
@@ -1059,11 +1010,15 @@ class ACRLowContrastObjectDetectability(HazenTask):
 
         for spoke_data in report_data:
             row = [f"{spoke_data.spoke_id + 1}"]
-            for p_val, param in zip(spoke_data.p_vals, spoke_data.params):
+            for p_val, param in zip(
+                spoke_data.p_vals,
+                spoke_data.params,
+                strict=True,
+            ):
                 # Compact formatting
                 p_str = (
                     f"{p_val:.2e}"
-                    if p_val < 1e-3     # noqa: PLR2004
+                    if p_val < 1e-3  # noqa: PLR2004
                     else f"{p_val:.4f}"
                 )
                 param_str = f"{param:.3f}"
@@ -1152,8 +1107,8 @@ class ACRLowContrastObjectDetectability(HazenTask):
         lower, upper = bounds
         structure = np.ones((3, 3), dtype=int)
         for thr in np.arange(threshold_min, threshold_max, threshold_step):
-            ret, thresh = cv2.threshold(fdata, thr, 1, 0)
-            labelled, ncomponents = sp.ndimage.label(
+            _, thresh = cv2.threshold(fdata, thr, 1, 0)
+            labelled, _ = sp.ndimage.label(
                 thresh,
                 structure,
             )
@@ -1172,3 +1127,217 @@ class ACRLowContrastObjectDetectability(HazenTask):
             dcm[(0x0028, 0x0101)].value,  # Bits Stored
         )
         return processed
+
+    def _smooth_profile(
+        self, profile: np.ndarray, sigma: int = 5,
+    ) -> np.ndarray:
+        return sp.ndimage.gaussian_filter(
+            profile,
+            sigma=sigma,
+            mode="constant",
+            cval=np.mean(profile),
+        )
+
+
+    def _detrend_profile(
+        self,
+        profile_potentially_unsigned: np.ndarray,
+        *,
+        return_trend: bool = False,
+    ) -> np.ndarray:
+        """Remove polynomial trend from profile using robust fitting."""
+        # Ignores end of profile which sometimes includes outer disc.
+        profile = profile_potentially_unsigned.astype(np.int16)
+        try:
+            stop_idx = np.where(
+                profile <= profile.max() * 0.75,
+            )[0][0]
+
+            if stop_idx <= len(profile) * 0.9:
+                stop_idx = int(len(profile) * 0.9)
+
+        except IndexError:
+            stop_idx = len(profile)
+
+        trunc_profile = profile[:stop_idx]
+
+        if np.std(trunc_profile) > self._STD_TOL:
+            x = np.linspace(0, 1, len(trunc_profile))
+            coeffs = np.polyfit(
+                x,
+                trunc_profile,
+                self._DETREND_POLYNOMIAL_ORDER,
+            )
+            trend = np.zeros_like(profile)
+            trend[:stop_idx] = np.polyval(coeffs, x)
+            trend[stop_idx:] = profile[stop_idx:]
+        else:
+            trend = np.zeros_like(profile)
+
+        detrend = profile - trend
+
+        if return_trend:
+            return (detrend, trend)
+        return detrend
+
+    def _plot_profile_debug(
+        self,
+        detrended: np.ndarray,
+        profile: np.ndarray,
+        peak_indices: np.ndarray,
+        intersection_points: list[tuple[float, float]],
+        spoke_id: int,
+        slice_no: int,
+        object_mask: np.ndarray,
+        x_coords: np.ndarray,
+        y_coords: np.ndarray,
+    ) -> None:
+        """Create debug plot for radial profile analysis.
+
+        Visualizes the profile data, detected peaks, half-maximum intersection
+        points, and object mask regions to help verify the intersection point
+        detection algorithm.
+
+        Args:
+            detrended: Detrended but not smoothed profile.
+            profile: Smoothed and detrended 1D intensity profile
+            peak_indices: Array of indices where peaks were detected
+            intersection_points: List of (x, y) coordinate tuples for
+                half-max points in image space
+            spoke_id: Spoke number (0-9)
+            slice_no: Slice number (8-11)
+            object_mask: Binary mask array indicating object locations (size x 3)
+            x_coords: X coordinates in image space for each profile point
+            y_coords: Y coordinates in image space for each profile point
+
+        """
+        if not self.report:
+            return
+
+        # Convert intersection points from image coordinates back to profile indices
+        # by finding the closest point in the profile coordinates
+        intersection_indices = []
+        with contextlib.suppress(TypeError):
+            for xi, yi in intersection_points:
+                distances = np.sqrt((x_coords - xi) ** 2 + (y_coords - yi) ** 2)
+                closest_idx = np.argmin(distances)
+                intersection_indices.append(closest_idx)
+
+        # Create figure
+        fig, ax = plt.subplots(figsize=(10, 4))
+
+        # Profile positions (0 to length-1)
+        profile_positions = np.arange(len(profile))
+
+        # Plot the smoothed profile
+        ax.plot(
+            profile_positions,
+            profile,
+            color="#1976D2",
+            linewidth=1.5,
+            label="Smoothed + Detrended profile",
+        )
+        ax.plot(
+            profile_positions,
+            detrended,
+            color="#19D2A4",
+            linewidth=1.5,
+            linestyle="--",
+            label="Detrended profile",
+        )
+
+        # Mark detected peaks
+        if len(peak_indices) > 0:
+            ax.scatter(
+                peak_indices,
+                profile[peak_indices],
+                color="#D32F2F",
+                marker="^",
+                s=80,
+                zorder=5,
+                label="Peaks",
+            )
+
+        # Mark half-maximum intersection points
+        if len(intersection_indices) > 0:
+            # Ensure indices are within bounds
+            valid_indices = [
+                idx for idx in intersection_indices
+                if 0 <= idx < len(profile)
+            ]
+            if valid_indices:
+                ax.scatter(
+                    valid_indices,
+                    profile[np.array(valid_indices).astype(int)],
+                    color="#388E3C",
+                    marker="o",
+                    s=60,
+                    zorder=5,
+                    label="Half-max points",
+                )
+
+        # Add vertical bands for object mask regions
+        if object_mask is not None and object_mask.shape[1] > 0:
+            for obj_idx in range(object_mask.shape[1]):
+                obj_mask_col = object_mask[:, obj_idx]
+                # Find contiguous regions where mask is True
+                mask_start = None
+                for i, is_masked in enumerate(obj_mask_col):
+                    if is_masked and mask_start is None:
+                        mask_start = i
+                    elif not is_masked and mask_start is not None:
+                        # End of masked region
+                        color = self.OBJECT_RIBBON_COLORS[
+                            obj_idx % len(self.OBJECT_RIBBON_COLORS)
+                        ]
+                        ax.axvspan(
+                            mask_start,
+                            i,
+                            alpha=0.15,
+                            color=color,
+                            zorder=1,
+                        )
+                        mask_start = None
+                # Handle case where mask extends to end
+                if mask_start is not None:
+                    color = self.OBJECT_RIBBON_COLORS[
+                        obj_idx % len(self.OBJECT_RIBBON_COLORS)
+                    ]
+                    ax.axvspan(
+                        mask_start,
+                        len(obj_mask_col),
+                        alpha=0.15,
+                        color=color,
+                        zorder=1,
+                    )
+
+        # Set axis limits with padding
+        profile_range = np.ptp(detrended)
+        if profile_range > 0:
+            ax.set_ylim(
+                detrended.min() - 0.1 * profile_range,
+                detrended.max() + 0.1 * profile_range,
+            )
+
+        # Labels and title
+        ax.set_xlabel("Profile Position", fontsize=8)
+        ax.set_ylabel("Intensity", fontsize=8)
+        ax.set_title(
+            f"LCOD Profile Debug - Slice {slice_no}, Spoke {spoke_id}",
+            fontsize=9,
+        )
+        ax.legend(fontsize=7, loc="best")
+        ax.tick_params(labelsize=7)
+        ax.grid(True, alpha=0.3, linestyle="--", linewidth=0.5)
+
+        plt.tight_layout()
+
+        # Save figure
+        data_path = Path(self.dcm_list[0].filename).parent.name
+        img_path = (
+            Path(self.report_path)
+            / f"{data_path}_profile_debug_slice{slice_no}_spoke{spoke_id}.png"
+        )
+        fig.savefig(img_path, dpi=100, bbox_inches="tight")
+        plt.close(fig)
+        self.report_files.append(img_path)

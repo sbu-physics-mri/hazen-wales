@@ -125,7 +125,13 @@ class SNRMap(HazenTask):
             #  Plot images
             #  ===========
             fig_detailed = self.plot_detailed(
-                original, smoothed, noise, snr, snr_map, image_centre, roi_corners
+                original,
+                smoothed,
+                noise,
+                snr,
+                snr_map,
+                image_centre,
+                roi_corners,
             )
             fig_summary = self.plot_summary(snr_map, original, roi_corners)
 
@@ -170,10 +176,13 @@ class SNRMap(HazenTask):
             )
 
         normalised_kernel = (
-            skimage.morphology.square(kernel) / skimage.morphology.square(kernel).sum()
+            skimage.morphology.square(kernel)
+            / skimage.morphology.square(kernel).sum()
         )
         # kernel = kernel / kernel.sum()  # normalise kernel
-        smooth_image = ndimage.filters.convolve(original_image, normalised_kernel)
+        smooth_image = ndimage.filters.convolve(
+            original_image, normalised_kernel
+        )
 
         #  Alternative method 1: OpenCV.
         # smooth_image = cv2.blur(original_image, (kernel_size, kernel_size))
@@ -235,10 +244,14 @@ class SNRMap(HazenTask):
 
         for [x, y] in roi_corners:
             roi_signal.append(
-                original_image[x : x + self.roi_size, y : y + self.roi_size].mean()
+                original_image[
+                    x : x + self.roi_size, y : y + self.roi_size
+                ].mean()
             )
             roi_noise.append(
-                noise_image[x : x + self.roi_size, y : y + self.roi_size].std(ddof=1)
+                noise_image[x : x + self.roi_size, y : y + self.roi_size].std(
+                    ddof=1
+                )
             )
             # Note: *.std(ddof=1) uses sample standard deviation, default ddof=0
             # uses population std dev. Not sure which is statistically correct,
@@ -247,7 +260,9 @@ class SNRMap(HazenTask):
         roi_snr = np.array(roi_signal) / np.array(roi_noise)
         snr = roi_snr.mean()
 
-        logger.debug("ROIs signal=%r, noise=%r, snr=%r", roi_signal, roi_noise, roi_snr)
+        logger.debug(
+            "ROIs signal=%r, noise=%r, snr=%r", roi_signal, roi_noise, roi_snr
+        )
 
         return snr
 
@@ -267,7 +282,9 @@ class SNRMap(HazenTask):
         noise_map = ndimage.filters.generic_filter(
             noise_image, lambda x: np.std(x, ddof=1), size=self.roi_size
         )
-        signal_map = ndimage.filters.uniform_filter(original_image, size=self.roi_size)
+        signal_map = ndimage.filters.uniform_filter(
+            original_image, size=self.roi_size
+        )
         snr_map = signal_map / noise_map
 
         return snr_map
@@ -343,9 +360,12 @@ class SNRMap(HazenTask):
         Returns:
             matplotlib.figure.Figure: figure handle with plots
         """
-        fig, axs = plt.subplots(1, 4, sharex=True, sharey=True, figsize=(8, 2.8))
+        fig, axs = plt.subplots(
+            1, 4, sharex=True, sharey=True, figsize=(8, 2.8)
+        )
         fig.suptitle(
-            "SNR = %.2f (file: %s)" % (snr, os.path.basename(self.single_dcm.filename))
+            "SNR = %.2f (file: %s)"
+            % (snr, os.path.basename(self.single_dcm.filename))
         )
         axs[0].imshow(original_image, cmap="gray")
         axs[0].set_title("Magnitude Image")
@@ -377,7 +397,9 @@ class SNRMap(HazenTask):
         Returns:
             matplotlib.figure.Figure: figure handle with plots
         """
-        fig, axs = plt.subplots(1, 2, sharex=True, sharey=True, figsize=(6, 2.8))
+        fig, axs = plt.subplots(
+            1, 2, sharex=True, sharey=True, figsize=(6, 2.8)
+        )
         axs[0].imshow(original_image, cmap="gray")
         axs[0].set_title("Magnitude Image")
 

@@ -19,40 +19,57 @@ anticipate contributions in the following main areas:
 
 ## 2) How to make and test code changes
 
-Clone and install this repo following the guidance below. This requires git, Python 3.9, pip and a venv installed and on
-accessible within your PATH. We highly recommend using a virtual environment for development and testing.
+Clone and install this repo following the guidance below. This requires git and Python 3.11+ installed and accessible 
+within your PATH. We highly recommend using [uv](https://docs.astral.sh/uv/) for development and testing.
 
 Where possible, make small granular commits (rather than singular large commits!) with descriptive messages. Please 
 separate feature enhancements and bugfixes into individual branches for easier review.
 
+### Using uv (recommended)
+
 ```bash
-# Clone hazen repo
+# Install uv if you haven't already
+# On macOS and Linux:
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+```bash
+# On Windows:
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
+```bash
+# Clone hazen repo (GSTT-CSC)
 # - this will create a folder named 'hazen' in the current working directory
 git clone https://github.com/GSTT-CSC/hazen.git
 
-# Go to local copy of hazen repo
+# Or, for hazen-wales use the following instead (and not the previous command):
+git clone git@github.com:sbu-physics-mri/hazen-wales.git
+
+# Go to local copy of the repo
+# - use 'cd hazen' for the GSTT-CSC repo, or 'cd hazen-wales' for the hazen-wales fork
 cd hazen
 
-# Ensure the development environment is up-to-date
-# Requires uv: https://docs.astral.sh/uv/getting-started/installation/
-uv sync
+# Install hazen and its dependencies (including dev dependencies)
+uv sync --group dev
 
 # Run tests to ensure everything is working on your local machine, prior to development
+# They take a while to run all of the tests so we recommend making a cup of tea at this point.
 uv run pytest tests/
 
-# Re-run the unit tests on the relevant code you have edited, e.g.:
+# After making a code change, run tests on the relevant code you have edited, e.g.:
 uv run hazen snr tests/data/snr/GE
-
 # You can also run specific Tasks or scripts without installing the module by directly executing the local file, e.g.:
 uv run python hazenlib/__init__.py snr tests/data/snr/GE
 ```
+
 
 ## 3) Developer Process for Contributing
 
 Follow these steps to make a contribution to hazen:
 
 1. Check the current [Issues](https://github.com/GSTT-CSC/hazen/issues) to see if an Issue already exists for your 
-contribution.
+contribution - alternatively check [Hazen Wales' Issues](https://github.com/sbu-physics-mri/hazen-wales/issues) to see if your issue features there.
 2. If there is no existing Issue, create a new Issue for your contribution:
    - Select the `Bug report` or `Feature request` template
    - Fill in the Issue according to the template
@@ -60,7 +77,7 @@ contribution.
 3. **Contact us to be given 'write' access to the repo** - this will allow you to branch off (note: we cannot merge from forks). Create a new branch from `main`
    - Name the branch with the issue number and a short description, e.g.: `123-snr-bugfix`
 4. Make your code changes (see guidance above)
-5. Perform unit tests on your machine: `pytest tests/`
+5. Perform unit tests on your machine: `uv run pytest tests/`
 6. Create a [Pull Request](https://github.com/GSTT-CSC/hazen/pulls) (PR)
    - Describe your changes
    - Describe why you coded your change this way
@@ -89,8 +106,8 @@ For a new release: <br>
 
 4. Close all related Issues resolved by the merged PRs
 5. **Important**: Update version numbers across the repo:
-   - Update version number in `hazenlib/_version.py`
-     - This is automatically propagated into `docs/source/conf.py`, `hazenlib/__init__.py` and `setup.cfg`
+   - Update version number in `pyproject.toml`
+     - This is automatically propagated into across the repository.
    - Update version number and date released in `CITATION.cff`
    - Updated contributors in `docs/source/contributors.rst`
 6. Create a [new Release](https://github.com/GSTT-CSC/hazen/releases)

@@ -13,8 +13,9 @@ from typing import Any
 
 # Module imports
 import numpy as np
-from hazenlib.tasks.acr_low_contrast_object_detectability import \
-    ACRLowContrastObjectDetectability
+from hazenlib.tasks.acr_low_contrast_object_detectability import (
+    ACRLowContrastObjectDetectability,
+)
 from hazenlib.types import LCODTemplate, LowContrastObject, Spoke
 from hazenlib.utils import get_dicom_files
 
@@ -27,6 +28,7 @@ class DummyDICOMEntry:
     """A minimal stand-in for a pydicom.FileDataset entry."""
 
     value: Any
+
 
 class DummyDICOM:
     """A minimal stand-in for a pydicom FileDataset."""
@@ -50,10 +52,13 @@ class DummyDICOM:
         return DummyDICOMEntry(value=None)
 
     def set_pixel_data(
-        self, pixel_data: np.ndarray, *_: Any,  # noqa: ANN401
+        self,
+        pixel_data: np.ndarray,
+        *_: Any,  # noqa: ANN401
     ) -> None:
         """Set the pixel data."""
         self.pixel_array = pixel_data
+
 
 @dataclass
 class SliceScore:
@@ -68,11 +73,11 @@ class TestLowContrastObjects(unittest.TestCase):
 
     def test_spoke_initialises_objects(self) -> None:
         """Spoke. should create three LowContrastObject instances."""
-        cx, cy, theta = 10.0, 20.0, np.pi / 4   # 45
+        cx, cy, theta = 10.0, 20.0, np.pi / 4  # 45
         diameter = 4.0
         spoke = Spoke(cx, cy, theta, diameter)
 
-        self.assertEqual(len(spoke), 3) # three distances defined
+        self.assertEqual(len(spoke), 3)  # three distances defined
         self.assertTrue(all(isinstance(o, LowContrastObject) for o in spoke))
 
         # Verify coordinates
@@ -102,17 +107,19 @@ class TestLCODTemplateSpokes(unittest.TestCase):
         """The cached_property should return the same tuple on repeated access."""
         first = self.template.spokes
         second = self.template.spokes
-        self.assertIs(first, second)   # cached_property returns same object
+        self.assertIs(first, second)  # cached_property returns same object
 
     def test_spokes_geometry(self) -> None:
         """Each Spoke should have the correct angle and diameter."""
         spokes = self.template.spokes
         self.assertEqual(len(spokes), len(self.template.diameters))
 
-        for i, (spoke, diameter) in enumerate(zip(spokes, self.template.diameters)):
+        for i, (spoke, diameter) in enumerate(
+            zip(spokes, self.template.diameters)
+        ):
             # Expected angle: theta + i * (360 / N)
-            expected_theta = (
-                self.template.theta + i * (360 / len(self.template.diameters))
+            expected_theta = self.template.theta + i * (
+                360 / len(self.template.diameters)
             )
             self.assertAlmostEqual(spoke.theta, expected_theta)
 
@@ -151,17 +158,19 @@ class TestLCODTemplateSpokes(unittest.TestCase):
         centre, therefore the returned values must match the y-coordinates
         used for the sampling.
         """
-        shape = (128, 128)                     # rows, cols
-        pixel_spacing = (1.0, 1.0)              # square pixels
+        shape = (128, 128)  # rows, cols
+        pixel_spacing = (1.0, 1.0)  # square pixels
         dcm = DummyDICOM(shape=shape, pixel_spacing=pixel_spacing)
 
         for cy, cx in ([64, 64], [68, 64], [60, 68]):
-            y_grid, x_grid = np.meshgrid(*[np.linspace(0, s, s) for s in shape])
+            y_grid, x_grid = np.meshgrid(
+                *[np.linspace(0, s, s) for s in shape]
+            )
 
             vals = np.sqrt((y_grid - cy) ** 2 + (x_grid - cx) ** 2)
             dcm.pixel_array = vals
 
-            theta = 0.0      # centre in the middle of the array
+            theta = 0.0  # centre in the middle of the array
             diameter = cy + 1
 
             spoke = Spoke(cx, cy, theta, diameter)
@@ -173,7 +182,9 @@ class TestLCODTemplateSpokes(unittest.TestCase):
             expected_v = dcm.pixel_array[cy::-1, cx]
 
             self.assertEqual(profile.shape, (size,))
-            np.testing.assert_allclose(profile, expected_v, rtol=1e-6, atol=1e-6)
+            np.testing.assert_allclose(
+                profile, expected_v, rtol=1e-6, atol=1e-6
+            )
 
 
 class TestLCODTemplateMask(unittest.TestCase):
@@ -196,10 +207,14 @@ class TestLCODTemplateMask(unittest.TestCase):
         mask = self.template.mask(self.dcm)
 
         # Re-create the coordinate grids used by the mask routine
-        y_grid, x_grid = np.meshgrid(*[
-            np.linspace(0.0, s * dv, num=s, endpoint=False)
-            for s, dv in zip(self.dcm.pixel_array.shape, self.dcm.PixelSpacing)
-        ])
+        y_grid, x_grid = np.meshgrid(
+            *[
+                np.linspace(0.0, s * dv, num=s, endpoint=False)
+                for s, dv in zip(
+                    self.dcm.pixel_array.shape, self.dcm.PixelSpacing
+                )
+            ]
+        )
 
         # For each object, confirm that the mask is zero at the centre point
         # (the centre is guaranteed to lie on a pixel because we chose spacing=1)
@@ -211,7 +226,8 @@ class TestLCODTemplateMask(unittest.TestCase):
                 x_idx = int(round(obj.x * self.dcm.PixelSpacing[1]))
                 if 0 <= y_idx < mask.shape[0] and 0 <= x_idx < mask.shape[1]:
                     self.assertEqual(
-                        mask[y_idx, x_idx], True,
+                        mask[y_idx, x_idx],
+                        True,
                         msg=f"Pixel at ({y_idx},{x_idx}) not masked",
                     )
                     spoke_in_image = True
@@ -231,13 +247,35 @@ class TestLCODTemplateMask(unittest.TestCase):
 
         # Diagonal shift
         for v in range(3):
-
             # Shift output diagonally
-            p = 2 ** v
+            p = 2**v
             offset = tuple(ps * p for ps in self.dcm.PixelSpacing)
             mask_shifted = self.template.mask(self.dcm, offset=offset)
             self.assertTrue(np.any(mask != mask_shifted))
             self.assertTrue(np.all(mask[p:, p:] == mask_shifted[:-p, :-p]))
+
+
+class TestACRLCODTemplateFinding(unittest.TestCase):
+    """Test for the centre finding for the LCOD test."""
+
+    ACR_DATA = Path(TEST_DATA_DIR / "acr" / "GE_Artist_1.5T_T1")
+
+    def setUp(self) -> None:
+        """Set up for the tests."""
+        input_files = get_dicom_files(self.ACR_DATA)
+
+        report_env = os.getenv("HAZEN_REPORT", "false").lower()
+        report = report_env in ("true", "1", "yes")
+        self.acr_object_detectability = ACRLowContrastObjectDetectability(
+            input_data=input_files,
+            report_dir=Path(TEST_REPORT_DIR),
+            report=report,
+        )
+
+    def test_get_current_slice_template(self) -> None:
+        """Test that get_current_slice_template returns a template for a valid slice."""
+        result = self.acr_object_detectability.get_current_slice_template(11)
+        self.assertTrue(result)
 
 
 class TestACRLowContrastObjectDetectability(unittest.TestCase):
@@ -248,13 +286,13 @@ class TestACRLowContrastObjectDetectability(unittest.TestCase):
 
     ACR_DATA = Path(TEST_DATA_DIR / "acr" / "GE_Artist_1.5T_T1")
     SCORES = (
-        SliceScore(8, 2),
-        SliceScore(9, 3),
-        SliceScore(10, 9),
+        SliceScore(8, 10),
+        SliceScore(9, 10),
+        SliceScore(10, 10),
         SliceScore(11, 10),
     )
-    SLICE_TOLERANCE: int = 2  # Accepted +- slice tolerance
-    TOTAL_TOLERANCE: int = 5  # Accepted +- total tolerance
+    SLICE_TOLERANCE: int = 1  # Accepted +- slice tolerance
+    TOTAL_TOLERANCE: int = 2  # Accepted +- total tolerance
 
     def setUp(self) -> None:
         """Set up for the tests."""
@@ -296,6 +334,11 @@ class TestACRLowContrastObjectDetectability(unittest.TestCase):
         )
         self.results = self.acr_object_detectability.run()
 
+    def test_result_reproducability(self) -> None:
+        """Test the results are the same for each identical run."""
+        results = self.acr_object_detectability.run()
+        self.assertEqual(results, self.results)
+
     def _score_testing(self, score: SliceScore) -> None:
         result = self.results.get_measurement(
             name="LowContrastObjectDetectability",
@@ -330,7 +373,6 @@ class TestACRLowContrastObjectDetectability(unittest.TestCase):
         """Test the score for slice 11."""
         self._score_testing(self.SCORES[3])
 
-
     def test_total_score(self) -> None:
         """Test the total score."""
         total_score = self.results.get_measurement(
@@ -349,47 +391,49 @@ class TestACRLowContrastObjectDetectability(unittest.TestCase):
 
 
 class TestACRLowContrastObjectDetectabilitySiemensAera(
-        TestACRLowContrastObjectDetectability,
+    TestACRLowContrastObjectDetectability,
 ):
     """Test class for Siemens Aera data."""
 
     ACR_DATA = Path(TEST_DATA_DIR / "acr" / "Siemens_Aera_1.5T_T1")
     SCORES = (
-        SliceScore(8, 3),
-        SliceScore(9, 6),
-        SliceScore(10, 8),
-        SliceScore(11, 8),
+        SliceScore(8, 10),
+        SliceScore(9, 10),
+        SliceScore(10, 9),
+        SliceScore(11, 10),
     )
 
+
 class TestACRLowContrastObjectDetectabilitySiemensSkyra(
-        TestACRLowContrastObjectDetectability,
+    TestACRLowContrastObjectDetectability,
 ):
     """Test class for Siemens Skyra data."""
 
     ACR_DATA = Path(TEST_DATA_DIR / "acr" / "Siemens_MagnetomSkyra_3T_T1")
     SCORES = (
-        SliceScore(8, 4),
-        SliceScore(9, 5),
-        SliceScore(10, 6),
-        SliceScore(11, 5),
+        SliceScore(8, 10),
+        SliceScore(9, 10),
+        SliceScore(10, 10),
+        SliceScore(11, 10),
     )
 
+
 class TestACRLowContrastObjectDetectabilitySiemensSolaFit(
-        TestACRLowContrastObjectDetectability,
+    TestACRLowContrastObjectDetectability,
 ):
     """Test class for Siemens Sola Fit."""
 
     ACR_DATA = Path(TEST_DATA_DIR / "acr" / "SiemensSolaFit")
     SCORES = (
-        SliceScore(8, 2),
-        SliceScore(9, 6),
-        SliceScore(10, 6),
-        SliceScore(11, 6),
+        SliceScore(8, 10),
+        SliceScore(9, 8),
+        SliceScore(10, 9),
+        SliceScore(11, 9),
     )
 
-@unittest.skip("Need to improve LCOD for Philips scanners.")
+
 class TestACRLowContrastObjectDetectabilityPhilipsAchieva(
-        TestACRLowContrastObjectDetectability,
+    TestACRLowContrastObjectDetectability,
 ):
     """Test class for Philips Achieva data."""
 

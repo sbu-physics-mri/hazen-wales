@@ -11,6 +11,7 @@ jobs:
   test:
     runs-on: ${{ matrix.os }}
     permissions:
+      contents: read
       pull-requests: write
     strategy:
       fail-fast: false
@@ -64,6 +65,7 @@ jobs:
     - name: Pytest coverage comment
       id: coverageComment
       uses: MishaKav/pytest-coverage-comment@main
+      continue-on-error: true
       with:
         pytest-coverage-path: ./pytest-coverage.txt
         junitxml-path: ./pytest.xml

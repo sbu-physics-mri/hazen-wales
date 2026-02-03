@@ -23,6 +23,7 @@ Format: TypeAlias = Literal["json", "csv", "tsv"]
 # Public API
 # ----------------------------------------------------------------------
 
+
 def write_result(data: dict, fmt: Format, path: str | Path = "-") -> None:
     r"""Serialise data to a format and write the output.
 
@@ -49,15 +50,17 @@ def write_result(data: dict, fmt: Format, path: str | Path = "-") -> None:
 
     """
     if path == "-":
-         _format_results(data, fmt, sys.stdout)
-         return
+        _format_results(data, fmt, sys.stdout)
+        return
     with Path(path).open("a", newline="") as fp:
         write_header = not Path(path).exists()
         _format_results(data, fmt, fp, write_header=write_header)
 
+
 # ----------------------------------------------------------------------
 # Private API
 # ----------------------------------------------------------------------
+
 
 def _to_python_scalar(value: Any) -> Any:
     try:
@@ -67,11 +70,11 @@ def _to_python_scalar(value: Any) -> Any:
 
 
 def _format_results(
-        data: Mapping[str, Any],
-        fmt: Format,
-        out_fh: TextIO,
-        *,
-        write_header: bool = True,
+    data: Mapping[str, Any],
+    fmt: Format,
+    out_fh: TextIO,
+    *,
+    write_header: bool = True,
 ) -> None:
     """Dispatcher that writes *data* to *out_fh* in the requested *fmt*.
 

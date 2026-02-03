@@ -182,7 +182,13 @@ class TestSliceWidth(unittest.TestCase):
 
     MATLAB_TRAP_FIT_COEFF = [50, 54, 153, 170, -111.7920]
     MATLAB_BLINE_FIT_COEFF = [0.0216, -2.9658, 602.2568]
-    MATLAB_TRAP_FIT_COEFF_BOT = [55.0000, 60.0000, 155.0000, 152.0000, -136.6194]
+    MATLAB_TRAP_FIT_COEFF_BOT = [
+        55.0000,
+        60.0000,
+        155.0000,
+        152.0000,
+        -136.6194,
+    ]
     MATLAB_BLINE_FIT_COEFF_BOT = [0.0239, -2.9389, 694.9520]
 
     SW_MATLAB = 5.48
@@ -207,7 +213,9 @@ class TestSliceWidth(unittest.TestCase):
         # print("rods")
         # print(rods)
         for n in range(len(rods)):
-            np.testing.assert_almost_equal(self.rods[n].centroid, rods[n].centroid, 3)
+            np.testing.assert_almost_equal(
+                self.rods[n].centroid, rods[n].centroid, 3
+            )
 
     def test_get_rod_distances(self):
         # From MATLAB Rods
@@ -218,8 +226,10 @@ class TestSliceWidth(unittest.TestCase):
         distances = self.slice_width.get_rod_distances(self.matlab_rods)
         # print("rod distortion correction coefficient")
         # print(hazen_slice_width.get_rod_distortion_correction_coefficients(distances[0], self.dcm.PixelSpacing[0]))
-        dist_corr_coeff = self.slice_width.get_rod_distortion_correction_coefficients(
-            distances[0]
+        dist_corr_coeff = (
+            self.slice_width.get_rod_distortion_correction_coefficients(
+                distances[0]
+            )
         )
 
         np.testing.assert_almost_equal(
@@ -230,7 +240,9 @@ class TestSliceWidth(unittest.TestCase):
         )
 
     def test_rod_distortions(self):
-        horz_dist, vert_dist = self.slice_width.get_rod_distances(self.matlab_rods)
+        horz_dist, vert_dist = self.slice_width.get_rod_distances(
+            self.matlab_rods
+        )
         (
             horizontal_distortion,
             vertical_distortion,
@@ -268,9 +280,9 @@ class TestSliceWidth(unittest.TestCase):
 
         top_mean_ramp = np.mean(ramps["top"], axis=0)
         top_coefficients = list(
-            self.slice_width.baseline_correction(top_mean_ramp, sample_spacing=0.25)[
-                "f"
-            ]
+            self.slice_width.baseline_correction(
+                top_mean_ramp, sample_spacing=0.25
+            )["f"]
         )
         # print("top bline  corr coeff")
         # print(round(top_coefficients[0], 4))
@@ -278,9 +290,9 @@ class TestSliceWidth(unittest.TestCase):
 
         bottom_mean_ramp = np.mean(ramps["bottom"], axis=0)
         bottom_coefficients = list(
-            self.slice_width.baseline_correction(bottom_mean_ramp, sample_spacing=0.25)[
-                "f"
-            ]
+            self.slice_width.baseline_correction(
+                bottom_mean_ramp, sample_spacing=0.25
+            )["f"]
         )
         # print("bottom bline corr coeff")
         # print(round(bottom_coefficients[0], 4))
@@ -295,7 +307,9 @@ class TestSliceWidth(unittest.TestCase):
         55.0000   58.0000  156.0000  153.0000 -136.6194 and fwhm 113
         """
 
-        assert self.slice_width.trapezoid(55, 58, 156, 153, -136.6194)[1] == 113
+        assert (
+            self.slice_width.trapezoid(55, 58, 156, 153, -136.6194)[1] == 113
+        )
 
     def test_get_initial_trapezoid_fit_and_coefficients(self):
         """
@@ -313,7 +327,9 @@ class TestSliceWidth(unittest.TestCase):
         top_mean_ramp = np.mean(ramps["top"], axis=0)
         bottom_mean_ramp = np.mean(ramps["bottom"], axis=0)
         ramps_baseline_corrected = {
-            "top": self.slice_width.baseline_correction(top_mean_ramp, sample_spacing),
+            "top": self.slice_width.baseline_correction(
+                top_mean_ramp, sample_spacing
+            ),
             "bottom": self.slice_width.baseline_correction(
                 bottom_mean_ramp, sample_spacing
             ),
@@ -334,7 +350,9 @@ class TestSliceWidth(unittest.TestCase):
             trapezoid_fit,
             trapezoid_fit_coefficients,
         ) = self.slice_width.get_initial_trapezoid_fit_and_coefficients(
-            ramps_baseline_corrected["bottom"]["profile_corrected_interpolated"],
+            ramps_baseline_corrected["bottom"][
+                "profile_corrected_interpolated"
+            ],
             slice_thickness,
         )
         # print("trap fit coeff bottom initial")
@@ -352,7 +370,9 @@ class TestSliceWidth(unittest.TestCase):
         top_mean_ramp = np.mean(ramps["top"], axis=0)
         bottom_mean_ramp = np.mean(ramps["bottom"], axis=0)
         ramps_baseline_corrected = {
-            "top": self.slice_width.baseline_correction(top_mean_ramp, sample_spacing),
+            "top": self.slice_width.baseline_correction(
+                top_mean_ramp, sample_spacing
+            ),
             "bottom": self.slice_width.baseline_correction(
                 bottom_mean_ramp, sample_spacing
             ),
@@ -361,7 +381,8 @@ class TestSliceWidth(unittest.TestCase):
             trapezoid_fit_coefficients,
             baseline_fit_coefficients,
         ) = self.slice_width.fit_trapezoid(
-            profiles=ramps_baseline_corrected["top"], slice_thickness=slice_thickness
+            profiles=ramps_baseline_corrected["top"],
+            slice_thickness=slice_thickness,
         )
         # print("top trap fit coeff")
         # print(trapezoid_fit_coefficients)
@@ -385,7 +406,8 @@ class TestSliceWidth(unittest.TestCase):
             trapezoid_fit_coefficients,
             baseline_fit_coefficients,
         ) = self.slice_width.fit_trapezoid(
-            profiles=ramps_baseline_corrected["bottom"], slice_thickness=slice_thickness
+            profiles=ramps_baseline_corrected["bottom"],
+            slice_thickness=slice_thickness,
         )
 
         # print("bottom trap fit coeff")

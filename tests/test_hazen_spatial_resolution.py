@@ -1,12 +1,9 @@
-import os
 import unittest
 import pathlib
-import pydicom
 import numpy as np
 
 from hazenlib.utils import get_dicom_files
 from hazenlib.tasks.hazen_spatial_resolution import ACRSpatialResolution
-from hazenlib.ACRObject import ACRObject
 from tests import TEST_DATA_DIR, TEST_REPORT_DIR
 
 
@@ -43,7 +40,9 @@ class TestACRSpatialResolutionSiemens(unittest.TestCase):
         assert y_ramp_pos == self.y_ramp_pos
 
     def test_get_edge_type(self):
-        edge_type = self.acr_spatial_resolution_task.get_edge_type(self.crop_image)
+        edge_type = self.acr_spatial_resolution_task.get_edge_type(
+            self.crop_image
+        )
         assert edge_type == self.edge_type
 
     def test_get_edge_loc(self):

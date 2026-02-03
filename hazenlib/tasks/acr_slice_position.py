@@ -56,7 +56,9 @@ class ACRSlicePosition(HazenTask):
         # Initialise ACR object
         self.ACR_obj = ACRObject(self.dcm_list)
         self.Y_WEDGE_OFFSET = int(20 / self.ACR_obj.dx)
-        self.WEDGE_CENTER_Y = int(45 / self.ACR_obj.dx)           # Center region where it is safe to ray trace along x coordinate
+        self.WEDGE_CENTER_Y = int(
+            45 / self.ACR_obj.dx
+        )  # Center region where it is safe to ray trace along x coordinate
         self.X_WEDGE_OFFSET = int(3 / self.ACR_obj.dx)
         self.GAUSSIAN_SIGMA = 2.5 / self.ACR_obj.dx
         self.MINIMUM_Y_PEAK_THRESHOLD = int(20 / self.ACR_obj.dx)
@@ -93,7 +95,8 @@ class ACRSlicePosition(HazenTask):
                 logger.exception(
                     "Could not calculate the bar length difference for %s"
                     " because of : %s",
-                    self.img_desc(dcm), e,
+                    self.img_desc(dcm),
+                    e,
                 )
                 traceback.print_exc(file=sys.stdout)
                 continue
@@ -104,8 +107,19 @@ class ACRSlicePosition(HazenTask):
 
         return results
 
-    def write_report(self, dcm, img, center, x_pts, y_pts, interp_line_prof_L, interp_line_prof_R, interp_factor,
-                     pos, shift):
+    def write_report(
+        self,
+        dcm,
+        img,
+        center,
+        x_pts,
+        y_pts,
+        interp_line_prof_L,
+        interp_line_prof_R,
+        interp_factor,
+        pos,
+        shift,
+    ):
         import matplotlib.pyplot as plt
 
         fig, axes = plt.subplots(3, 1)
@@ -147,13 +161,13 @@ class ACRSlicePosition(HazenTask):
 
         shift_line = np.roll(interp_line_prof_R, pos * shift)
         if shift < 0 and pos == -1:
-            shift_line[0: np.abs(shift)] = np.nan
+            shift_line[0 : np.abs(shift)] = np.nan
         elif shift < 0 and pos == 1:
-            shift_line[pos * shift:] = np.nan
+            shift_line[pos * shift :] = np.nan
         elif shift > 0 and pos == -1:
-            shift_line[pos * shift:] = np.nan
+            shift_line[pos * shift :] = np.nan
         else:
-            shift_line[0: np.abs(pos) * shift] = np.nan
+            shift_line[0 : np.abs(pos) * shift] = np.nan
 
         axes[2].grid()
         axes[2].plot(
@@ -191,12 +205,14 @@ class ACRSlicePosition(HazenTask):
             img,
             (0, center[0]),
             (center[1], center[0]),
-            linewidth=int(1/self.ACR_obj.dx),
+            linewidth=int(1 / self.ACR_obj.dx),
             mode="constant",
             reduce_func=np.mean,
         ).flatten()
         abs_diff_y_profile = np.abs(np.diff(yray))
-        smoothed_y_profile = scipy.ndimage.gaussian_filter1d(abs_diff_y_profile, self.GAUSSIAN_SIGMA)
+        smoothed_y_profile = scipy.ndimage.gaussian_filter1d(
+            abs_diff_y_profile, self.GAUSSIAN_SIGMA
+        )
 
         ypeaks = self.ACR_obj.find_n_highest_peaks(smoothed_y_profile, 5)
         # A properly centered phantom will not have any signal in upper region (0 < y <~20)
@@ -222,12 +238,14 @@ class ACRSlicePosition(HazenTask):
             img,
             (self.WEDGE_CENTER_Y, 0),
             (self.WEDGE_CENTER_Y, img.shape[0]),
-            linewidth=int(1/self.ACR_obj.dx),
+            linewidth=int(1 / self.ACR_obj.dx),
             mode="constant",
             reduce_func=np.mean,
         ).flatten()
         abs_diff_x_profile = np.abs(np.diff(xray))
-        smoothed_x_profile = scipy.ndimage.gaussian_filter1d(abs_diff_x_profile, self.GAUSSIAN_SIGMA)
+        smoothed_x_profile = scipy.ndimage.gaussian_filter1d(
+            abs_diff_x_profile, self.GAUSSIAN_SIGMA
+        )
 
         xpeaks = self.ACR_obj.find_n_highest_peaks(smoothed_x_profile, 4)
         # The line profile should yield exactly 4 peaks unless we are off-centered.
@@ -236,14 +254,14 @@ class ACRSlicePosition(HazenTask):
         # A simple average of the middle 2 peaks should give the exact x center coordinate of the wedge region.
         x_center = int(np.sum(xpeaks[0][1:3]) // 2)
 
-        logger.info('Wedge Bottom => {}, {}'.format(x_center, y_center))
+        logger.info("Wedge Bottom => {}, {}".format(x_center, y_center))
 
         return [
             int(x_center - self.X_WEDGE_OFFSET),
             int(x_center + self.X_WEDGE_OFFSET),
         ], [
             int(y_center - self.Y_WEDGE_OFFSET),
-            int(y_center + self.Y_WEDGE_OFFSET)
+            int(y_center + self.Y_WEDGE_OFFSET),
         ]
 
     def get_slice_position(self, dcm):
@@ -256,29 +274,42 @@ class ACRSlicePosition(HazenTask):
         Returns:
             float: bar length difference.
         """
-        logger.info(f"Computing slice position for slice #{dcm.InstanceNumber}")
+        logger.info(
+            f"Computing slice position for slice #{dcm.InstanceNumber}"
+        )
         img, rescaled, presentation = self.ACR_obj.get_presentation_pixels(dcm)
         cxy, _ = self.ACR_obj.find_phantom_center(
             rescaled, self.ACR_obj.dx, self.ACR_obj.dy
         )
         x_pts, y_pts = self.find_wedges(rescaled, cxy)
-        logger.info('Wedge Locations => \n{}\n{}'.format(
-            (x_pts[0], y_pts[0]),
-            (x_pts[1], y_pts[1]))
+        logger.info(
+            "Wedge Locations => \n{}\n{}".format(
+                (x_pts[0], y_pts[0]), (x_pts[1], y_pts[1])
+            )
         )
 
         # line profile through left wedge
         line_prof_L = skimage.measure.profile_line(
-            rescaled, (y_pts[0], x_pts[0]), (y_pts[1], x_pts[0]), mode="constant"
+            rescaled,
+            (y_pts[0], x_pts[0]),
+            (y_pts[1], x_pts[0]),
+            mode="constant",
         ).flatten()
         # line profile through right wedge
         line_prof_R = skimage.measure.profile_line(
-            rescaled, (y_pts[0], x_pts[1]), (y_pts[1], x_pts[1]), mode="constant"
+            rescaled,
+            (y_pts[0], x_pts[1]),
+            (y_pts[1], x_pts[1]),
+            mode="constant",
         ).flatten()
 
         # interpolation
         x = np.arange(1, len(line_prof_L) + 1)
-        new_x = np.arange(1, len(line_prof_L) + self.INTERPOLATION_FACTOR, self.INTERPOLATION_FACTOR)
+        new_x = np.arange(
+            1,
+            len(line_prof_L) + self.INTERPOLATION_FACTOR,
+            self.INTERPOLATION_FACTOR,
+        )
 
         # interpolate left line profile
         interp_line_prof_L = scipy.interpolate.interp1d(x, line_prof_L)(new_x)
@@ -301,7 +332,8 @@ class ACRSlicePosition(HazenTask):
         # set multiplier for right or left shift based on sign of peak
         pos = (
             1
-            if np.max(-delta[peaks[0] : peaks[1]]) < np.max(delta[peaks[0] : peaks[1]])
+            if np.max(-delta[peaks[0] : peaks[1]])
+            < np.max(delta[peaks[0] : peaks[1]])
             else -1
         )
 
@@ -326,7 +358,9 @@ class ACRSlicePosition(HazenTask):
 
             # filler value to suppress warning when trying to calculate mean of array filled with NaN otherwise
             # calculate difference
-            err[k] = 1e10 if np.isnan(difference).all() else np.nanmean(difference)
+            err[k] = (
+                1e10 if np.isnan(difference).all() else np.nanmean(difference)
+            )
 
         # find minimum non-zero error
         temp = np.argwhere(err == np.min(err[err > 0]))[0]
@@ -338,7 +372,17 @@ class ACRSlicePosition(HazenTask):
         dL = pos * np.abs(shift) * self.INTERPOLATION_FACTOR * self.ACR_obj.dy
 
         if self.report:
-            self.write_report(dcm, rescaled, cxy, x_pts, y_pts, interp_line_prof_L, interp_line_prof_R,
-                              self.INTERPOLATION_FACTOR, pos, shift)
+            self.write_report(
+                dcm,
+                rescaled,
+                cxy,
+                x_pts,
+                y_pts,
+                interp_line_prof_L,
+                interp_line_prof_R,
+                self.INTERPOLATION_FACTOR,
+                pos,
+                shift,
+            )
 
         return dL

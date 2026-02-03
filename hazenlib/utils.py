@@ -39,7 +39,7 @@ from hazenlib.logger import logger
 
 matplotlib.use("Agg")
 
-REGEX_SCRUBNAME = '\\^\\\\`\\{\\}\\[\\]\\(\\)\\!\\$\'\\/\\ \\_\\:\\,\\-\\&\\=\\.\\*\\+\\;\\#'  #: Regex to match for these dirty characters.
+REGEX_SCRUBNAME = "\\^\\\\`\\{\\}\\[\\]\\(\\)\\!\\$'\\/\\ \\_\\:\\,\\-\\&\\=\\.\\*\\+\\;\\#"  #: Regex to match for these dirty characters.
 
 
 def dcmread(*args, **kwargs) -> pydicom.dataset.FileDataset:
@@ -62,7 +62,7 @@ def dcmread(*args, **kwargs) -> pydicom.dataset.FileDataset:
         return pydicom.dcmread(*args, force=True, **kwargs)
 
 
-def scrub(dirtyString, matchCharacters, join_str='_'):
+def scrub(dirtyString, matchCharacters, join_str="_"):
     """
     This function provides the core functionality for scrubbing strings for bad characters. This is the most useful
     function in the core library since it provides a security hardening benefit as well. Ideally, user input should get
@@ -74,7 +74,7 @@ def scrub(dirtyString, matchCharacters, join_str='_'):
     :param join_str: String used in-between clean fragments. Example, te\\nst => te_st if this parameter is _
     :return: Reconstructed clean string.
     """
-    pattern = re.compile('[{}]'.format(matchCharacters))
+    pattern = re.compile("[{}]".format(matchCharacters))
     target_string = re.split(pattern, str(dirtyString))
     return join_str.join(target_string)
 
@@ -155,7 +155,10 @@ def is_enhanced_dicom(dcm: pydicom.Dataset) -> bool:
         bool: True or False whether file is an enhanced DICOM
     """
 
-    if dcm.SOPClassUID in ["1.2.840.10008.5.1.4.1.1.4.1", "EnhancedMRImageStorage"]:
+    if dcm.SOPClassUID in [
+        "1.2.840.10008.5.1.4.1.1.4.1",
+        "EnhancedMRImageStorage",
+    ]:
         return True
     elif dcm.SOPClassUID == "1.2.840.10008.5.1.4.1.1.4":
         return False
@@ -198,11 +201,11 @@ def get_average(dcm: pydicom.Dataset) -> float:
     """
     if is_enhanced_dicom(dcm):
         averages = dcm[
-            (0x5200, 0x9230)    # Per-Frame Functional Groups Sequence
+            (0x5200, 0x9230)  # Per-Frame Functional Groups Sequence
         ][0][
-            (0x0018, 0x9119)    # MR Averages Sequence
+            (0x0018, 0x9119)  # MR Averages Sequence
         ][0][
-            (0x0018, 0x0083)    # Number of Averages
+            (0x0018, 0x0083)  # Number of Averages
         ].value
 
     else:
@@ -225,11 +228,11 @@ def get_bandwidth(dcm: pydicom.Dataset) -> float:
 
     except AttributeError:
         bandwidth = dcm[
-            (0x5200, 0x9229)    # Shared Functional Groups Sequence
+            (0x5200, 0x9229)  # Shared Functional Groups Sequence
         ][0][
-            (0x0018, 0x9006)    # MR Imaging Modifier Sequence
+            (0x0018, 0x9006)  # MR Imaging Modifier Sequence
         ][0][
-            (0x0018, 0x0095)    # Pixel Bandwidth
+            (0x0018, 0x0095)  # Pixel Bandwidth
         ].value
     return bandwidth
 
@@ -283,7 +286,9 @@ def get_slice_thickness(dcm: pydicom.Dataset) -> float:
 
 
 def get_pixel_size(
-        dcm: pydicom.Dataset, *, swap_indexes: bool = False,
+    dcm: pydicom.Dataset,
+    *,
+    swap_indexes: bool = False,
 ) -> (float, float):
     """Get the PixelSpacing field from the DICOM header
 
@@ -371,7 +376,6 @@ def get_rows(dcm: pydicom.Dataset) -> float:
         rows = dcm.Rows
 
     except AttributeError:
-
         rows = 256
         logger.warning(
             "Could not find Number of matrix rows. Using default value of %i",
@@ -445,10 +449,10 @@ def get_field_of_view(dcm: pydicom.Dataset):
     elif "philips" in manufacturer:
         if is_enhanced_dicom(dcm):
             fov = (
-                    dcm.Columns
-                    * dcm.PerFrameFunctionalGroupsSequence[0]
-                    .PixelMeasuresSequence[0]
-                    .PixelSpacing[0]
+                dcm.Columns
+                * dcm.PerFrameFunctionalGroupsSequence[0]
+                .PixelMeasuresSequence[0]
+                .PixelSpacing[0]
             )
         else:
             fov = dcm.Columns * dcm.PixelSpacing[0]
@@ -461,6 +465,7 @@ def get_field_of_view(dcm: pydicom.Dataset):
         )
 
     return fov
+
 
 def get_datatype_max(dtype=np.uint8):
     """Get max value of the numpy datatype range.
@@ -546,7 +551,11 @@ def get_image_spacing(dcm):
         pydicom.multival.MultiValue: vector
     """
     if is_enhanced_dicom(dcm):
-        return dcm.PerFrameFunctionalGroupsSequence[-1].PixelMeasuresSequence[-1].PixelSpacing
+        return (
+            dcm.PerFrameFunctionalGroupsSequence[-1]
+            .PixelMeasuresSequence[-1]
+            .PixelSpacing
+        )
     return dcm.PixelSpacing
 
 
@@ -600,7 +609,9 @@ def determine_orientation(dcm_list):
 
     # Determine phantom orientation based on DICOM header metadata
     # Assume phantom orientation based on ImageOrientationPatient
-    logger.debug("Checking phantom orientation based on ImageOrientationPatient")
+    logger.debug(
+        "Checking phantom orientation based on ImageOrientationPatient"
+    )
     if iop == [0, 1, 0, 0, 0, -1] and len(set(x)) == expected:
         logger.debug("x %s", set(x))
         return "sagittal", x
@@ -611,29 +622,33 @@ def determine_orientation(dcm_list):
         logger.debug("z %s", set(z))
         return "axial", z
     else:
-        logger.debug("Checking phantom orientation based on ImagePositionPatient")
+        logger.debug(
+            "Checking phantom orientation based on ImagePositionPatient"
+        )
         # Assume phantom orientation based on the changing value in ImagePositionPatient
         if (
-                len(set(x)) == expected
-                and len(set(y)) < expected
-                and len(set(z)) < expected
+            len(set(x)) == expected
+            and len(set(y)) < expected
+            and len(set(z)) < expected
         ):
             return "sagittal", x
         elif (
-                len(set(x)) < expected
-                and len(set(y)) == expected
-                and len(set(z)) < expected
+            len(set(x)) < expected
+            and len(set(y)) == expected
+            and len(set(z)) < expected
         ):
             return "coronal", y
         elif (
-                len(set(x)) < expected
-                and len(set(y)) < expected
-                and len(set(z)) == expected
+            len(set(x)) < expected
+            and len(set(y)) < expected
+            and len(set(z)) == expected
         ):
             return "axial", z
         else:
-            logger.warning("Unable to determine orientation based on DICOM metadata")
-            logger.info(f'Image orientation cosines => {iop}')
+            logger.warning(
+                "Unable to determine orientation based on DICOM metadata"
+            )
+            logger.info(f"Image orientation cosines => {iop}")
             logger.info("x %s\ny %s\nz %s", set(x), set(y), set(z))
             return "unexpected", [x, y, z]
 
@@ -654,7 +669,9 @@ def compute_dicom_frame_size(dcm):
     rows, columns = dcm.Rows, dcm.Columns
     initial_frame_length = rows * columns * samples_per_pixel
     if bits_allocated == 1:
-        return initial_frame_length // 8 + (initial_frame_length % 8 > 0) # From pydicom's upcoming 3.0
+        return initial_frame_length // 8 + (
+            initial_frame_length % 8 > 0
+        )  # From pydicom's upcoming 3.0
     return initial_frame_length * bytes_per_pixel
 
 
@@ -684,12 +701,11 @@ def new_dicom(
     # Extract single frame pixel data
     new_dcm.set_pixel_data(
         pixel_data,
-        dcm[(0x0028,0x0004)].value, # Photometric Interpretation
-        dcm[(0x0028,0x0101)].value, # Bits Stored
+        dcm[(0x0028, 0x0004)].value,  # Photometric Interpretation
+        dcm[(0x0028, 0x0101)].value,  # Bits Stored
     )
 
     return new_dcm
-
 
 
 def split_dicom(
@@ -775,9 +791,7 @@ def expand_data_range(
     """
     dtype_max = get_datatype_max(target_type)
     lower, upper = (
-        (data.min(), data.max())
-        if valid_range is None
-        else valid_range
+        (data.min(), data.max()) if valid_range is None else valid_range
     )
     return (((data - lower) / (upper - lower)) * dtype_max).astype(target_type)
 
@@ -913,7 +927,12 @@ def compute_radius_from_area(area, voxel_resolution, conversion_value=10):
     Returns:
         int: Integer radius length.
     """
-    return np.ceil(np.divide(np.sqrt(np.divide(area, np.pi)) * conversion_value, voxel_resolution)).astype(int)
+    return np.ceil(
+        np.divide(
+            np.sqrt(np.divide(area, np.pi)) * conversion_value,
+            voxel_resolution,
+        )
+    ).astype(int)
 
 
 def create_cross_mask(img, length, x_coord, y_coord):
@@ -937,11 +956,11 @@ def create_cross_mask(img, length, x_coord, y_coord):
 
     x_start = int(x_coord - quarter_height)
     y_start = int(y_coord - half_length)
-    grid[y_start: y_start + length, x_start: x_start + half_height] = True
+    grid[y_start : y_start + length, x_start : x_start + half_height] = True
 
     x_start = int(x_coord - half_length)
     y_start = int(y_coord - quarter_height)
-    grid[y_start: y_start + half_height, x_start: x_start + length] = True
+    grid[y_start : y_start + half_height, x_start : x_start + length] = True
     return grid
 
 
@@ -965,7 +984,7 @@ def create_rectangular_mask(img, width, height, x_coord, y_coord):
 
     x_start = int(x_coord - half_width)
     y_start = int(y_coord - half_height)
-    grid[y_start: y_start + height, x_start: x_start + width] = True
+    grid[y_start : y_start + height, x_start : x_start + width] = True
     return grid
 
 
@@ -983,7 +1002,7 @@ def create_circular_mask(img, radius, x_coord, y_coord):
     """
     height, width = img.shape
     y_grid, x_grid = np.ogrid[:height, :width]
-    return (x_grid - x_coord) ** 2 + (y_grid - y_coord) ** 2 <= radius ** 2
+    return (x_grid - x_coord) ** 2 + (y_grid - y_coord) ** 2 <= radius**2
 
 
 def create_circular_kernel(radius):
@@ -997,7 +1016,9 @@ def create_circular_kernel(radius):
     """
     diameter = (radius * 2) + 1
     kernel_arr = np.zeros((diameter, diameter), dtype=np.bool_)
-    return create_circular_mask(kernel_arr, radius, radius, radius).astype(np.int_)
+    return create_circular_mask(kernel_arr, radius, radius, radius).astype(
+        np.int_
+    )
 
 
 def create_circular_mean_kernel(radius):
@@ -1086,7 +1107,11 @@ def create_circular_roi_with_numpy_index(img, radius, argx):
         np.ma.MaskedArray: Masked Array containing data for area of interest and zeros everywhere else.
     """
     x_coord, y_coord = detect_roi_center(img, argx)
-    return create_circular_roi_at(img, radius, x_coord, y_coord), x_coord, y_coord
+    return (
+        create_circular_roi_at(img, radius, x_coord, y_coord),
+        x_coord,
+        y_coord,
+    )
 
 
 def detect_roi_center(img, argx):
@@ -1101,7 +1126,9 @@ def detect_roi_center(img, argx):
         y_coord (int): y coordinate of the center of the roi
     """
     height, width = img.shape
-    y, x = np.divmod(argx, width)  # returns x //y, x % y per docs but x is found with x % y
+    y, x = np.divmod(
+        argx, width
+    )  # returns x //y, x % y per docs but x is found with x % y
     return x, y
 
 
@@ -1158,8 +1185,9 @@ def debug_plot_sample(img, plot_indx=0):
     """
     if len(img):
         import matplotlib.pyplot as plt
+
         plt.plot(img)
-        plt.savefig(f'/tmp/hazen_debug_plot_{plot_indx}.png')
+        plt.savefig(f"/tmp/hazen_debug_plot_{plot_indx}.png")
 
 
 def debug_image_sample_circles(img, circles=[], out_path=None):
@@ -1172,7 +1200,7 @@ def debug_image_sample_circles(img, circles=[], out_path=None):
 
     """
     for circle in circles[-1]:
-        logger.info(f'Center {circle[0]}, {circle[1]}')
+        logger.info(f"Center {circle[0]}, {circle[1]}")
         center = (int(circle[0]), int(circle[1]))
         cv.circle(img, center, int(circle[2]), (0, 255, 0), 1)
     debug_image_sample(img, out_path)
@@ -1189,10 +1217,15 @@ class DebugSnapshotShow:
 
     def __init__(self, image_instance):
         from PIL import Image, ImageShow
+
         if isinstance(image_instance, str):
             image_instance = Image.open(image_instance)
-        elif isinstance(image_instance, np.ndarray) or isinstance(image_instance, np.ma.MaskedArray):
-            image_instance = expand_data_range(image_instance, target_type=np.uint8)
+        elif isinstance(image_instance, np.ndarray) or isinstance(
+            image_instance, np.ma.MaskedArray
+        ):
+            image_instance = expand_data_range(
+                image_instance, target_type=np.uint8
+            )
             image_instance = Image.fromarray(image_instance)
         presenter = ImageShow.EogViewer()
         presenter.show_image(image_instance)
@@ -1249,14 +1282,16 @@ class ShapeDetector:
     def find_contours(self):
         """Find contours in pixel array"""
         # convert the resized image to grayscale, blur it slightly, and threshold it
-        self.blurred = cv.GaussianBlur(self.arr.copy(), (5, 5), 0)  # magic numbers
+        self.blurred = cv.GaussianBlur(
+            self.arr.copy(), (5, 5), 0
+        )  # magic numbers
 
         optimal_threshold = filters.threshold_li(
             self.blurred, initial_guess=np.quantile(self.blurred, 0.50)
         )
-        self.thresh = np.where(self.blurred > optimal_threshold, 255, 0).astype(
-            np.uint8
-        )
+        self.thresh = np.where(
+            self.blurred > optimal_threshold, 255, 0
+        ).astype(np.uint8)
 
         # have to convert type for find contours
         contours = cv.findContours(self.thresh, cv.RETR_TREE, 1)
@@ -1329,12 +1364,16 @@ class ShapeDetector:
         if shape not in self.shapes:
             logger.error(
                 "No valid shape detected - got %s but expected one of %s",
-                shape, self.shapes.keys(),
+                shape,
+                self.shapes.keys(),
             )
             raise exc.ShapeDetectionError(shape)
 
         if len(self.shapes[shape]) > 1:
-            shapes = [{shape: len(contours)} for shape, contours in self.shapes.items()]
+            shapes = [
+                {shape: len(contours)}
+                for shape, contours in self.shapes.items()
+            ]
             logger.error(
                 "Multiple (%i) shapes were detected - should be just 1",
                 len(self.shapes[shape]),
@@ -1356,6 +1395,8 @@ class ShapeDetector:
             # OpenCV v4.5 adjustment
             # - cv.minAreaRect() output tuple order changed since v3.4
             # - swap size order & rotate angle by -90
-            size = (size[1], size[0])
-            angle = angle - 90
+            #
+            # The above seems to have reverted in OpenCV v4.12
+            # https://github.com/opencv/opencv/issues/28051
+            # so the corrections are no longer needed.
             return (x, y), size, angle

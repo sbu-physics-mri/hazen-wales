@@ -71,6 +71,7 @@ luis.santos2@nih.gov
 
 2/20/2025
 """
+
 # Python imports
 import os
 import sys
@@ -169,7 +170,6 @@ class ACRSagittalGeometricAccuracy(HazenTask):
         fig.savefig(img_path)
         self.report_files.append(img_path)
 
-
     def get_geometric_accuracy(self, dcm):
         """Measures Vertical distance of the Sagittal Localizer.
 
@@ -188,17 +188,35 @@ class ACRSagittalGeometricAccuracy(HazenTask):
 
         Returns:
             float: vertical distance.
+
         """
-        img, rescaled, presentation = self.ACR_obj.get_presentation_pixels(dcm)
+        img, _, _ = self.ACR_obj.get_presentation_pixels(dcm)
 
-        cxy, _ = self.ACR_obj.find_phantom_center(img, self.ACR_obj.dx, self.ACR_obj.dy, False)
-        mask = self.ACR_obj.get_mask_image(img, cxy)
-
+        cxy, _ = self.ACR_obj.find_phantom_center(
+            img, self.ACR_obj.dx, self.ACR_obj.dy, axial=False,
+        )
         offset = (int(np.round(-15 / self.ACR_obj.dx)), 0)
 
-        length_dict = self.ACR_obj.measure_orthogonal_lengths(mask, cxy, v_offset=offset)
+        length_dicts = []
+        for threshold in np.linspace(0.05, 0.09, 10, endpoint=True):
+            mask = self.ACR_obj.get_mask_image(
+                img, cxy, mag_threshold=threshold,
+            )
+            length_dicts.append(
+                self.ACR_obj.measure_orthogonal_lengths(
+                    mask, cxy, v_offset=offset,
+                ),
+            )
+
+        length_dict = {}
+        for key in ("Vertical Distance",):
+            length_dict[key] = np.mean([d[key] for d in length_dicts])
+
 
         if self.report:
+            length_dict["Vertical Extent"] = length_dicts[
+                len(length_dicts) // 2
+            ]["Vertical Extent"]
             self.write_report(img, dcm, length_dict, mask, cxy, offset)
 
         return length_dict["Vertical Distance"]
