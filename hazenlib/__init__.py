@@ -302,7 +302,9 @@ def main() -> None:
     parser = get_parser()
     args = parser.parse_args()
 
-    execution_wrapper = timed_execution if args.profile else (lambda f, *a, **k: f(*a, **k))
+    execution_wrapper = (
+        timed_execution if args.profile else (lambda f, *a, **k: f(*a, **k))
+    )
 
     single_image_tasks = [
         task for task in TASK_REGISTRY.values() if task.single_image

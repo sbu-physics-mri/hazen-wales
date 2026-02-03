@@ -26,6 +26,7 @@ from hazenlib.types import Measurement, Result
 
 P = ParamSpec("P")
 
+
 def timed_execution(
     task_method: Callable[P, Result],
     *args: P.args,

@@ -6,8 +6,9 @@ import unittest
 from unittest.mock import Mock, patch
 
 from hazenlib.execution import timed_execution
-from hazenlib.tasks.acr_sagittal_geometric_accuracy import \
-    ACRSagittalGeometricAccuracy
+from hazenlib.tasks.acr_sagittal_geometric_accuracy import (
+    ACRSagittalGeometricAccuracy,
+)
 from hazenlib.types import Result
 from hazenlib.utils import get_dicom_files
 
@@ -24,7 +25,9 @@ class TestTimedExecution(unittest.TestCase):
         mock_task = Mock(return_value=mock_result)
 
         # Act: Mock time advancing by 1.5 seconds
-        with patch("hazenlib.execution.time.perf_counter", side_effect=[0.0, 1.5]):
+        with patch(
+            "hazenlib.execution.time.perf_counter", side_effect=[0.0, 1.5]
+        ):
             result = timed_execution(mock_task, "arg1", kwarg1="value1")
 
         # Assert
@@ -33,14 +36,15 @@ class TestTimedExecution(unittest.TestCase):
 
         # Verify measurement structure per constants.py spec
         timing = next(
-            m for m in result.measurements
-            if m.name == "ExecutionMetadata" and m.description == "analysis_duration"
+            m
+            for m in result.measurements
+            if m.name == "ExecutionMetadata"
+            and m.description == "analysis_duration"
         )
 
         self.assertEqual(timing.value, 1.5)
         self.assertEqual(timing.unit, "s")
         self.assertEqual(timing.type, "measured")
-
 
     def test_preserves_task_arguments(self) -> None:
         """Verify ParamSpec properly forwards args/kwargs."""
@@ -51,7 +55,6 @@ class TestTimedExecution(unittest.TestCase):
             timed_execution(mock_task, 1, 2, foo="bar", baz=123)
 
         mock_task.assert_called_once_with(1, 2, foo="bar", baz=123)
-
 
     def test_exception_propagation(self) -> None:
         """Verify exceptions propagate and no timing added on failure."""
@@ -64,6 +67,7 @@ class TestTimedExecution(unittest.TestCase):
             timed_execution(mock_task)
 
         mock_task.assert_called_once()
+
 
 class TestExecutionIntegration(unittest.TestCase):
     """Verify timed_execution works with real task infrastructure."""
@@ -80,10 +84,13 @@ class TestExecutionIntegration(unittest.TestCase):
         result = timed_execution(task.run)
 
         # Verify timing present and reasonable (0 < t < 30s)
-        exec_meta = [m for m in result.measurements if m.name == "ExecutionMetadata"]
+        exec_meta = [
+            m for m in result.measurements if m.name == "ExecutionMetadata"
+        ]
         self.assertEqual(len(exec_meta), 1)
         self.assertGreater(exec_meta[0].value, 0.0)
         self.assertLess(exec_meta[0].value, 30.0)
+
 
 if __name__ == "__main__":
     unittest.main()
