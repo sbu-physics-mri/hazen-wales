@@ -291,6 +291,25 @@ class Protocol:
         )
 
 
+class ProtocolResult(Result):
+    """Class for the protocol result."""
+
+    def __post_init__(self) -> None:
+        """Initialise the results list."""
+        super().__post_init__()
+
+        self._results: list[Result] = []
+
+    @property
+    def results(self) -> tuple[Result, ...]:
+        """Return an immutable results list."""
+        return tuple(self._results)
+
+    def add_result(self, result: Result) -> None:
+        """Add a result to the list."""
+        self._results.append(result)
+
+
 class ACRLargePhantomProtocol(Protocol):
     """Protocol for ACR Large Phantom."""
 
@@ -344,14 +363,19 @@ class ACRLargePhantomProtocol(Protocol):
             self.file_groups[acquisition_type] = files
 
 
-    def run(self) -> list[Result]:
+    def run(self) -> ProtocolResult:
         """Run the Protocol for each of the steps."""
-        results = []
+        results = ProtocolResult(
+            self.name,
+            ", ".join(f"{s.name} {s.acquisition_type}" for s in self.steps),
+            self.file_groups.values(),
+        )
+
         for step in self.steps:
             task = init_task(
                 step.task_name,
                 self.file_groups[step.acquisition_type],
                 **self.kwargs,
             )
-            results.append(task.run())
+            results.add_result(task.run())
         return results
