@@ -1,0 +1,357 @@
+"""Orchestration Module for performing multiple tasks."""
+
+from __future__ import annotations
+
+# Type Checking
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    # Python imports
+    from pathlib import Path
+
+    # Local imports
+    from hazenlib.HazenTask import HazenTask
+
+
+# Python imports
+import importlib
+import logging
+from dataclasses import dataclass, field
+from enum import Enum
+
+# Local imports
+from hazenlib.ACRObject import ACRObject
+from hazenlib.exceptions import UnknownAcquisitionTypeError, UnknownTaskNameError
+from hazenlib.types import PhantomType, TaskMetadata, Result
+from hazenlib.utils import get_dicom_files
+
+logger = logging.getLogger(__name__)
+
+# Note that if changing the TASK_REGISTRY keys you should
+# update Protocol to match up with the task registry.
+TASK_REGISTRY = {
+    # MagNET #
+    "snr": TaskMetadata(
+        module_name="snr",
+        class_name="SNR",
+        single_image=True,
+        phantom=PhantomType.MAGNET,
+    ),
+    "ghosting": TaskMetadata(
+        module_name="ghosting",
+        class_name="Ghosting",
+        single_image=True,
+        phantom=PhantomType.MAGNET,
+    ),
+    "uniformity": TaskMetadata(
+        module_name="uniformity",
+        class_name="Uniformity",
+        single_image=True,
+        phantom=PhantomType.MAGNET,
+    ),
+    "spatial_resolution": TaskMetadata(
+        module_name="spatial_resolution",
+        class_name="SpatialResolution",
+        single_image=True,
+        phantom=PhantomType.MAGNET,
+    ),
+    "slice_width": TaskMetadata(
+        module_name="slice_width",
+        class_name="SliceWidth",
+        single_image=True,
+        phantom=PhantomType.MAGNET,
+    ),
+    "slice_position": TaskMetadata(
+        module_name="slice_position",
+        class_name="SlicePosition",
+        single_image=True,
+        phantom=PhantomType.MAGNET,
+    ),
+    "snr_map": TaskMetadata(
+        module_name="snr_map",
+        class_name="SNRMap",
+        single_image=True,
+        phantom=PhantomType.MAGNET,
+    ),
+    # ACR #
+    "acr_geometric_accuracy": TaskMetadata(
+        module_name="acr_geometric_accuracy",
+        class_name="ACRGeometricAccuracy",
+        single_image=False,
+        phantom=PhantomType.ACR,
+    ),
+    "acr_ghosting": TaskMetadata(
+        module_name="acr_ghosting",
+        class_name="ACRGhosting",
+        single_image=False,
+        phantom=PhantomType.ACR,
+    ),
+    "acr_low_contrast_object_detectability": TaskMetadata(
+        module_name="acr_low_contrast_object_detectability",
+        class_name="ACRLowContrastObjectDetectability",
+        single_image=False,
+        phantom=PhantomType.ACR,
+    ),
+    "acr_object_detectability": TaskMetadata(
+        module_name="acr_object_detectability",
+        class_name="ACRObjectDetectability",
+        single_image=False,
+        phantom=PhantomType.ACR,
+    ),
+    "acr_slice_position": TaskMetadata(
+        module_name="acr_slice_position",
+        class_name="ACRSlicePosition",
+        single_image=False,
+        phantom=PhantomType.ACR,
+    ),
+    "acr_slice_thickness": TaskMetadata(
+        module_name="acr_slice_thickness",
+        class_name="ACRSliceThickness",
+        single_image=False,
+        phantom=PhantomType.ACR,
+    ),
+    "acr_snr": TaskMetadata(
+        module_name="acr_snr",
+        class_name="ACRSNR",
+        single_image=False,
+        phantom=PhantomType.ACR,
+    ),
+    "acr_spatial_resolution": TaskMetadata(
+        module_name="acr_spatial_resolution",
+        class_name="ACRSpatialResolution",
+        single_image=False,
+        phantom=PhantomType.ACR,
+    ),
+    "acr_sagittal_geometric_accuracy": TaskMetadata(
+        module_name="acr_sagittal_geometric_accuracy",
+        class_name="ACRSagittalGeometricAccuracy",
+        single_image=False,
+        phantom=PhantomType.ACR,
+    ),
+    "acr_uniformity": TaskMetadata(
+        module_name="acr_uniformity",
+        class_name="ACRUniformity",
+        single_image=False,
+        phantom=PhantomType.ACR,
+    ),
+    # Caliber
+    "relaxometry": TaskMetadata(
+        module_name="relaxometry",
+        class_name="Relaxometry",
+        single_image=False,
+        phantom=PhantomType.CALIBER,
+    ),
+}
+
+
+def init_task(
+        selected_task: str,
+        files: list[str],
+        report: bool,
+        report_dir: str,
+        **kwargs,
+) -> HazenTask:
+    """Initialise object of the correct HazenTask class.
+
+    Args:
+        selected_task (string): name of task script/module to load
+        files (list): list of filepaths to DICOM images
+        report (bool): whether to generate report images
+        report_dir (string): path to folder to save report images to
+        kwargs: any other key word arguments
+
+    Returns:
+        an object of the specified HazenTask class
+
+    """
+    try:
+        meta = TASK_REGISTRY[selected_task]
+    except KeyError as err:
+        msg = f"Unknown task: {selected_task}"
+        logger.exception(
+            "%s. Supported tasks are:\n%s", msg, "\n\t".join(TASK_REGISTRY),
+        )
+        raise ValueError(msg) from err
+
+    # Import module
+    task_module = importlib.import_module(f"hazenlib.tasks.{meta.module_name}")
+
+    # Get explicit class
+    try:
+        task_class = getattr(task_module, meta.class_name)
+    except AttributeError as err:
+        msg = f"Module {meta.module_name} has no class '{meta.class_name}'"
+        raise ImportError(msg) from err
+
+    return task_class(
+        input_data=files, report=report, report_dir=report_dir, **kwargs,
+    )
+
+
+class AcquisitionType(Enum):
+    """Supported Acquisition Types."""
+
+    ACR_T1 = "ACR T1"
+    ACR_T2 = "ACR T2"
+    ACR_SL = "ACR Sagittal Localizer"
+
+    @classmethod
+    def from_string(cls, value: str) -> AcquisitionType:
+        """Create AcquisitionType from string with fuzzy matching.
+
+        Handles British/American spelling variations (Localiser vs Localizer)
+        and case insensitivity.
+
+        Args:
+            value: String representation of acquisition type
+
+        Returns:
+            AcquisitionType enum value
+
+        Raises:
+            ValueError: If string cannot be matched to a known type
+
+        Example:
+            >>> AcquisitionType.from_string("t1")
+            AcquisitionType.ACR_T1
+            >>> AcquisitionType.from_string("sagittal localiser")
+            AcquisitionType.ACR_SAGITTAL_LOCALIZER
+
+        """
+        normalized = value.lower().replace("localiser", "localizer")
+        mapping = {
+            "t1": cls.ACR_T1,
+            "t2": cls.ACR_T2,
+            "sagittal localizer": cls.ACR_SL,
+            "sagittal": cls.ACR_SL,
+            "localizer": cls.ACR_SL,
+        }
+        if normalized in mapping:
+            return mapping[normalized]
+        raise UnknownAcquisitionTypeError(value)
+
+
+@dataclass(frozen=True)
+class ProtocolStep:
+    """Single protocol step representing the execution of a single task.
+
+    Attributes:
+        task_name: Name of the task as registered in TASK_REGISTRY
+        acquisition_type: Type of acquisition this step applies to
+        required: Whether failure of this step should halt the protocol.
+            If False, failures are logged but execution continues.
+
+    """
+
+    task_name: str
+    acquisition_type: AcquisitionType
+    required: bool = True
+
+    def __post_init__(self) -> None:
+        """Validate that task name exists in the global registry."""
+        if self.task_name not in TASK_REGISTRY:
+            available = ", ".join(sorted(TASK_REGISTRY.keys()))
+            raise UnknownTaskNameError(self.task_name, available)
+
+
+class Protocol:
+    """Orchestrator for collections of tasks.
+
+    Attributes:
+        name: Human-readable identifier for this protocol
+        steps: Ordered collection of protocol steps to execute
+
+    """
+
+    name: str
+    steps: tuple[ProtocolStep, ...] = field(default_factory=tuple)
+
+    @classmethod
+    def from_config(cls, config_path: Path) -> Protocol:
+        """Load protocol from configuration file."""
+        msg = "The class method 'from_config' has not been implemented yet."
+        raise NotImplementedError(msg)
+
+    def get_steps_for_acquisition_type(
+        self,
+        acq_type: AcquisitionType,
+    ) -> tuple[ProtocolStep, ...]:
+        """Filter steps for a specific acquisition type.
+
+        Args:
+            acq_type: Acquisition type to filter by
+
+        Returns:
+            Tuple of protocol steps where step.acquisition_type matches
+
+        """
+        return tuple(
+            step for step in self.steps
+            if step.acquisition_type == acq_type
+        )
+
+
+class ACRLargePhantomProtocol(Protocol):
+    """Protocol for ACR Large Phantom."""
+
+    def _init__(self, dirs: list[str, Path], **kwargs) -> None:
+        """Set up the protocol for the ACR Large Phantom."""
+        self.name="ACR Large Phantom"
+        self.steps = (
+            # Geometric Accuracy.
+            ProtocolStep("acr_geometric_accuracy", AcquisitionType.ACR_T1),
+            ProtocolStep("acr_sagittal_geometric_accuracy",
+                         AcquisitionType.ACR_SL),
+            # High Contrast Object Detection.
+            ProtocolStep("acr_spatial_resolution", AcquisitionType.ACR_T1),
+            ProtocolStep("acr_spatial_resolution", AcquisitionType.ACR_T2),
+            # Slice Thickness Accuracy.
+            ProtocolStep("acr_slice_thickness", AcquisitionType.ACR_T1),
+            ProtocolStep("acr_slice_thickness", AcquisitionType.ACR_T2),
+            # Slice Position Accuracy.
+            ProtocolStep("acr_slice_position", AcquisitionType.ACR_T1),
+            ProtocolStep("acr_slice_position", AcquisitionType.ACR_T2),
+            # Image Intensity Uniformity.
+            ProtocolStep("acr_uniformity", AcquisitionType.ACR_T1),
+            ProtocolStep("acr_uniformity", AcquisitionType.ACR_T2),
+            # Percent Signal Ghosting.
+            ProtocolStep("acr_ghosting", AcquisitionType.ACR_T1),
+            # Low Contrast Object Detectability.
+            ProtocolStep("acr_low_contrast_object_detectability",
+                         AcquisitionType.ACR_T1),
+            ProtocolStep("acr_low_contrast_object_detectability",
+                         AcquisitionType.ACR_T2),
+            # SNR
+            ProtocolStep("acr_snr", AcquisitionType.ACR_T1),
+            ProtocolStep("acr_snr", AcquisitionType.ACR_T2),
+        )
+        self.kwargs = kwargs
+
+        if len(dirs) != (
+            num_aq := len({s.acquisition_type for s in self.steps})
+        ):
+            msg = f"Incorrect number of directories - should be {num_aq}"
+            logger.exception("%s but got %i", msg, num_aq)
+            raise ValueError(msg)
+
+        files_list = (get_dicom_files(d) for d in dirs)
+        self.file_groups = {}
+        for files in files_list:
+            acr_obj = ACRObject(files)
+            acquisition_type = AcquisitionType.from_string(
+                acr_obj.acquisition_type(strict=True),
+            )
+            self.file_groups[acquisition_type] = files
+
+
+    def run(self) -> list[Result]:
+        """Run the Protocol for each of the steps."""
+        results = []
+        for step in self.steps:
+            task = init_task(
+                step.task_name,
+                self.file_groups[step.acquisition_type],
+                **self.kwargs,
+            )
+            results.append(task.run())
+        return results
