@@ -240,12 +240,10 @@ class TestACRLargePhantomProtocol(unittest.TestCase):
     PROTOCOL_STEPS: int = 15
     MIN_DIRS: int = 3
 
-    @patch("hazenlib.orchestration.get_dicom_files")
     @patch("hazenlib.orchestration.ACRObject")
     def test_initialization_correct_dir_count(
         self,
         mock_acr_obj: Callable,
-        mock_get_files: Callable,
     ) -> None:
         """Verify protocol initializes with correct number of directories."""
         # Arrange
@@ -256,9 +254,6 @@ class TestACRLargePhantomProtocol(unittest.TestCase):
             mock_acr_instances.append(mock_inst)
 
         mock_acr_obj.side_effect = mock_acr_instances
-        mock_get_files.return_value = [
-            TEST_DATA_DIR / f for f in ("file1.dcm", "file2.dcm")
-        ]
 
         dirs = [
             TEST_DATA_DIR / "acr" / seq
@@ -280,7 +275,14 @@ class TestACRLargePhantomProtocol(unittest.TestCase):
     def test_initialization_wrong_dir_count_raises_error(self) -> None:
         """Verify ValueError raised when directory count mismatch."""
         # Arrange - only provide 2 dirs when 3 unique types required
-        dirs = ["/path/to/t1", "/path/to/t2"]
+        # that is, missing localizer.
+        dirs = [
+            TEST_DATA_DIR / "acr" / seq
+            for seq in (
+                "Siemens_Sola_1.5T_T1",
+                "Siemens_Sola_1.5T_T2",
+            )
+        ]
 
         with self.assertRaises(ValueError) as context:
             ACRLargePhantomProtocol(dirs=dirs)
