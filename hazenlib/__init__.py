@@ -20,7 +20,8 @@ from hazenlib._version import __version__
 from hazenlib.execution import timed_execution
 from hazenlib.formatters import write_result
 from hazenlib.logger import logger
-from hazenlib.orchestration import TASK_REGISTRY, init_task
+from hazenlib.orchestration import (
+    ACRLargePhantomProtocol, TASK_REGISTRY, init_task)
 from hazenlib.utils import get_dicom_files
 
 
@@ -32,12 +33,13 @@ def get_parser() -> argparse.ArgumentParser:
 
     parser.add_argument(
         "task",
-        choices=list(TASK_REGISTRY.keys()),
+        choices=list(TASK_REGISTRY.keys()) + ["acr_all"],
         help="The task to run",
     )
     parser.add_argument(
         "folder",
         help="Path to folder containing DICOM files",
+        nargs="+",
     )
 
     # General options available for all tasks
@@ -173,13 +175,35 @@ def main() -> None:
     fmt = args.format
     result_file = args.result
 
-    logger.info(f"Hazen version: {__version__}")
-    logger.debug("The following files were identified as valid DICOMs:")
-    files = get_dicom_files(args.folder)
-    logger.debug("%s task will be set off on %s images", args.task, len(files))
-
     # Parse the task and optional arguments:
     selected_task = args.task.lower()
+
+    logger.info(f"Hazen version: {__version__}")
+
+    #################################
+    # Special Case the ACR ALL Task #
+    #################################
+
+    if selected_task == "acr_all":
+        task = ACRLargePhantomProtocol(
+            args.folder,
+            report=report,
+            report_dir=report_dir,
+            verbose=verbose,
+        )
+        result = execution_wrapper(task.run)
+        write_result(result, fmt=fmt, path=result_file)
+        return
+
+    #####################
+    # Single task usage #
+    #####################
+
+    logger.debug("The following files were identified as valid DICOMs:")
+    files = get_dicom_files(args.folder[0])
+    logger.debug(
+        "%s task will be set off on %s images", args.task, len(files),
+    )
 
     if selected_task == "snr":
         task = init_task(
