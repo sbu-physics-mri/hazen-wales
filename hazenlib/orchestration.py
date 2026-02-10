@@ -28,7 +28,7 @@ from hazenlib.ACRObject import ACRObject
 from hazenlib.exceptions import (UnknownAcquisitionTypeError,
                                  UnknownTaskNameError)
 from hazenlib.types import PhantomType, Measurement, Result, TaskMetadata
-from hazenlib.utils import get_dicom_files
+from hazenlib.utils import get_dicom_files, wait_on_parallel_results
 
 logger = logging.getLogger(__name__)
 
@@ -393,12 +393,23 @@ class ACRLargePhantomProtocol(Protocol):
             list(self.file_groups.values()),
         )
 
-        # TODO(@abdrysdale): Run tasks in parallel
-        for step in self.steps:
-            task = init_task(
-                step.task_name,
-                self.file_groups[step.acquisition_type],
-                **self.kwargs,
-            )
-            results.add_result(task.run())
+        arg_list = [
+            (step, self.file_groups, self.kwargs)
+            for step in self.steps
+        ]
+        parallel_results = wait_on_parallel_results(_execute_step, arg_list)
+        for r in parallel_results:
+            results.add_result(r)
         return results
+
+
+def _execute_step(
+        step: ProtocolStep, file_groups: dict, kwargs: T.kwargs,
+) -> Result:
+    """Encapsulate the work for a single step."""
+    task = init_task(
+        step.task_name,
+        file_groups[step.acquisition_type],
+        **kwargs,
+    )
+    return task.run()
