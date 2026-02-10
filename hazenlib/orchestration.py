@@ -210,7 +210,8 @@ class AcquisitionType(Enum):
             AcquisitionType enum value
 
         Raises:
-            ValueError: If string cannot be matched to a known type
+            UnknownAcquisitionTypeError: If string cannot be matched to
+                a known type
 
         Example:
             >>> AcquisitionType.from_string("t1")
@@ -329,6 +330,10 @@ class ACRLargePhantomProtocol(Protocol):
             ProtocolStep("acr_snr", AcquisitionType.ACR_T1),
             ProtocolStep("acr_snr", AcquisitionType.ACR_T2),
         )
+
+        if not kwargs.get("report", False):
+            kwargs["report"] = False
+            kwargs["report_dir"] = "na"
         self.kwargs = kwargs
 
         if len(dirs) != (
