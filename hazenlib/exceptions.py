@@ -85,7 +85,9 @@ class UnknownTaskNameError(ValueError):
     """Unknown Task Name Error."""
 
     def __init__(
-        self, task_name: str, available_tasks: str | Sequence[str] | None,
+        self,
+        task_name: str,
+        available_tasks: str | Sequence[str] | None,
     ) -> None:
         """Initialise the error."""
         msg = f"Unknown task '{task_name}'"

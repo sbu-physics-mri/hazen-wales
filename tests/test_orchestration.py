@@ -7,12 +7,19 @@ import unittest
 from collections.abc import Callable
 from unittest.mock import Mock, patch
 
-from hazenlib.exceptions import (UnknownAcquisitionTypeError,
-                                 UnknownTaskNameError)
+from hazenlib.exceptions import (
+    UnknownAcquisitionTypeError,
+    UnknownTaskNameError,
+)
 from hazenlib.HazenTask import HazenTask
-from hazenlib.orchestration import (AcquisitionType, ACRLargePhantomProtocol,
-                                    Protocol, ProtocolResult, ProtocolStep,
-                                    init_task)
+from hazenlib.orchestration import (
+    AcquisitionType,
+    ACRLargePhantomProtocol,
+    Protocol,
+    ProtocolResult,
+    ProtocolStep,
+    init_task,
+)
 from hazenlib.types import Result
 
 from tests import TEST_DATA_DIR, TEST_REPORT_DIR
@@ -49,7 +56,7 @@ class TestInitTask(unittest.TestCase):
             # Assert
             self.assertEqual(result, mock_task_class.return_value)
             mock_task_class.assert_called_once_with(
-                input_data = args[1],
+                input_data=args[1],
                 **kwargs,
             )
 
@@ -57,7 +64,10 @@ class TestInitTask(unittest.TestCase):
         """Verify ValueError raised for unknown task names."""
         with self.assertRaises(ValueError) as context:
             init_task(
-                "unknown_task", [], report=False, report_dir=TEST_REPORT_DIR,
+                "unknown_task",
+                [],
+                report=False,
+                report_dir=TEST_REPORT_DIR,
             )
 
         self.assertIn("Unknown task", str(context.exception))
@@ -229,7 +239,9 @@ class TestACRLargePhantomProtocol(unittest.TestCase):
     @patch("hazenlib.orchestration.get_dicom_files")
     @patch("hazenlib.orchestration.ACRObject")
     def test_initialization_correct_dir_count(
-        self, mock_acr_obj: Callable, mock_get_files: Callable,
+        self,
+        mock_acr_obj: Callable,
+        mock_get_files: Callable,
     ) -> None:
         """Verify protocol initializes with correct number of directories."""
         # Arrange
@@ -244,10 +256,7 @@ class TestACRLargePhantomProtocol(unittest.TestCase):
             TEST_DATA_DIR / f for f in ("file1.dcm", "file2.dcm")
         ]
 
-        dirs = [
-            TEST_DATA_DIR / seq
-            for seq in ("t1", "t2", "sagittal")
-        ]
+        dirs = [TEST_DATA_DIR / seq for seq in ("t1", "t2", "sagittal")]
 
         # Act
         protocol = ACRLargePhantomProtocol(dirs=dirs)
@@ -265,7 +274,9 @@ class TestACRLargePhantomProtocol(unittest.TestCase):
         with self.assertRaises(ValueError) as context:
             ACRLargePhantomProtocol(dirs=dirs)
 
-        self.assertIn("Incorrect number of directories", str(context.exception))
+        self.assertIn(
+            "Incorrect number of directories", str(context.exception)
+        )
 
     @patch("hazenlib.orchestration.get_dicom_files")
     @patch("hazenlib.orchestration.ACRObject")
@@ -305,9 +316,12 @@ class TestACRLargePhantomProtocol(unittest.TestCase):
 
     def test_steps_contain_expected_tasks(self) -> None:
         """Verify default steps contain expected task names."""
-        with patch("hazenlib.orchestration.get_dicom_files"), patch(
-            "hazenlib.orchestration.ACRObject",
-        ) as mock_acr:
+        with (
+            patch("hazenlib.orchestration.get_dicom_files"),
+            patch(
+                "hazenlib.orchestration.ACRObject",
+            ) as mock_acr,
+        ):
             mock_inst = Mock()
             mock_inst.acquisition_type.return_value = "T1"
             mock_acr.return_value = mock_inst

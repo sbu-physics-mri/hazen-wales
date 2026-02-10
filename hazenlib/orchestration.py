@@ -25,8 +25,10 @@ from pydicom import dcmread
 
 # Local imports
 from hazenlib.ACRObject import ACRObject
-from hazenlib.exceptions import (UnknownAcquisitionTypeError,
-                                 UnknownTaskNameError)
+from hazenlib.exceptions import (
+    UnknownAcquisitionTypeError,
+    UnknownTaskNameError,
+)
 from hazenlib.types import PhantomType, Measurement, Result, TaskMetadata
 from hazenlib.utils import get_dicom_files, wait_on_parallel_results
 
@@ -150,11 +152,11 @@ TASK_REGISTRY = {
 
 
 def init_task(
-        selected_task: str,
-        files: list[str],
-        report: bool,
-        report_dir: str,
-        **kwargs,
+    selected_task: str,
+    files: list[str],
+    report: bool,
+    report_dir: str,
+    **kwargs,
 ) -> HazenTask:
     """Initialise object of the correct HazenTask class.
 
@@ -174,7 +176,9 @@ def init_task(
     except KeyError as err:
         msg = f"Unknown task: {selected_task}"
         logger.exception(
-            "%s. Supported tasks are:\n%s", msg, "\n\t".join(TASK_REGISTRY),
+            "%s. Supported tasks are:\n%s",
+            msg,
+            "\n\t".join(TASK_REGISTRY),
         )
         raise ValueError(msg) from err
 
@@ -189,7 +193,10 @@ def init_task(
         raise ImportError(msg) from err
 
     return task_class(
-        input_data=files, report=report, report_dir=report_dir, **kwargs,
+        input_data=files,
+        report=report,
+        report_dir=report_dir,
+        **kwargs,
     )
 
 
@@ -326,6 +333,8 @@ class ProtocolResult(Result):
 
 
 T = TypeVar("T")
+
+
 class ACRLargePhantomProtocol(Protocol):
     """Protocol for ACR Large Phantom."""
 
@@ -335,8 +344,9 @@ class ACRLargePhantomProtocol(Protocol):
         self.steps = (
             # Geometric Accuracy.
             ProtocolStep("acr_geometric_accuracy", AcquisitionType.ACR_T1),
-            ProtocolStep("acr_sagittal_geometric_accuracy",
-                         AcquisitionType.ACR_SL),
+            ProtocolStep(
+                "acr_sagittal_geometric_accuracy", AcquisitionType.ACR_SL
+            ),
             # High Contrast Object Detection.
             ProtocolStep("acr_spatial_resolution", AcquisitionType.ACR_T1),
             ProtocolStep("acr_spatial_resolution", AcquisitionType.ACR_T2),
@@ -352,10 +362,12 @@ class ACRLargePhantomProtocol(Protocol):
             # Percent Signal Ghosting.
             ProtocolStep("acr_ghosting", AcquisitionType.ACR_T1),
             # Low Contrast Object Detectability.
-            ProtocolStep("acr_low_contrast_object_detectability",
-                         AcquisitionType.ACR_T1),
-            ProtocolStep("acr_low_contrast_object_detectability",
-                         AcquisitionType.ACR_T2),
+            ProtocolStep(
+                "acr_low_contrast_object_detectability", AcquisitionType.ACR_T1
+            ),
+            ProtocolStep(
+                "acr_low_contrast_object_detectability", AcquisitionType.ACR_T2
+            ),
             # SNR
             ProtocolStep("acr_snr", AcquisitionType.ACR_T1),
             ProtocolStep("acr_snr", AcquisitionType.ACR_T2),
@@ -382,7 +394,6 @@ class ACRLargePhantomProtocol(Protocol):
             )
             self.file_groups[acquisition_type] = files
 
-
     def run(self) -> ProtocolResult:
         """Run the Protocol for each of the steps."""
         results = ProtocolResult(
@@ -394,8 +405,7 @@ class ACRLargePhantomProtocol(Protocol):
         )
 
         arg_list = [
-            (step, self.file_groups, self.kwargs)
-            for step in self.steps
+            (step, self.file_groups, self.kwargs) for step in self.steps
         ]
         parallel_results = wait_on_parallel_results(_execute_step, arg_list)
         for r in parallel_results:
@@ -404,7 +414,9 @@ class ACRLargePhantomProtocol(Protocol):
 
 
 def _execute_step(
-        step: ProtocolStep, file_groups: dict, kwargs: T.kwargs,
+    step: ProtocolStep,
+    file_groups: dict,
+    kwargs: T.kwargs,
 ) -> Result:
     """Encapsulate the work for a single step."""
     task = init_task(

@@ -21,7 +21,10 @@ from hazenlib.execution import timed_execution
 from hazenlib.formatters import write_result
 from hazenlib.logger import logger
 from hazenlib.orchestration import (
-    ACRLargePhantomProtocol, TASK_REGISTRY, init_task)
+    ACRLargePhantomProtocol,
+    TASK_REGISTRY,
+    init_task,
+)
 from hazenlib.utils import get_dicom_files
 
 
@@ -205,7 +208,9 @@ def main() -> None:
     # TODO(@abdrysdale): Raise an error if the number folders is more than 1.
     files = get_dicom_files(args.folder[0])
     logger.debug(
-        "%s task will be set off on %s images", args.task, len(files),
+        "%s task will be set off on %s images",
+        args.task,
+        len(files),
     )
 
     if selected_task == "snr":
