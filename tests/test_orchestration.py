@@ -2,21 +2,17 @@
 
 # ruff: noqa: PT009 PT027
 
-import pathlib
+# Python imports
 import unittest
+from collections.abc import Callable
 from unittest.mock import Mock, patch
 
-
-from hazenlib.exceptions import UnknownAcquisitionTypeError, UnknownTaskNameError
+from hazenlib.exceptions import (UnknownAcquisitionTypeError,
+                                 UnknownTaskNameError)
 from hazenlib.HazenTask import HazenTask
-from hazenlib.orchestration import (
-    ACRLargePhantomProtocol,
-    AcquisitionType,
-    Protocol,
-    ProtocolResult,
-    ProtocolStep,
-    init_task,
-)
+from hazenlib.orchestration import (AcquisitionType, ACRLargePhantomProtocol,
+                                    Protocol, ProtocolResult, ProtocolStep,
+                                    init_task)
 from hazenlib.types import Result
 
 from tests import TEST_DATA_DIR, TEST_REPORT_DIR
@@ -216,6 +212,129 @@ class TestProtocolResult(unittest.TestCase):
         self.assertEqual(len(protocol_result.results), 3)
         for i, r in enumerate(protocol_result.results):
             self.assertEqual(r.task, f"Task{i}")
+
+
+class TestACRLargePhantomProtocol(unittest.TestCase):
+    """Integration tests for ACRLargePhantomProtocol.
+
+    Attributes:
+        PROTOCOL_STEPS: Number of steps for the protocol.
+        MIN_DIRS : Minimum number of directories for the protocol.
+
+    """
+
+    PROTOCOL_STEPS: int = 15
+    MIN_DIRS: int = 3
+
+    @patch("hazenlib.orchestration.get_dicom_files")
+    @patch("hazenlib.orchestration.ACRObject")
+    def test_initialization_correct_dir_count(
+        self, mock_acr_obj: Callable, mock_get_files: Callable,
+    ) -> None:
+        """Verify protocol initializes with correct number of directories."""
+        # Arrange
+        mock_acr_instances = []
+        for acq_type in ["T1", "T2", "sagittal localizer"]:
+            mock_inst = Mock()
+            mock_inst.acquisition_type.return_value = acq_type
+            mock_acr_instances.append(mock_inst)
+
+        mock_acr_obj.side_effect = mock_acr_instances
+        mock_get_files.return_value = [
+            TEST_DATA_DIR / f for f in ("file1.dcm", "file2.dcm")
+        ]
+
+        dirs = [
+            TEST_DATA_DIR / seq
+            for seq in ("t1", "t2", "sagittal")
+        ]
+
+        # Act
+        protocol = ACRLargePhantomProtocol(dirs=dirs)
+
+        # Assert
+        self.assertEqual(protocol.name, "ACR Large Phantom")
+        self.assertEqual(len(protocol.steps), self.PROTOCOL_STEPS)
+        self.assertEqual(len(protocol.file_groups), self.MIN_DIRS)
+
+    @patch("hazenlib.orchestration.get_dicom_files")
+    @patch("hazenlib.orchestration.ACRObject")
+    def test_initialization_wrong_dir_count_raises_error(
+        self, mock_acr_obj: Callable, mock_get_files: Callable,
+    ) -> None:
+        """Verify ValueError raised when directory count mismatch."""
+        # Arrange - only provide 2 dirs when 3 unique types required
+        dirs = ["/path/to/t1", "/path/to/t2"]
+
+        with self.assertRaises(ValueError) as context:
+            ACRLargePhantomProtocol(dirs=dirs)
+
+        self.assertIn("Incorrect number of directories", str(context.exception))
+
+    @patch("hazenlib.orchestration.get_dicom_files")
+    @patch("hazenlib.orchestration.ACRObject")
+    @patch("hazenlib.orchestration.init_task")
+    def test_run_executes_all_steps(
+        self,
+        mock_init_task: Callable,
+        mock_acr_obj: Callable,
+        mock_get_files: Callable,
+    ) -> None:
+        """Verify run() executes all protocol steps and returns results."""
+        # Arrange
+        mock_acr_instances = []
+        for acq_type in ["T1", "T2", "sagittal localizer"]:
+            mock_inst = Mock()
+            mock_inst.acquisition_type.return_value = acq_type
+            mock_acr_instances.append(mock_inst)
+
+        mock_acr_obj.side_effect = mock_acr_instances
+        mock_get_files.return_value = ["file1.dcm"]
+
+        mock_task = Mock()
+        mock_task.run.return_value = Result(task="MockTask", desc="done")
+        mock_init_task.return_value = mock_task
+
+        dirs = ["/path/to/t1", "/path/to/t2", "/path/to/sagittal"]
+        protocol = ACRLargePhantomProtocol(dirs=dirs)
+
+        # Act
+        result = protocol.run()
+
+        # Assert
+        self.assertIsInstance(result, ProtocolResult)
+        # Should initialize task for each step
+        self.assertEqual(mock_init_task.call_count, self.PROTOCOL_STEPS)
+        self.assertEqual(len(result.results), self.PROTOCOL_STEPS)
+
+    def test_steps_contain_expected_tasks(self) -> None:
+        """Verify default steps contain expected task names."""
+        with patch("hazenlib.orchestration.get_dicom_files"), patch(
+            "hazenlib.orchestration.ACRObject",
+        ) as mock_acr:
+            mock_inst = Mock()
+            mock_inst.acquisition_type.return_value = "T1"
+            mock_acr.return_value = mock_inst
+
+            # Need 3 dirs but we only care about step definitions
+            dirs = ["/dummy1", "/dummy2", "/dummy3"]
+            protocol = ACRLargePhantomProtocol(dirs=dirs)
+
+            task_names = [s.task_name for s in protocol.steps]
+            expected_tasks = [
+                "acr_geometric_accuracy",
+                "acr_sagittal_geometric_accuracy",
+                "acr_spatial_resolution",
+                "acr_slice_thickness",
+                "acr_slice_position",
+                "acr_uniformity",
+                "acr_ghosting",
+                "acr_low_contrast_object_detectability",
+                "acr_snr",
+            ]
+
+            for task in expected_tasks:
+                self.assertIn(task, task_names)
 
 
 if __name__ == "__main__":
