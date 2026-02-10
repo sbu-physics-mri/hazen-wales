@@ -25,11 +25,9 @@ from pydicom import dcmread
 
 # Local imports
 from hazenlib.ACRObject import ACRObject
-from hazenlib.exceptions import (
-    UnknownAcquisitionTypeError,
-    UnknownTaskNameError,
-)
-from hazenlib.types import PhantomType, Measurement, Result, TaskMetadata
+from hazenlib.exceptions import (UnknownAcquisitionTypeError,
+                                 UnknownTaskNameError)
+from hazenlib.types import Measurement, PhantomType, Result, TaskMetadata
 from hazenlib.utils import get_dicom_files, wait_on_parallel_results
 
 logger = logging.getLogger(__name__)
@@ -345,7 +343,7 @@ class ACRLargePhantomProtocol(Protocol):
             # Geometric Accuracy.
             ProtocolStep("acr_geometric_accuracy", AcquisitionType.ACR_T1),
             ProtocolStep(
-                "acr_sagittal_geometric_accuracy", AcquisitionType.ACR_SL
+                "acr_sagittal_geometric_accuracy", AcquisitionType.ACR_SL,
             ),
             # High Contrast Object Detection.
             ProtocolStep("acr_spatial_resolution", AcquisitionType.ACR_T1),
@@ -363,10 +361,10 @@ class ACRLargePhantomProtocol(Protocol):
             ProtocolStep("acr_ghosting", AcquisitionType.ACR_T1),
             # Low Contrast Object Detectability.
             ProtocolStep(
-                "acr_low_contrast_object_detectability", AcquisitionType.ACR_T1
+                "acr_low_contrast_object_detectability", AcquisitionType.ACR_T1,
             ),
             ProtocolStep(
-                "acr_low_contrast_object_detectability", AcquisitionType.ACR_T2
+                "acr_low_contrast_object_detectability", AcquisitionType.ACR_T2,
             ),
             # SNR
             ProtocolStep("acr_snr", AcquisitionType.ACR_T1),
