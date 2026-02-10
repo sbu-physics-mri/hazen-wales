@@ -126,5 +126,26 @@ class TestAcquisitionType(unittest.TestCase):
             AcquisitionType.from_string("t3")
 
 
+class TestProtocolStep(unittest.TestCase):
+    """Unit tests for ProtocolStep dataclass."""
+
+    def test_valid_initialization(self) -> None:
+        """Verify ProtocolStep can be created with valid task name."""
+        step = ProtocolStep("snr", AcquisitionType.ACR_T1)
+        self.assertEqual(step.task_name, "snr")
+        self.assertEqual(step.acquisition_type, AcquisitionType.ACR_T1)
+        self.assertTrue(step.required)
+
+    def test_valid_optional_parameters(self) -> None:
+        """Verify required flag can be set to False."""
+        step = ProtocolStep("ghosting", AcquisitionType.ACR_T2, required=False)
+        self.assertFalse(step.required)
+
+    def test_invalid_task_name_raises_error(self) -> None:
+        """Verify UnknownTaskNameError raised for unregistered tasks."""
+        with self.assertRaises(UnknownTaskNameError):
+            ProtocolStep("nonexistent_task", AcquisitionType.ACR_T1)
+
+
 if __name__ == "__main__":
     unittest.main()
