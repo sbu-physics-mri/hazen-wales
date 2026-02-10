@@ -290,9 +290,11 @@ class ProtocolResult(Result):
         # Set initial result to contain
         # protocol information.
         self._results: list[Result] = [
-            Result(self.task),
-            Result(self.desc),
-            Result(self.files),
+            Result(
+                self.task,
+                self.desc,
+                self.files,
+            ),
         ]
 
     @property
@@ -388,7 +390,7 @@ class ACRLargePhantomProtocol(Protocol):
             ", ".join(
                 f"{s.task_name} {s.acquisition_type}" for s in self.steps
             ),
-            self.file_groups.values(),
+            list(self.file_groups.values()),
         )
 
         # TODO(@abdrysdale): Run tasks in parallel
