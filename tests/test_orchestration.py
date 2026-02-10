@@ -195,7 +195,7 @@ class TestProtocolResult(unittest.TestCase):
         protocol_result.add_result(mock_result)
 
         self.assertEqual(len(protocol_result.results), 2)
-        self.assertEqual(protocol_result.results[0], mock_result)
+        self.assertEqual(protocol_result.results[-1], mock_result)
 
     def test_results_immutable(self) -> None:
         """Verify results property returns immutable tuple."""
