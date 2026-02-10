@@ -171,5 +171,52 @@ class TestProtocol(unittest.TestCase):
             Protocol.from_config(TEST_DATA_DIR / "config.json")
 
 
+class TestProtocolResult(unittest.TestCase):
+    """Unit tests for ProtocolResult class."""
+
+    def test_initialization(self) -> None:
+        """Verify ProtocolResult initialization."""
+        result = ProtocolResult(task="TestProtocol", desc="test description")
+        self.assertEqual(result.task, "TestProtocol")
+        self.assertEqual(result.desc, "test description")
+        self.assertEqual(result.results, ())
+
+    def test_add_result(self) -> None:
+        """Verify results can be added to collection."""
+        protocol_result = ProtocolResult(task="Protocol", desc="test")
+        mock_result = Result(task="SubTask", desc="subtask result")
+
+        protocol_result.add_result(mock_result)
+
+        self.assertEqual(len(protocol_result.results), 1)
+        self.assertEqual(protocol_result.results[0], mock_result)
+
+    def test_results_immutable(self) -> None:
+        """Verify results property returns immutable tuple."""
+        protocol_result = ProtocolResult(task="Protocol", desc="test")
+        protocol_result.add_result(Result(task="Task1", desc="desc1"))
+
+        results = protocol_result.results
+        self.assertIsInstance(results, tuple)
+
+        # Verify immutability
+        with self.assertRaises(TypeError):
+            results[0] = Result(task="Task2", desc="desc2")
+
+    def test_add_multiple_results(self) -> None:
+        """Verify multiple results can be added and retrieved."""
+        protocol_result = ProtocolResult(task="Protocol", desc="test")
+        results = [
+            Result(task=f"Task{i}", desc=f"result{i}") for i in range(3)
+        ]
+
+        for r in results:
+            protocol_result.add_result(r)
+
+        self.assertEqual(len(protocol_result.results), 3)
+        for i, r in enumerate(protocol_result.results):
+            self.assertEqual(r.task, f"Task{i}")
+
+
 if __name__ == "__main__":
     unittest.main()
