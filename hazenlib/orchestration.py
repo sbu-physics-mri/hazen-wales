@@ -216,7 +216,7 @@ class AcquisitionType(Enum):
             >>> AcquisitionType.from_string("t1")
             AcquisitionType.ACR_T1
             >>> AcquisitionType.from_string("sagittal localiser")
-            AcquisitionType.ACR_SAGITTAL_LOCALIZER
+            AcquisitionType.ACR_SL
 
         """
         normalized = value.lower().replace("localiser", "localizer")
