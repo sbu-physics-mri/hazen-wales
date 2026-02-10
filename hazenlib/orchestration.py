@@ -298,7 +298,7 @@ T = TypeVar("T")
 class ACRLargePhantomProtocol(Protocol):
     """Protocol for ACR Large Phantom."""
 
-    def _init__(self, dirs: list[str | Path], **kwargs: T.kwargs) -> None:
+    def __init__(self, dirs: list[str | Path], **kwargs: T.kwargs) -> None:
         """Set up the protocol for the ACR Large Phantom."""
         self.name = "ACR Large Phantom"
         self.steps = (
