@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     # Python imports
+    from collections.abc import Sequence
     from pathlib import Path
 
     # Local imports
@@ -26,7 +27,7 @@ from pydicom import dcmread
 from hazenlib.ACRObject import ACRObject
 from hazenlib.exceptions import (UnknownAcquisitionTypeError,
                                  UnknownTaskNameError)
-from hazenlib.types import PhantomType, Result, TaskMetadata
+from hazenlib.types import PhantomType, Measurement, Result, TaskMetadata
 from hazenlib.utils import get_dicom_files
 
 logger = logging.getLogger(__name__)
@@ -286,7 +287,31 @@ class ProtocolResult(Result):
         """Initialise the results list."""
         super().__post_init__()
 
-        self._results: list[Result] = []
+        # Set initial result to contain
+        # protocol information.
+        self._results: list[Result] = [
+            Result(self.task),
+            Result(self.desc),
+            Result(self.files),
+        ]
+
+    @property
+    def measurements(self) -> tuple[Measurement, ...]:
+        """Tuple of initial result measurements."""
+        return self.results[0].measurements
+
+    def add_measurement(self, measurement: Measurement) -> None:
+        """Add a measurement to the initial result."""
+        self.results[0].add_measurement(measurement)
+
+    @property
+    def report_images(self) -> tuple[str, ...]:
+        """Tuple of initial report image locations."""
+        return self.results[0].report_images
+
+    def add_report_image(self, image_path: str | Sequence[str]) -> None:
+        """Add a report image to the initial result."""
+        return self.results[0].add_report_image(image_path)
 
     @property
     def results(self) -> tuple[Result, ...]:
@@ -366,6 +391,7 @@ class ACRLargePhantomProtocol(Protocol):
             self.file_groups.values(),
         )
 
+        # TODO(@abdrysdale): Run tasks in parallel
         for step in self.steps:
             task = init_task(
                 step.task_name,
