@@ -375,7 +375,7 @@ class ACRLargePhantomProtocol(Protocol):
 
         if not kwargs.get("report", False):
             kwargs["report"] = False
-            kwargs["report_dir"] = "na"
+            kwargs["report_dir"] = "N/A"
         self.kwargs = kwargs
 
         if len(dirs) != (
@@ -408,7 +408,9 @@ class ACRLargePhantomProtocol(Protocol):
             (step, self.file_groups, self.kwargs) for step in self.steps
         ]
         parallel_results = wait_on_parallel_results(
-            _execute_step, arg_list, debug=debug,
+            _execute_step,
+            arg_list,
+            debug=debug,
         )
         for r in parallel_results:
             results.add_result(r)
