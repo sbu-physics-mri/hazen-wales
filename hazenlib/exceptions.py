@@ -1,10 +1,7 @@
 """Application-specific errors"""
 
-# Type checking
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from collections.abc import Sequence
+# Python imports
+from collections.abc import Sequence
 
 # Local imports
 from hazenlib.constants import MEASUREMENT_NAMES, MEASUREMENT_TYPES
