@@ -20,6 +20,7 @@ from __future__ import annotations
 
 # Python imports
 import copy
+import multiprocessing
 import os
 import re
 from collections import defaultdict
@@ -1145,6 +1146,10 @@ def wait_on_parallel_results(fxn, arg_list=[]):
     Returns:
         list: List of values returned by each job.
     """
+    # Check if already in a daemon process
+    if multiprocessing.current_process().daemon:
+        return [fxn(*args) for args in arg_list]
+
     with Pool() as pool:
         results = []
         result_handles = []
