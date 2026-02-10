@@ -19,6 +19,9 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import TypeVar
 
+# Module imports
+from pydicom import dcmread
+
 # Local imports
 from hazenlib.ACRObject import ACRObject
 from hazenlib.exceptions import (UnknownAcquisitionTypeError,
@@ -346,7 +349,7 @@ class ACRLargePhantomProtocol(Protocol):
         files_list = (get_dicom_files(d) for d in dirs)
         self.file_groups = {}
         for files in files_list:
-            acr_obj = ACRObject(files)
+            acr_obj = ACRObject([dcmread(f) for f in files])
             acquisition_type = AcquisitionType.from_string(
                 acr_obj.acquisition_type(strict=True),
             )
