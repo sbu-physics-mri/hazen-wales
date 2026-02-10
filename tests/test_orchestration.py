@@ -245,8 +245,8 @@ class TestACRLargePhantomProtocol(unittest.TestCase):
         self.dirs = [
             TEST_DATA_DIR / "acr" / seq
             for seq in (
-                "GE_Signa_3T_T1",
-                "GE_Signa_3T_T2",
+                "Siemens_Aera_1.5T_T1",
+                "Siemens_Aera_1.5T_T2",
                 "SiemensSolaFitLocalizer",
             )
         ]
@@ -311,13 +311,15 @@ class TestACRLargePhantomProtocol(unittest.TestCase):
         protocol = ACRLargePhantomProtocol(dirs=self.dirs)
 
         # Act
-        result = protocol.run()
+        # Use debug=True to disable using worker processes
+        # which aren't registered in call_count
+        result = protocol.run(debug=True)
 
         # Assert
         self.assertIsInstance(result, ProtocolResult)
         # Should initialize task for each step
         self.assertEqual(mock_init_task.call_count, self.PROTOCOL_STEPS)
-        self.assertEqual(len(result.results), self.PROTOCOL_STEPS)
+        self.assertEqual(len(result.results), self.PROTOCOL_STEPS + 1)
 
     def test_steps_contain_expected_tasks(self) -> None:
         """Verify default steps contain expected task names."""
