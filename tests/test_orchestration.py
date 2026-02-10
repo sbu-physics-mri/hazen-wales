@@ -147,5 +147,29 @@ class TestProtocolStep(unittest.TestCase):
             ProtocolStep("nonexistent_task", AcquisitionType.ACR_T1)
 
 
+class TestProtocol(unittest.TestCase):
+    """Unit tests for Protocol dataclass."""
+
+    def test_basic_initialization(self) -> None:
+        """Verify Protocol can be initialized with name and steps."""
+        steps = (
+            ProtocolStep("snr", AcquisitionType.ACR_T1),
+            ProtocolStep("ghosting", AcquisitionType.ACR_T1),
+        )
+        protocol = Protocol(name="Test Protocol", steps=steps)
+        self.assertEqual(protocol.name, "Test Protocol")
+        self.assertEqual(len(protocol.steps), 2)
+
+    def test_empty_steps_default(self) -> None:
+        """Verify Protocol defaults to empty steps tuple."""
+        protocol = Protocol(name="Empty Protocol")
+        self.assertEqual(protocol.steps, ())
+
+    def test_from_config_not_implemented(self) -> None:
+        """Verify from_config raises NotImplementedError."""
+        with self.assertRaises(NotImplementedError):
+            Protocol.from_config(TEST_DATA_DIR / "config.json")
+
+
 if __name__ == "__main__":
     unittest.main()
