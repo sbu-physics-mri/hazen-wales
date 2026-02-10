@@ -143,7 +143,7 @@ acr-object-detectability:
 
 .PHONY: acr-large-phantom-all
 acr-large-phantom-all:
-	$(VENV_CMD) hazen \
+	$(VENV_CMD) hazen --profile \
 	acr_all $(ACR_DATA_T1) $(ACR_DATA_T2) $(ACR_DATA_SL)
 
 .PHONY: cli-acr-all
