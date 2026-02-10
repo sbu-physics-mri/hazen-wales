@@ -240,6 +240,17 @@ class TestACRLargePhantomProtocol(unittest.TestCase):
     PROTOCOL_STEPS: int = 15
     MIN_DIRS: int = 3
 
+    def setUp(self) -> None:
+        """Set up the test cases."""
+        self.dirs = [
+            TEST_DATA_DIR / "acr" / seq
+            for seq in (
+                "GE_Signa_3T_T1",
+                "GE_Signa_3T_T2",
+                "SiemensSolaFitLocalizer",
+            )
+        ]
+
     @patch("hazenlib.orchestration.ACRObject")
     def test_initialization_correct_dir_count(
         self,
@@ -255,17 +266,8 @@ class TestACRLargePhantomProtocol(unittest.TestCase):
 
         mock_acr_obj.side_effect = mock_acr_instances
 
-        dirs = [
-            TEST_DATA_DIR / "acr" / seq
-            for seq in (
-                "Siemens_Sola_1.5T_T1",
-                "Siemens_Sola_1.5T_T2",
-                "SiemensSolaFitLocalizer",
-            )
-        ]
-
         # Act
-        protocol = ACRLargePhantomProtocol(dirs=dirs)
+        protocol = ACRLargePhantomProtocol(dirs=self.dirs)
 
         # Assert
         self.assertEqual(protocol.name, "ACR Large Phantom")
@@ -276,13 +278,7 @@ class TestACRLargePhantomProtocol(unittest.TestCase):
         """Verify ValueError raised when directory count mismatch."""
         # Arrange - only provide 2 dirs when 3 unique types required
         # that is, missing localizer.
-        dirs = [
-            TEST_DATA_DIR / "acr" / seq
-            for seq in (
-                "Siemens_Sola_1.5T_T1",
-                "Siemens_Sola_1.5T_T2",
-            )
-        ]
+        dirs = self.dirs[:-1]
 
         with self.assertRaises(ValueError) as context:
             ACRLargePhantomProtocol(dirs=dirs)
@@ -291,14 +287,12 @@ class TestACRLargePhantomProtocol(unittest.TestCase):
             "Incorrect number of directories", str(context.exception)
         )
 
-    @patch("hazenlib.orchestration.get_dicom_files")
     @patch("hazenlib.orchestration.ACRObject")
     @patch("hazenlib.orchestration.init_task")
     def test_run_executes_all_steps(
         self,
         mock_init_task: Callable,
         mock_acr_obj: Callable,
-        mock_get_files: Callable,
     ) -> None:
         """Verify run() executes all protocol steps and returns results."""
         # Arrange
@@ -309,14 +303,12 @@ class TestACRLargePhantomProtocol(unittest.TestCase):
             mock_acr_instances.append(mock_inst)
 
         mock_acr_obj.side_effect = mock_acr_instances
-        mock_get_files.return_value = ["file1.dcm"]
 
         mock_task = Mock()
         mock_task.run.return_value = Result(task="MockTask", desc="done")
         mock_init_task.return_value = mock_task
 
-        dirs = ["/path/to/t1", "/path/to/t2", "/path/to/sagittal"]
-        protocol = ACRLargePhantomProtocol(dirs=dirs)
+        protocol = ACRLargePhantomProtocol(dirs=self.dirs)
 
         # Act
         result = protocol.run()
@@ -339,9 +331,7 @@ class TestACRLargePhantomProtocol(unittest.TestCase):
             mock_inst.acquisition_type.return_value = "T1"
             mock_acr.return_value = mock_inst
 
-            # Need 3 dirs but we only care about step definitions
-            dirs = ["/dummy1", "/dummy2", "/dummy3"]
-            protocol = ACRLargePhantomProtocol(dirs=dirs)
+            protocol = ACRLargePhantomProtocol(dirs=self.dirs)
 
             task_names = [s.task_name for s in protocol.steps]
             expected_tasks = [
