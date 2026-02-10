@@ -21,7 +21,7 @@ from hazenlib._version import __version__
 from hazenlib.execution import timed_execution
 from hazenlib.formatters import write_result
 from hazenlib.logger import logger
-from hazelib.orchestration import TASK_REGISTRY, init_task
+from hazenlib.orchestration import TASK_REGISTRY, init_task
 from hazenlib.utils import get_dicom_files
 
 
