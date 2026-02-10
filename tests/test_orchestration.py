@@ -257,11 +257,7 @@ class TestACRLargePhantomProtocol(unittest.TestCase):
         self.assertEqual(len(protocol.steps), self.PROTOCOL_STEPS)
         self.assertEqual(len(protocol.file_groups), self.MIN_DIRS)
 
-    @patch("hazenlib.orchestration.get_dicom_files")
-    @patch("hazenlib.orchestration.ACRObject")
-    def test_initialization_wrong_dir_count_raises_error(
-        self, mock_acr_obj: Callable, mock_get_files: Callable,
-    ) -> None:
+    def test_initialization_wrong_dir_count_raises_error(self) -> None:
         """Verify ValueError raised when directory count mismatch."""
         # Arrange - only provide 2 dirs when 3 unique types required
         dirs = ["/path/to/t1", "/path/to/t2"]
