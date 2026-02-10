@@ -274,24 +274,6 @@ class Protocol:
         msg = "The class method 'from_config' has not been implemented yet."
         raise NotImplementedError(msg)
 
-    def get_steps_for_acquisition_type(
-        self,
-        acq_type: AcquisitionType,
-    ) -> tuple[ProtocolStep, ...]:
-        """Filter steps for a specific acquisition type.
-
-        Args:
-            acq_type: Acquisition type to filter by
-
-        Returns:
-            Tuple of protocol steps where step.acquisition_type matches
-
-        """
-        return tuple(
-            step for step in self.steps
-            if step.acquisition_type == acq_type
-        )
-
 
 class ProtocolResult(Result):
     """Class for the protocol result."""
