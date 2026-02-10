@@ -18,11 +18,13 @@ import importlib
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import TypeVar
 
 # Local imports
 from hazenlib.ACRObject import ACRObject
-from hazenlib.exceptions import UnknownAcquisitionTypeError, UnknownTaskNameError
-from hazenlib.types import PhantomType, TaskMetadata, Result
+from hazenlib.exceptions import (UnknownAcquisitionTypeError,
+                                 UnknownTaskNameError)
+from hazenlib.types import PhantomType, Result, TaskMetadata
 from hazenlib.utils import get_dicom_files
 
 logger = logging.getLogger(__name__)
@@ -309,11 +311,11 @@ class ProtocolResult(Result):
         """Add a result to the list."""
         self._results.append(result)
 
-
+T = TypeVar("T")
 class ACRLargePhantomProtocol(Protocol):
     """Protocol for ACR Large Phantom."""
 
-    def _init__(self, dirs: list[str, Path], **kwargs) -> None:
+    def _init__(self, dirs: list[str, Path], **kwargs: T.kwargs) -> None:
         """Set up the protocol for the ACR Large Phantom."""
         self.name="ACR Large Phantom"
         self.steps = (
