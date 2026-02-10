@@ -3,7 +3,7 @@ Welcome to the hazen Command Line Interface
 
 The following Tasks are available:
 - ACR phantom:
-acr_snr | acr_slice_position | acr_slice_thickness |
+acr_all | acr_snr | acr_slice_position | acr_slice_thickness |
 acr_spatial_resolution | acr_uniformity | acr_ghosting | acr_geometric_accuracy |
 acr_low_contrast_object_detectability
 - MagNET Test Objects:
@@ -13,7 +13,6 @@ relaxometry
 """
 
 import argparse
-import importlib
 import logging
 import os
 
