@@ -84,5 +84,47 @@ class TestInitTask(unittest.TestCase):
         self.assertIn("has no class", str(context.exception))
 
 
+class TestAcquisitionType(unittest.TestCase):
+    """Unit tests for AcquisitionType enum."""
+
+    def test_from_string_t1(self) -> None:
+        """Verify T1 string parsing."""
+        result = AcquisitionType.from_string("t1")
+        self.assertEqual(result, AcquisitionType.ACR_T1)
+        # Case insensitive
+        result = AcquisitionType.from_string("T1")
+        self.assertEqual(result, AcquisitionType.ACR_T1)
+
+    def test_from_string_t2(self) -> None:
+        """Verify T2 string parsing."""
+        result = AcquisitionType.from_string("t2")
+        self.assertEqual(result, AcquisitionType.ACR_T2)
+
+    def test_from_string_sagittal_variants(self) -> None:
+        """Verify sagittal localizer parsing with spelling variants."""
+        # Full string
+        result = AcquisitionType.from_string("sagittal localiser")
+        self.assertEqual(result, AcquisitionType.ACR_SL)
+
+        # American spelling
+        result = AcquisitionType.from_string("sagittal localizer")
+        self.assertEqual(result, AcquisitionType.ACR_SL)
+
+        # Abbreviations
+        result = AcquisitionType.from_string("sagittal")
+        self.assertEqual(result, AcquisitionType.ACR_SL)
+
+        result = AcquisitionType.from_string("localizer")
+        self.assertEqual(result, AcquisitionType.ACR_SL)
+
+    def test_from_string_invalid_raises_error(self) -> None:
+        """Verify UnknownAcquisitionTypeError for invalid strings."""
+        with self.assertRaises(UnknownAcquisitionTypeError):
+            AcquisitionType.from_string("unknown_type")
+
+        with self.assertRaises(UnknownAcquisitionTypeError):
+            AcquisitionType.from_string("t3")
+
+
 if __name__ == "__main__":
     unittest.main()
