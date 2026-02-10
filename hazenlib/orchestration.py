@@ -394,7 +394,7 @@ class ACRLargePhantomProtocol(Protocol):
             )
             self.file_groups[acquisition_type] = files
 
-    def run(self) -> ProtocolResult:
+    def run(self, *, debug: bool = False) -> ProtocolResult:
         """Run the Protocol for each of the steps."""
         results = ProtocolResult(
             self.name,
@@ -407,7 +407,9 @@ class ACRLargePhantomProtocol(Protocol):
         arg_list = [
             (step, self.file_groups, self.kwargs) for step in self.steps
         ]
-        parallel_results = wait_on_parallel_results(_execute_step, arg_list)
+        parallel_results = wait_on_parallel_results(
+            _execute_step, arg_list, debug=debug,
+        )
         for r in parallel_results:
             results.add_result(r)
         return results
