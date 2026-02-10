@@ -12,7 +12,6 @@ if TYPE_CHECKING:
     # Local imports
     from hazenlib.HazenTask import HazenTask
 
-
 # Python imports
 import importlib
 import logging
@@ -256,6 +255,7 @@ class ProtocolStep:
             raise UnknownTaskNameError(self.task_name, available)
 
 
+@dataclass
 class Protocol:
     """Orchestrator for collections of tasks.
 
@@ -292,6 +292,7 @@ class ProtocolResult(Result):
     def add_result(self, result: Result) -> None:
         """Add a result to the list."""
         self._results.append(result)
+
 
 T = TypeVar("T")
 class ACRLargePhantomProtocol(Protocol):
