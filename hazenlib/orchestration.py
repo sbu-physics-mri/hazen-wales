@@ -357,7 +357,9 @@ class ACRLargePhantomProtocol(Protocol):
         """Run the Protocol for each of the steps."""
         results = ProtocolResult(
             self.name,
-            ", ".join(f"{s.name} {s.acquisition_type}" for s in self.steps),
+            ", ".join(
+                f"{s.task_name} {s.acquisition_type}" for s in self.steps
+            ),
             self.file_groups.values(),
         )
 
