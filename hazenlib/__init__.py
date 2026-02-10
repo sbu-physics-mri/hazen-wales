@@ -33,6 +33,7 @@ def get_parser() -> argparse.ArgumentParser:
 
     parser.add_argument(
         "task",
+        # TODO(@abdrysdale): Add a list of protocols in registry.
         choices=list(TASK_REGISTRY.keys()) + ["acr_all"],
         help="The task to run",
     )
@@ -201,6 +202,7 @@ def main() -> None:
     #####################
 
     logger.debug("The following files were identified as valid DICOMs:")
+    # TODO(@abdrysdale): Raise an error if the number folders is more than 1.
     files = get_dicom_files(args.folder[0])
     logger.debug(
         "%s task will be set off on %s images", args.task, len(files),
