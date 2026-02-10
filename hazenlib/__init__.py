@@ -1,5 +1,4 @@
-"""
-Welcome to the hazen Command Line Interface
+"""Welcome to the hazen Command Line Interface.
 
 The following Tasks are available:
 - ACR phantom:
@@ -10,6 +9,12 @@ acr_low_contrast_object_detectability
 snr | snr_map | slice_position | slice_width | spatial_resolution | uniformity | ghosting
 - Caliber phantom:
 relaxometry
+
+Note that the acr_all task requires 3 directories as arguments
+(T1, T2 and Sagittal Localiser) whilst all other commands require
+a single positional directory argument. That is:
+
+hazen acr_all /path/to/T1 /path/to/T2 /path/to/SagittalLocaliser
 """
 
 import argparse
