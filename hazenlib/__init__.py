@@ -191,8 +191,9 @@ def main() -> None:
             report_dir=report_dir,
             verbose=verbose,
         )
-        result = execution_wrapper(task.run)
-        write_result(result, fmt=fmt, path=result_file)
+        protocol = execution_wrapper(task.run)
+        for result in protocol.results:
+            write_result(result, fmt=fmt, path=result_file)
         return
 
     #####################
