@@ -74,9 +74,8 @@ class TestInitTask(unittest.TestCase):
 
     def test_missing_class_raises_import_error(self) -> None:
         """Verify ImportError when module lacks expected class."""
-        mock_module = Mock()
         # Mock module without the expected class attribute
-        del mock_module.SNR
+        mock_module = Mock(spec=["__name__", "NotSNR"])
 
         with (
             patch(
