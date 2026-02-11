@@ -382,7 +382,7 @@ class ACRLargePhantomProtocol(Protocol):
             num_aq := len({s.acquisition_type for s in self.steps})
         ):
             msg = f"Incorrect number of directories - should be {num_aq}"
-            logger.exception("%s but got %i", msg, num_aq)
+            logger.exception("%s but got %i", msg, len(dirs))
             raise ValueError(msg)
 
         files_list = (get_dicom_files(d) for d in dirs)
