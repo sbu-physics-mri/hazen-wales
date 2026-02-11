@@ -378,8 +378,9 @@ class ACRLargePhantomProtocol(Protocol):
             kwargs["report_dir"] = "N/A"
         self.kwargs = kwargs
 
+        required_acquisition_types = {s.acquisition_type for s in self.steps}
         if len(dirs) != (
-            num_aq := len({s.acquisition_type for s in self.steps})
+            num_aq := len(required_acquisition_types)
         ):
             msg = f"Incorrect number of directories - should be {num_aq}"
             logger.exception("%s but got %i", msg, len(dirs))
@@ -393,6 +394,21 @@ class ACRLargePhantomProtocol(Protocol):
                 acr_obj.acquisition_type(strict=True),
             )
             self.file_groups[acquisition_type] = files
+
+        if len(self.file_groups.keys()) != len(required_acquisition_types):
+            acquisition_types = set(self.file_groups.keys())
+            msg = (
+                f"Missing sequences - only {acquisition_types}"
+                " where found meaning"
+                f" {required_acquisition_types - acquisition_types}"
+                "where not present."
+            )
+            logger.exception(
+                "%s The following directories were passed: %s",
+                msg,
+                dirs,
+            )
+            raise ValueError(msg)
 
     def run(self, *, debug: bool = False) -> ProtocolResult:
         """Run the Protocol for each of the steps."""

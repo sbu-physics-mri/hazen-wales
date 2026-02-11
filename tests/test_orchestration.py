@@ -281,6 +281,18 @@ class TestACRLargePhantomProtocol(unittest.TestCase):
             str(context.exception),
         )
 
+    def test_nonunique_sequences_raise_error(self) -> None:
+        """Verify ValueError raised when duplicated sequences are passed."""
+        dirs = [*self.dirs[:2], self.dirs[0]]
+
+        with self.assertRaises(ValueError) as context:
+            ACRLargePhantomProtocol(dirs=dirs)
+
+        self.assertIn(
+            "Missing sequences",
+            str(context.exception),
+        )
+
     @patch("hazenlib.orchestration.ACRObject")
     @patch("hazenlib.orchestration.init_task")
     def test_run_executes_all_steps(
