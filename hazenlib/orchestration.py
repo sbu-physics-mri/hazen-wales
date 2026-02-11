@@ -386,7 +386,7 @@ class ACRLargePhantomProtocol(Protocol):
         files_list = (get_dicom_files(d) for d in dirs)
         self.file_groups = {}
         for files in files_list:
-            acr_obj = ACRObject([dcmread(f) for f in files])
+            acr_obj = ACRObject([dcmread(files[0], stop_before_pixels=True)])
             acquisition_type = AcquisitionType.from_string(
                 acr_obj.acquisition_type(strict=True),
             )

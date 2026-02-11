@@ -323,14 +323,22 @@ class TestACRLargePhantomProtocol(unittest.TestCase):
     def test_steps_contain_expected_tasks(self) -> None:
         """Verify default steps contain expected task names."""
         with (
-            patch("hazenlib.orchestration.get_dicom_files"),
+            patch(
+                "hazenlib.orchestration.get_dicom_files",
+                return_value=["mock_dicom.dcm"],
+            ),
             patch(
                 "hazenlib.orchestration.ACRObject",
             ) as mock_acr,
+            patch(
+                "hazenlib.orchestration.dcmread",
+            ) as mock_dcmread,
         ):
             mock_inst = Mock()
             mock_inst.acquisition_type.return_value = "T1"
             mock_acr.return_value = mock_inst
+
+            mock_dcmread.return_value = Mock()
 
             protocol = ACRLargePhantomProtocol(dirs=self.dirs)
 
