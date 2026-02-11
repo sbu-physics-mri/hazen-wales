@@ -398,9 +398,9 @@ class ACRLargePhantomProtocol(Protocol):
             acquisition_types = set(self.file_groups.keys())
             msg = (
                 f"Missing sequences - only {acquisition_types}"
-                " where found meaning"
+                " were found meaning"
                 f" {required_acquisition_types - acquisition_types}"
-                "where not present."
+                " were not present."
             )
             logger.exception(
                 "%s The following directories were passed: %s",
