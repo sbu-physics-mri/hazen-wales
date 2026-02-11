@@ -277,7 +277,8 @@ class TestACRLargePhantomProtocol(unittest.TestCase):
             ACRLargePhantomProtocol(dirs=dirs)
 
         self.assertIn(
-            "Incorrect number of directories", str(context.exception),
+            "Incorrect number of directories",
+            str(context.exception),
         )
 
     @patch("hazenlib.orchestration.ACRObject")
