@@ -216,7 +216,6 @@ def main() -> None:
     #####################
 
     logger.debug("The following files were identified as valid DICOMs:")
-    # TODO(@abdrysdale): Raise an error if the number folders is more than 1.
     files = get_dicom_files(args.folder[0])
     logger.debug(
         "%s task will be set off on %s images",
