@@ -342,7 +342,9 @@ class TestACRLargePhantomProtocol(unittest.TestCase):
             ) as mock_dcmread,
         ):
             mock_inst = Mock()
-            mock_inst.acquisition_type.return_value = "T1"
+            mock_inst.acquisition_type.side_effect = [
+                "T1", "T2", "sagittal localizer",
+            ]
             mock_acr.return_value = mock_inst
 
             mock_dcmread.return_value = Mock()
