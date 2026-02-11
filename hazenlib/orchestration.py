@@ -373,9 +373,8 @@ class ACRLargePhantomProtocol(Protocol):
             ProtocolStep("acr_snr", AcquisitionType.ACR_T2),
         )
 
-        if not kwargs.get("report", False):
-            kwargs["report"] = False
-            kwargs["report_dir"] = "N/A"
+        kwargs.setdefault("report", False)
+        kwargs.setdefault("report_dir", None)
         self.kwargs = kwargs
 
         if len(dirs) != (
