@@ -1395,6 +1395,8 @@ class ShapeDetector:
             # OpenCV v4.5 adjustment
             # - cv.minAreaRect() output tuple order changed since v3.4
             # - swap size order & rotate angle by -90
-            size = (size[1], size[0])
-            angle = angle - 90
+            #
+            # The above seems to have reverted in OpenCV v4.12
+            # https://github.com/opencv/opencv/issues/28051
+            # so the corrections are no longer needed.
             return (x, y), size, angle
