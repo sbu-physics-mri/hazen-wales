@@ -204,6 +204,12 @@ def main() -> None:
         for result in protocol.results:
             write_result(result, fmt=fmt, path=result_file)
         return
+    if len(args.folder) != 1:
+        parser.error(
+            f"Task '{selected_task}' expects exactly one folder"
+            f" as a positional argument, but {len(args.folder)}"
+            " were provided",
+        )
 
     #####################
     # Single task usage #
