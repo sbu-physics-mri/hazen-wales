@@ -249,14 +249,11 @@ class ProtocolStep:
     Attributes:
         task_name: Name of the task as registered in TASK_REGISTRY
         acquisition_type: Type of acquisition this step applies to
-        required: Whether failure of this step should halt the protocol.
-            If False, failures are logged but execution continues.
 
     """
 
     task_name: str
     acquisition_type: AcquisitionType
-    required: bool = True
 
     def __post_init__(self) -> None:
         """Validate that task name exists in the global registry."""

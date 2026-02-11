@@ -139,12 +139,6 @@ class TestProtocolStep(unittest.TestCase):
         step = ProtocolStep("snr", AcquisitionType.ACR_T1)
         self.assertEqual(step.task_name, "snr")
         self.assertEqual(step.acquisition_type, AcquisitionType.ACR_T1)
-        self.assertTrue(step.required)
-
-    def test_valid_optional_parameters(self) -> None:
-        """Verify required flag can be set to False."""
-        step = ProtocolStep("ghosting", AcquisitionType.ACR_T2, required=False)
-        self.assertFalse(step.required)
 
     def test_invalid_task_name_raises_error(self) -> None:
         """Verify UnknownTaskNameError raised for unregistered tasks."""
