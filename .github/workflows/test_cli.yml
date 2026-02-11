@@ -33,7 +33,7 @@ jobs:
           uv sync
 
       # "if: always option" runs step even if previous fails - useful to ensure all CLI functions tested
-      - name: test_snr
+      - name: test_acr_all
         if: always()
         run: |
           uv run hazen acr_all tests/data/acr/Siemens_Sola_1.5T_T1/ tests/data/acr/Siemens_Sola_1.5T_T2/ tests/data/acr/GE_Signa_1.5T_Sagittal_Localizer/ --report --profile
