@@ -57,9 +57,28 @@ test: ## Run pytest with coverage
 	$(VENV_CMD) pytest $(TEST_DIR) -v --cov=$(SRC_DIR) --cov-report=term-missing --cov-report=html
 
 .PHONY: test-fast
-test-fast: ## Run tests without coverage (faster)
+test-fast: ## Run tests without coverage (faster, excludes slow tests)
 	@echo "Running tests (fast mode)..."
-	$(VENV_CMD) pytest $(TEST_DIR) -v
+	$(VENV_CMD) pytest $(TEST_DIR) -v -m "not slow"
+
+.PHONY: test-ci
+test-ci: ## Run tests with coverage for CI (outputs JUnit XML and coverage text)
+	@echo "Running CI tests with coverage..."
+	$(VENV_CMD) pytest $(TEST_DIR) -v \
+		--junitxml=pytest.xml \
+		--cov-report=term-missing:skip-covered \
+		--cov=$(SRC_DIR) \
+		| tee pytest-coverage.txt
+
+.PHONY: test-comprehensive
+test-comprehensive: ## Run all tests including slow tests with full coverage
+	@echo "Running comprehensive tests..."
+	$(VENV_CMD) pytest $(TEST_DIR) -v \
+		--junitxml=pytest.xml \
+		--cov-report=term-missing \
+		--cov=$(SRC_DIR) \
+		--cov-report=html \
+		| tee pytest-coverage.txt
 
 #################
 # Type Checking #
@@ -233,6 +252,9 @@ cli-caliber: caliber-relaxometry	## Run the Caliber CLI tests
 .PHONY: cli
 cli: cli-acr cli-magnet cli-caliber	## Run all CLI tests
 
+.PHONY: test-cli-smoke
+test-cli-smoke: acr-large-phantom-all	## Run CLI smoke tests (ACR only)
+
 ###################
 # Combined Checks #
 ###################
@@ -241,10 +263,20 @@ cli: cli-acr cli-magnet cli-caliber	## Run all CLI tests
 check-notypes: format-check test cli	## Run checks without types
 
 .PHONY: check
-check: type-check check-notypes
+check: type-check check-notypes ## Run full CI pipeline
 
-.PHONY: ci
-ci: check ## Run full CI pipeline
+###############
+# CI Tiers    #
+###############
+
+.PHONY: ci-commit	## CI: Per-commit checks (fast feedback, < 1 min)
+ci-commit: lint format-check test-fast
+
+.PHONY: ci-pr	## CI: Pre-merge checks (comprehensive, < 15 min)
+ci-pr: lint format-check test-ci test-cli-smoke
+
+.PHONY: ci-release	## CI: Release checks (exhaustive verification, < 30 min)
+ci-release: check-notypes test-comprehensive
 
 #################
 # Documentation #
