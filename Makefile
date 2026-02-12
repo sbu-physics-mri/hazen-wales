@@ -252,11 +252,8 @@ cli-caliber: caliber-relaxometry	## Run the Caliber CLI tests
 .PHONY: cli
 cli: cli-acr cli-magnet cli-caliber	## Run all CLI tests
 
-.PHONY: test-cli
-test-cli: cli	## Run CLI smoke tests (alias for cli)
-
 .PHONY: test-cli-smoke
-test-cli-smoke: cli-acr	## Run essential CLI smoke tests (ACR only)
+test-cli-smoke: acr-large-phantom-all	## Run CLI smoke tests (ACR only)
 
 ###################
 # Combined Checks #
@@ -266,23 +263,20 @@ test-cli-smoke: cli-acr	## Run essential CLI smoke tests (ACR only)
 check-notypes: format-check test cli	## Run checks without types
 
 .PHONY: check
-check: type-check check-notypes
-
-.PHONY: ci
-ci: check ## Run full CI pipeline
+check: type-check check-notypes ## Run full CI pipeline
 
 ###############
 # CI Tiers    #
 ###############
 
-.PHONY: ci-commit
-ci-commit: lint format-check test-fast	## CI: Per-commit checks (fast feedback, < 1 min)
+.PHONY: ci-commit	## CI: Per-commit checks (fast feedback, < 1 min)
+ci-commit: lint format-check test-fast
 
-.PHONY: ci-pr
-ci-pr: lint format-check type-check test-ci test-cli-smoke	## CI: Pre-merge checks (comprehensive, < 15 min)
+.PHONY: ci-pr	## CI: Pre-merge checks (comprehensive, < 15 min)
+ci-pr: lint format-check test-ci test-cli-smoke
 
-.PHONY: ci-release
-ci-release: check test-comprehensive	## CI: Release checks (exhaustive verification, < 30 min)
+.PHONY: ci-release	## CI: Release checks (exhaustive verification, < 30 min)
+ci-release: check-notypes test-comprehensive
 
 #################
 # Documentation #
