@@ -86,13 +86,20 @@ import scipy as sp
 import skimage.transform
 import statsmodels
 import statsmodels.api as sm
-from hazenlib.ACRObject import ACRObject
-from hazenlib.HazenTask import HazenTask
-from hazenlib.types import (FailedStatsModel, LCODTemplate, Measurement,
-                            P_HazenTask, Result, SpokeReportData,
-                            StatsParameters)
 from matplotlib.gridspec import GridSpec
 from matplotlib.patches import Circle
+
+from hazenlib.ACRObject import ACRObject
+from hazenlib.HazenTask import HazenTask
+from hazenlib.types import (
+    FailedStatsModel,
+    LCODTemplate,
+    Measurement,
+    P_HazenTask,
+    Result,
+    SpokeReportData,
+    StatsParameters,
+)
 
 logger = logging.getLogger(__name__)
 
