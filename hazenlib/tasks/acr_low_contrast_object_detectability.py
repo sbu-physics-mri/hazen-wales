@@ -29,6 +29,7 @@ An implementation by the authors can be found on GitHub:
 
 With the original paper:
     https://doi.org/10.1002/acm2.70173
+    https://aapm.onlinelibrary.wiley.com/doi/pdfdirect/10.1002/acm2.70173
 
 ACR Low Contrast Object Detectability:
     https://mriquestions.com/uploads/3/4/5/7/34572113/largephantomguidance.pdf
