@@ -119,22 +119,14 @@ class ACRLowContrastObjectDetectability(HazenTask):
     START_ANGLE: float = 0
     LCOD_DISC_SIZE: float = 43  # mm
 
-    BINARIZATION_THRESHOLD: MappingProxyType = MappingProxyType(
-        {
-            1.5: 97.8,
-            3.0: 97.5,
-        },
-    )
-
     _DETREND_POLYNOMIAL_ORDER: int = 3
     _STD_TOL: float = 0.01
 
     _RADIAL_PROFILE_LENGTH: int = 128
+    # TODO(@abdrysdale): Change to 0.0125 (per paper) after tests are written
+    # https://github.com/sbu-physics-mri/hazen-wales/issues/90
+    # https://aapm.onlinelibrary.wiley.com/doi/pdfdirect/10.1002/acm2.70173
     _ALPHA: float = 0.05
-    _OPTIMIZER: str = "TBPSA"
-    _BUDGET: int = 100
-
-    NLOPT_METHOD: str = "Nelder-Mead"
 
     OBJECT_RIBBON_COLORS = ("#1E88E5", "#FFC107", "#004D40")
 
