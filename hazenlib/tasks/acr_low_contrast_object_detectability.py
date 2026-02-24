@@ -75,7 +75,6 @@ import contextlib
 import copy
 import logging
 from pathlib import Path
-from types import MappingProxyType
 
 # Module imports
 import cv2
@@ -89,15 +88,9 @@ import statsmodels
 import statsmodels.api as sm
 from hazenlib.ACRObject import ACRObject
 from hazenlib.HazenTask import HazenTask
-from hazenlib.types import (
-    FailedStatsModel,
-    LCODTemplate,
-    Measurement,
-    P_HazenTask,
-    Result,
-    SpokeReportData,
-    StatsParameters,
-)
+from hazenlib.types import (FailedStatsModel, LCODTemplate, Measurement,
+                            P_HazenTask, Result, SpokeReportData,
+                            StatsParameters)
 from matplotlib.gridspec import GridSpec
 from matplotlib.patches import Circle
 
@@ -1220,7 +1213,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
         with contextlib.suppress(TypeError):
             for xi, yi in intersection_points:
                 distances = np.sqrt(
-                    (x_coords - xi) ** 2 + (y_coords - yi) ** 2
+                    (x_coords - xi) ** 2 + (y_coords - yi) ** 2,
                 )
                 closest_idx = np.argmin(distances)
                 intersection_indices.append(closest_idx)
@@ -1329,7 +1322,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
         )
         ax.legend(fontsize=7, loc="best")
         ax.tick_params(labelsize=7)
-        ax.grid(True, alpha=0.3, linestyle="--", linewidth=0.5)
+        ax.grid(True, alpha=0.3, linestyle="--", linewidth=0.5) # noqa: FBT003
 
         plt.tight_layout()
 
