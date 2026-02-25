@@ -109,9 +109,10 @@ class ACRLowContrastObjectDetectability(HazenTask):
 
     Attributes:
         SLICE_ANGLE_OFFSET : Angular offset between each subsequent slice
-                in radians (9 degrees converted to radians).
-        START_ANGLE : Starting angle for slice 0 in radians
-                (90 degrees converted to radians).
+                in degrees. Defaults to 9.
+        START_ANGLE : Starting angle for slice 0 in degrees.
+                Defaults to 0.
+        LCOD_DISC_SIZE : LCOD disc radius in mm.
 
     """
 
