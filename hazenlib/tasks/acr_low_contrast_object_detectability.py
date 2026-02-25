@@ -340,15 +340,17 @@ class ACRLowContrastObjectDetectability(HazenTask):
         sp: StatsParameters,
         alpha: float,
     ) -> tuple[np.ndarray]:
-        p_vals_fdr = statsmodels.stats.multitest.fdrcorrection(
+        rejected, p_vals_fdr = statsmodels.stats.multitest.fdrcorrection(
             sp.p_vals_all,
             alpha=alpha,
             method="indep",
             is_sorted=False,
-        )[0].reshape(-1, len(sp.p_vals[-1]))
+        )
+        rejected = rejected.reshape(-1, len(sp.p_vals[-1]))
         params_fdr = np.array(sp.params_all).reshape(-1, len(sp.params[-1]))
+        p_vals_fdr = p_vals_fdr.reshape(-1, len(sp.p_vals[-1]))
 
-        return (p_vals_fdr, params_fdr)
+        return (rejected, params_fdr, p_vals_fdr)
 
     def count_spokes(
         self,
@@ -403,13 +405,13 @@ class ACRLowContrastObjectDetectability(HazenTask):
         )
 
         # FDR correction
-        p_vals_fdr, params_fdr = self._fdrcorrection(sp, alpha=alpha)
+        rejected, params_fdr, p_vals_fdr = self._fdrcorrection(sp, alpha=alpha)
 
         # Update detection status
         for spoke_number, spoke in enumerate(spokes):
             for i, obj in enumerate(spoke):
                 obj.detected = (
-                    p_vals_fdr[spoke_number, i]
+                    rejected[spoke_number, i]
                     and params_fdr[spoke_number, i] > 0
                 )
             spoke.passed = all(obj.detected for obj in spoke)
@@ -419,8 +421,8 @@ class ACRLowContrastObjectDetectability(HazenTask):
                 report_data[spoke_number].detected = [
                     obj.detected for obj in spoke
                 ]
-                report_data[spoke_number].p_vals = sp.p_vals[spoke_number]
-                report_data[spoke_number].params = sp.params[spoke_number]
+                report_data[spoke_number].p_vals = p_vals_fdr[spoke_number, :]
+                report_data[spoke_number].params = params_fdr[spoke_number, :]
 
         # Store report data if reporting enabled
         if self.report:
@@ -656,7 +658,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
 
         # De-trend with robust polynomial fitting
         detrended, trend = self._detrend_profile(profile, return_trend=True)
-        smoothed = self._smooth_profile(detrended)
+        smoothed = self._smooth_profile(detrended, sigma=self._SMOOTH_SIGMA)
 
         # Prepare GLM
         data = np.column_stack((object_mask, np.ones_like(profile)))
