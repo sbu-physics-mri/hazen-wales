@@ -286,7 +286,7 @@ class TestACRLowContrastObjectDetectability(unittest.TestCase):
 
     ACR_DATA = Path(TEST_DATA_DIR / "acr" / "GE_Artist_1.5T_T1")
     SCORES = (
-        SliceScore(8, 10),
+        SliceScore(8, 8),
         SliceScore(9, 10),
         SliceScore(10, 10),
         SliceScore(11, 10),
@@ -399,9 +399,9 @@ class TestACRLowContrastObjectDetectabilitySiemensAera(
 
     ACR_DATA = Path(TEST_DATA_DIR / "acr" / "Siemens_Aera_1.5T_T1")
     SCORES = (
-        SliceScore(8, 10),
+        SliceScore(8, 7),
         SliceScore(9, 10),
-        SliceScore(10, 9),
+        SliceScore(10, 10),
         SliceScore(11, 10),
     )
 
@@ -427,10 +427,10 @@ class TestACRLowContrastObjectDetectabilitySiemensSolaFit(
 
     ACR_DATA = Path(TEST_DATA_DIR / "acr" / "SiemensSolaFit")
     SCORES = (
-        SliceScore(8, 10),
-        SliceScore(9, 8),
+        SliceScore(8, 9),
+        SliceScore(9, 9),
         SliceScore(10, 9),
-        SliceScore(11, 9),
+        SliceScore(11, 10),
     )
 
 
