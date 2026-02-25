@@ -129,6 +129,11 @@ class ACRLowContrastObjectDetectability(HazenTask):
     # https://aapm.onlinelibrary.wiley.com/doi/pdfdirect/10.1002/acm2.70173
     _ALPHA: float = 0.05
 
+    # Control how templates are sample from around the center.
+    # Note that 0 (i.e. the center) is always sampled.
+    _ENSEMBLE_MAX_INC: float = 2  # Max increment from the center in units of dx
+    _ENSEMBLE_STEP: float = .1  # Steps between increments in units of dx.
+
     OBJECT_RIBBON_COLORS = ("#1E88E5", "#FFC107", "#004D40")
 
     def __init__(
@@ -253,16 +258,16 @@ class ACRLowContrastObjectDetectability(HazenTask):
         template: LCODTemplate,
     ) -> list[LCODTemplate]:
         cx, cy, theta = template.cx, template.cy, template.theta
-        max_inc = 3
-        step = 2
-        increments = [
-            self.ACR_obj.dx * i
-            for i in range(
-                -max_inc,
-                max_inc + 1,
-                step,
-            )
-        ]
+        max_inc = self._ENSEMBLE_MAX_INC
+        num = np.ceil((max_inc * 2) / self._ENSEMBLE_STEP).astype(int) + 1
+        increments = list(
+            np.linspace(
+                -max_inc * self.ACR_obj.dx,
+                +max_inc * self.ACR_obj.dx,
+                num,
+            ),
+        )
+
         if 0 not in increments:
             increments.append(0)
 
