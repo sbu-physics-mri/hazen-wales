@@ -123,6 +123,8 @@ class ACRLowContrastObjectDetectability(HazenTask):
     _DETREND_POLYNOMIAL_ORDER: int = 3
     _STD_TOL: float = 0.01
 
+    _SMOOTH_SIGMA: float = 3
+
     _RADIAL_PROFILE_LENGTH: int = 128
     # Paper states a value of 0.0125
     # https://aapm.onlinelibrary.wiley.com/doi/pdfdirect/10.1002/acm2.70173
