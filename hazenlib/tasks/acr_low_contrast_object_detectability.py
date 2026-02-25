@@ -671,7 +671,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
             model = FailedStatsModel()
 
         if return_intermediate:
-            return model.pvalues[:3], model.params[:3], detrended, trend
+            return model.pvalues[:3], model.params[:3], smoothed, trend
         return model.pvalues[:3], model.params[:3]
 
     # Add the report generation method
@@ -992,7 +992,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
         # Labels
         ax_bottom.set_xlabel("Profile Position", fontsize=7)
         ax_top.set_ylabel("Original", fontsize=7)
-        ax_bottom.set_ylabel("Detrended", fontsize=7)
+        ax_bottom.set_ylabel("Detrended & Smoothed", fontsize=7)
 
         # Title
         status = "PASS" if all(spoke_data.detected) else "FAIL"
