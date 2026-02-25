@@ -124,10 +124,11 @@ class ACRLowContrastObjectDetectability(HazenTask):
     _STD_TOL: float = 0.01
 
     _RADIAL_PROFILE_LENGTH: int = 128
-    # TODO(@abdrysdale): Change to 0.0125 (per paper) after tests are written
-    # https://github.com/sbu-physics-mri/hazen-wales/issues/90
+    # Paper states a value of 0.0125
     # https://aapm.onlinelibrary.wiley.com/doi/pdfdirect/10.1002/acm2.70173
-    _ALPHA: float = 0.05
+    # However this is too high since the this implementation includes
+    # a much more robust center finding and template matching strategy.
+    _ALPHA: float = 1e-6
 
     # Control how templates are sample from around the center.
     # Note that 0 (i.e. the center) is always sampled.
