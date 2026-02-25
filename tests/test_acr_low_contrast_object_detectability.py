@@ -392,6 +392,34 @@ class TestACRLowContrastObjectDetectability(unittest.TestCase):
         )
 
 
+class TestACRLowContrastObjectDetectabilityGESignaArtistT1(
+    TestACRLowContrastObjectDetectability,
+):
+    """Test class for Siemens Aera data."""
+
+    ACR_DATA = Path(TEST_DATA_DIR / "acr" / "GE_Signa_Artist_1.5T_T1")
+    SCORES = (
+        SliceScore(8, 7),
+        SliceScore(9, 9),
+        SliceScore(10, 10),
+        SliceScore(11, 10),
+    )
+
+class TestACRLowContrastObjectDetectabilityGESignaArtistT2(
+    TestACRLowContrastObjectDetectability,
+):
+    """Test class for Siemens Aera data."""
+
+    ACR_DATA = Path(TEST_DATA_DIR / "acr" / "GE_Signa_Artist_1.5T_T2")
+    SCORES = (
+        SliceScore(8, 3),
+        SliceScore(9, 8),
+        SliceScore(10, 9),
+        SliceScore(11, 10),
+    )
+
+
+
 class TestACRLowContrastObjectDetectabilitySiemensAera(
     TestACRLowContrastObjectDetectability,
 ):
