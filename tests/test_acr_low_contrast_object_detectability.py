@@ -353,7 +353,8 @@ class TestACRLowContrastObjectDetectability(unittest.TestCase):
             msg=(
                 f"{self.ACR_DATA} slice {score.index}\n"
                 f"Expected {score.score} +- {self.SLICE_TOLERANCE}"
-                f" but got {slice_score}"
+                f" but got {slice_score} for slice {score.index}"
+                f" of {self.ACR_DATA.name}"
             ),
         )
 
@@ -386,6 +387,7 @@ class TestACRLowContrastObjectDetectability(unittest.TestCase):
             msg=(
                 f"Expected total score to be {correct_total_score}"
                 f" +- {self.TOTAL_TOLERANCE} but got {total_score}"
+                f" for {self.ACR_DATA.name}"
             ),
         )
 
