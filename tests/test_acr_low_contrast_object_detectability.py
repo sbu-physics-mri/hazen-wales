@@ -405,6 +405,7 @@ class TestACRLowContrastObjectDetectabilityGESignaArtistT1(
         SliceScore(11, 10),
     )
 
+
 class TestACRLowContrastObjectDetectabilityGESignaArtistT2(
     TestACRLowContrastObjectDetectability,
 ):
@@ -417,7 +418,6 @@ class TestACRLowContrastObjectDetectabilityGESignaArtistT2(
         SliceScore(10, 9),
         SliceScore(11, 10),
     )
-
 
 
 class TestACRLowContrastObjectDetectabilitySiemensAera(

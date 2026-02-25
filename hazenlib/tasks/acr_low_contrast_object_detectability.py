@@ -134,8 +134,10 @@ class ACRLowContrastObjectDetectability(HazenTask):
 
     # Control how templates are sample from around the center.
     # Note that 0 (i.e. the center) is always sampled.
-    _ENSEMBLE_MAX_INC: float = 2  # Max increment from the center in units of dx
-    _ENSEMBLE_STEP: float = .1  # Steps between increments in units of dx.
+    _ENSEMBLE_MAX_INC: float = (
+        2  # Max increment from the center in units of dx
+    )
+    _ENSEMBLE_STEP: float = 0.1  # Steps between increments in units of dx.
 
     OBJECT_RIBBON_COLORS = ("#1E88E5", "#FFC107", "#004D40")
 
@@ -302,7 +304,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
             templates = [template]
 
         for idx, _ in enumerate(template.spokes):
-            min_pvals = [1, 1, 1]       # Initial p values
+            min_pvals = [1, 1, 1]  # Initial p values
             for _template in templates:
                 spoke = _template.spokes[idx]
                 profile, object_mask = spoke.profile(
@@ -1352,7 +1354,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
         )
         ax.legend(fontsize=7, loc="best")
         ax.tick_params(labelsize=7)
-        ax.grid(True, alpha=0.3, linestyle="--", linewidth=0.5) # noqa: FBT003
+        ax.grid(True, alpha=0.3, linestyle="--", linewidth=0.5)  # noqa: FBT003
 
         plt.tight_layout()
 
