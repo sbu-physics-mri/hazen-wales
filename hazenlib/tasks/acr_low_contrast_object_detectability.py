@@ -299,7 +299,8 @@ class ACRLowContrastObjectDetectability(HazenTask):
             templates = [template]
 
         for idx, _ in enumerate(template.spokes):
-            for t_idx, _template in enumerate(templates):
+            min_pvals = [1, 1, 1]       # Initial p values
+            for _template in templates:
                 spoke = _template.spokes[idx]
                 profile, object_mask = spoke.profile(
                     dcm,
@@ -312,12 +313,23 @@ class ACRLowContrastObjectDetectability(HazenTask):
                     object_mask,
                 )
 
-                if t_idx == 0 or (
+                if (
                     np.sum(p_vals) < np.sum(min_pvals)  # noqa: F821
                     and all(params > 0)
                 ):
                     min_pvals = p_vals
                     min_params = params
+
+                # As a rule of thumb, if all of the p-values
+                # are a factor of 10 less than the alpha value
+                # then the spoke has passed even with FDR correction
+                # this may need to be changed to a higher factor
+                # such as 100 if evidence is provided on the contrary.
+                # This avoids excessive searching of templates once the
+                # it has already been determined that the spoke has passed
+                # but without performing fdr correction on every template.
+                if all(p < self._ALPHA / 10 for p in min_pvals):
+                    break
             sp.p_vals.append(min_pvals)
             sp.params.append(min_params)
 
