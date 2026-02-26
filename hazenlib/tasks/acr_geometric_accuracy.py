@@ -69,7 +69,7 @@ class ACRGeometricAccuracy(HazenTask):
                     Measurement(
                         name="GeometricAccuracy",
                         type="measured",
-                        subtype=f"{t} distance",
+                        subtype=f"Slice 1 {t} distance",
                         description=self.img_desc(self.ACR_obj.slice_stack[0]),
                         value=round(len_1, 2),
                         unit="mm",
@@ -100,10 +100,10 @@ class ACRGeometricAccuracy(HazenTask):
                     Measurement(
                         name="GeometricAccuracy",
                         type="measured",
-                        subtype=f"{t} distance",
+                        subtype=f"Slice 5 {t} distance",
                         description=self.img_desc(self.ACR_obj.slice_stack[4]),
                         value=round(len_5, 2),
-                        unit="",
+                        unit="mm",
                     ),
                 )
         except Exception as e:
