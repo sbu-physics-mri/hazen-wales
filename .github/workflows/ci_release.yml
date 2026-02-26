@@ -16,12 +16,19 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ ubuntu-latest ]
+        include:
+          - os: ubuntu-latest
+            shell: bash
+          - os: windows-latest
+            shell: pwsh
         python-version: [ '3.11', '3.12', '3.13' ]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: ${{ matrix.shell }}
 
     steps:
     - uses: actions/checkout@v4
