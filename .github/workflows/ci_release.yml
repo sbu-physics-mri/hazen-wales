@@ -51,6 +51,10 @@ jobs:
       with:
         version: "latest"
 
+    - name: Install Make (Windows)
+      if: runner.os == 'Windows'
+      run: choco install make
+
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
