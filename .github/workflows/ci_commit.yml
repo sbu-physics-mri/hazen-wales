@@ -19,7 +19,6 @@ jobs:
             shell: bash
           - os: windows-latest
             shell: pwsh
-        shell: [bash, pwsh]
     runs-on: ${{ matrix.os }}
     permissions:
       contents: read
