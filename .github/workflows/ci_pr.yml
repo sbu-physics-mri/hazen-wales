@@ -9,17 +9,34 @@ on:
 
 jobs:
   ci-pr:
-    runs-on: ${{ matrix.os }}
-    permissions:
-      pull-requests: write
     strategy:
       fail-fast: false
       matrix:
-        os: [ ubuntu-latest ]
-        python-version: [ '3.11', '3.12', '3.13' ]
+        include:
+          - os: ubuntu-latest
+            shell: bash
+            python-version: '3.11'
+          - os: ubuntu-latest
+            shell: bash
+            python-version: '3.12'
+          - os: ubuntu-latest
+            shell: bash
+            python-version: '3.13'
+          - os: windows-latest
+            shell: pwsh
+            python-version: '3.11'
+          - os: windows-latest
+            shell: pwsh
+            python-version: '3.12'
+          - os: windows-latest
+            shell: pwsh
+            python-version: '3.13'
+    runs-on: ${{ matrix.os }}
+    permissions:
+      pull-requests: write
     defaults:
       run:
-        shell: bash -l {0}
+        shell: ${{ matrix.shell }}
 
     steps:
     - uses: actions/checkout@v4
@@ -28,6 +45,10 @@ jobs:
       uses: astral-sh/setup-uv@v6
       with:
         version: "latest"
+
+    - name: Install Make (Windows)
+      if: runner.os == 'Windows'
+      run: choco install make
 
     - name: Set up Python
       uses: actions/setup-python@v5

@@ -249,8 +249,51 @@ caliber-relaxometry: relaxometry-T1 relaxometry-T2
 .PHONY: cli-caliber
 cli-caliber: caliber-relaxometry	## Run the Caliber CLI tests
 
+# CLI Flags #
+.PHONY: flags-profile
+flags-profile:
+	$(VENV_CMD) hazen acr_snr $(ACR_DATA) --profile
+
+.PHONY: flags-report
+flags-report:
+	$(VENV_CMD) hazen acr_snr $(ACR_DATA) --report
+
+.PHONY: flags-output
+flags-output:
+	$(VENV_CMD) hazen acr_snr $(ACR_DATA) --output .cache
+
+.PHONY: flags-verbose
+flags-verbose:
+	$(VENV_CMD) hazen acr_snr $(ACR_DATA) --verbose
+
+.PHONY: flags-format
+flags-format:
+	$(VENV_CMD) hazen acr_snr $(ACR_DATA) --format csv
+
+.PHONY: flags-result
+flags-result:
+	$(VENV_CMD) hazen acr_snr $(ACR_DATA) --result .makefile_result_output.json
+
+.PHONY: flags-version
+flags-version:
+	$(VENV_CMD) hazen --version
+
+.PHONY: flags-combined
+flags-combined:
+	$(VENV_CMD) hazen acr_snr $(ACR_DATA) \
+	--profile \
+	--report \
+	--output .cache \
+	--verbose \
+	--format csv \
+	--log debug
+
+.PHONY: cli-flags	## Run the CI with
+cli-flags: flags-profile flags-report flags-output flags-verbose \
+	flags-format flags-result flags-version flags-combined
+
 .PHONY: cli
-cli: cli-acr cli-magnet cli-caliber	## Run all CLI tests
+cli: cli-acr cli-magnet cli-caliber cli-flags	## Run all CLI tests
 
 .PHONY: test-cli-smoke
 test-cli-smoke: acr-large-phantom-all	## Run CLI smoke tests (ACR only)
