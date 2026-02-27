@@ -20,8 +20,10 @@ hazen acr_all /path/to/T1 /path/to/T2 /path/to/SagittalLocaliser
 import argparse
 import logging
 import os
+from typing import get_args
 
 from hazenlib._version import __version__
+from hazenlib.constants import MEASUREMENT_VISIBILITY
 from hazenlib.execution import timed_execution
 from hazenlib.formatters import write_result
 from hazenlib.logger import logger
@@ -105,6 +107,18 @@ def get_parser() -> argparse.ArgumentParser:
         "--version",
         action="version",
         version=__version__,
+    )
+    parser.add_argument(
+        "--level",
+        type=str,
+        default="all",
+        choices=[*get_args(MEASUREMENT_VISIBILITY), "all"],
+        help=(
+            "Filter results by visibility:"
+            " 'final' (report-ready metrics),"
+            " 'intermediate' (scientist verification),"
+            " or 'all'."
+        ),
     )
 
     # Task-specific options
