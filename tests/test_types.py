@@ -122,7 +122,9 @@ class TestMeasurement(unittest.TestCase):
         """Verify Measurement can store numpy scalar types."""
         np_value = np.float64(42.5)
         m = Measurement(
-            name="SNR", value=np_value, visibility="final",
+            name="SNR",
+            value=np_value,
+            visibility="final",
         )
 
         self.assertIsInstance(m.value, np.float64)
@@ -135,7 +137,9 @@ class TestResult(unittest.TestCase):
     def test_result_initialization(self) -> None:
         """Verify Result initializes with correct default values."""
         result = Result(
-            task="TestTask", desc="test desc", files=["a.dcm", "b.dcm"],
+            task="TestTask",
+            desc="test desc",
+            files=["a.dcm", "b.dcm"],
         )
 
         self.assertEqual(result.task, "TestTask")
@@ -166,7 +170,8 @@ class TestResult(unittest.TestCase):
         result.add_report_image("output2.png")
 
         self.assertEqual(
-            set(result.report_images), {"output1.png", "output2.png"},
+            set(result.report_images),
+            {"output1.png", "output2.png"},
         )
 
     def test_get_measurement_filtering(self) -> None:
@@ -193,7 +198,8 @@ class TestResult(unittest.TestCase):
 
         # Filter by combined criteria
         specific = result.get_measurement(
-            name="SNR", measurement_type="raw",
+            name="SNR",
+            measurement_type="raw",
         )
         self.assertEqual(len(specific), 1)
         self.assertEqual(specific[0].value, 20.0)
@@ -213,7 +219,9 @@ class TestResult(unittest.TestCase):
         )
         result.add_measurement(
             Measurement(
-                name="Ghosting", value=2.0, visibility="intermediate",
+                name="Ghosting",
+                value=2.0,
+                visibility="intermediate",
             ),
         )
 
