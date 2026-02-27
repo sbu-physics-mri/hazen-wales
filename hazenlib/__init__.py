@@ -196,6 +196,7 @@ def main() -> None:
     report_dir = args.output
     verbose = args.verbose
     fmt = args.format
+    level = args.level
     result_file = args.result
 
     # Parse the task and optional arguments:
@@ -216,7 +217,7 @@ def main() -> None:
         )
         protocol = execution_wrapper(task.run)
         for result in protocol.results:
-            write_result(result, fmt=fmt, path=result_file)
+            write_result(result, fmt=fmt, path=result_file, level=level)
         return
     if len(args.folder) != 1:
         parser.error(
@@ -282,7 +283,7 @@ def main() -> None:
             for f in files:
                 task = init_task(selected_task, [f], report, report_dir)
                 result = execution_wrapper(task.run)
-                write_result(result, fmt=fmt, path=result_file)
+                write_result(result, fmt=fmt, path=result_file, level=level)
             return
         # Slice Position task, all ACR tasks except SNR
         # may be enhanced, may be multi-frame
@@ -297,10 +298,10 @@ def main() -> None:
         )
         result = execution_wrapper(task.run)
 
-        write_result(result, fmt=fmt, path=result_file)
+        write_result(result, fmt=fmt, path=result_file, level=level)
         return
 
-    write_result(result, fmt=fmt, path=result_file)
+    write_result(result, fmt=fmt, path=result_file, level=level)
 
 
 if __name__ == "__main__":
