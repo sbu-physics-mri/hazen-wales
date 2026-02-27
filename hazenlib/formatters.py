@@ -72,11 +72,11 @@ def write_result(
         data = data.filtered(level)
     except InvalidMeasurementVisibilityError:
         logger.warning(
-                "Unknown measurement filter level %s :"
-                " allowed options are %s - defaulting to 'all'",
-                level,
-                [*get_args(MEASUREMENT_VISIBILITY), "all"],
-            )
+            "Unknown measurement filter level %s :"
+            " allowed options are %s - defaulting to 'all'",
+            level,
+            [*get_args(MEASUREMENT_VISIBILITY), "all"],
+        )
 
     if path == "-":
         _format_results(data, fmt, sys.stdout)

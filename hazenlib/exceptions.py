@@ -75,6 +75,7 @@ class InvalidMeasurementTypeError(ValueError):
         )
         super().__init__(msg)
 
+
 class InvalidMeasurementVisibilityError(ValueError):
     """Invalid Measurement Visibility Error."""
 

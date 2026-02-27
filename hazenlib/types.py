@@ -129,6 +129,7 @@ class JsonSerializableMixin:
 # The canonical result that every task must return #
 ####################################################
 
+
 @dataclass(frozen=True, slots=True)
 class Measurement(JsonSerializableMixin):
     """Canonical result each measurment must have."""
@@ -256,7 +257,6 @@ class Result(JsonSerializableMixin):
             if m.visibility == level:
                 new_result.add_measurement(m)
         return new_result
-
 
     def to_dict(self) -> dict[str, Any]:
         """Return dict."""
