@@ -82,7 +82,7 @@ def write_result(
         _format_results(data, fmt, sys.stdout)
         return
     with Path(path).open("a", newline="") as fp:
-        write_header = not Path(path).exists()
+        write_header = not Path(path).exists() or not Path(path).stat().st_size
         _format_results(data, fmt, fp, write_header=write_header)
 
 
@@ -113,9 +113,9 @@ def _format_results(
         case "json":
             print(data.to_json(), file=out_fh)
         case "csv":
-            _write_csv(data, out_fh, delimiter=",")
+            _write_csv(data, out_fh, delimiter=",", write_header=write_header)
         case "tsv":
-            _write_csv(data, out_fh, delimiter="\t")
+            _write_csv(data, out_fh, delimiter="\t", write_header=write_header)
         case _:
             msg = f"Unrecognised format {fmt!r}"
             logger.critical(msg)

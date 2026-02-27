@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 # Typing imports
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING
 
 from hazenlib.logger import logger
 
