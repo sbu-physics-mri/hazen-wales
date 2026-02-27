@@ -61,7 +61,9 @@ class TestWriteResult(unittest.TestCase):
         result = self._create_result()
 
         with tempfile.NamedTemporaryFile(
-            mode="w", delete=False, suffix=".csv",
+            mode="w",
+            delete=False,
+            suffix=".csv",
         ) as tmp:
             tmp_path = tmp.name
 
@@ -85,7 +87,10 @@ class TestWriteResult(unittest.TestCase):
         result = Result(task="SNR", desc="test", files=["1.dcm"])
         result.add_measurement(
             Measurement(
-                name="SNR", subtype="final", value=1.0, visibility="final",
+                name="SNR",
+                subtype="final",
+                value=1.0,
+                visibility="final",
             ),
         )
         result.add_measurement(
@@ -111,8 +116,9 @@ class TestWriteResult(unittest.TestCase):
 
         with patch("hazenlib.formatters.logger") as mock_logger:
             with patch(
-                "sys.stdout", new=io.StringIO(),
-            ) as mock_stdout: # noqa: F841
+                "sys.stdout",
+                new=io.StringIO(),
+            ) as mock_stdout:  # noqa: F841
                 write_result(result, "json", path="-", level="unknown_level")
                 # Should not raise, should log warning
 
@@ -175,7 +181,6 @@ class TestFormatResultsDispatcher(unittest.TestCase):
         content = output.getvalue()
         self.assertIn("\t", content)
 
-
     def test_csv_header_written_conditionally(self) -> None:
         """Verify write_header parameter controls header output."""
         result = Result(task="SNR", desc="test", files="file.dcm")
@@ -203,10 +208,14 @@ class TestBuildRows(unittest.TestCase):
     def test_flattens_nested_structure(self) -> None:
         """Verify nested Result/Metadata/Measurements are flattened into rows."""
         result = Result(
-            task="ACRSNR", desc="SNR analysis", files=["1.dcm", "2.dcm"],
+            task="ACRSNR",
+            desc="SNR analysis",
+            files=["1.dcm", "2.dcm"],
         )
         result.metadata = Metadata(
-            institution_name="Test Hospital", manufacturer="Siemens", plate=1,
+            institution_name="Test Hospital",
+            manufacturer="Siemens",
+            plate=1,
         )
         result.add_measurement(
             Measurement(
@@ -235,7 +244,9 @@ class TestBuildRows(unittest.TestCase):
     def test_handles_multiple_measurements(self) -> None:
         """Verify multiple measurements create multiple rows."""
         result = Result(
-            task="SNR", desc="Geometric accuracy", files=["1.dcm"],
+            task="SNR",
+            desc="Geometric accuracy",
+            files=["1.dcm"],
         )
         result.add_measurement(
             Measurement(
