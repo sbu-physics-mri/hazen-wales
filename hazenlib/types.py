@@ -238,6 +238,26 @@ class Result(JsonSerializableMixin):
             )
         ]
 
+    def filtered(self, level: str) -> Result:
+        """Filter the measurements based on the specified level."""
+        if level == "all":
+            return self
+
+        if level not in get_args(MEASUREMENT_VISIBILITY):
+            raise InvalidMeasurementVisibilityError(level)
+
+        new_result = Result(self.task, self.desc, self.files)
+
+        new_result.metadata = self.metadata
+        for img in self.report_images:
+            new_result.add_report_image(img)
+
+        for m in self.measurements:
+            if m.visibility == level:
+                new_result.add_measurement(m)
+        return new_result
+
+
     def to_dict(self) -> dict[str, Any]:
         """Return dict."""
         # JsonSerializableMixin  doesn't include properties
