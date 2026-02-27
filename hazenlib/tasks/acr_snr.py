@@ -108,6 +108,7 @@ class ACRSNR(HazenTask):
                         type="measured",
                         subtype="smoothing",
                         value=round(snr, 2),
+                        visibility="intermediate",
                     ),
                 )
                 results.add_measurement(
@@ -155,6 +156,7 @@ class ACRSNR(HazenTask):
                         type="measured",
                         subtype="subtraction",
                         value=round(snr, 2),
+                        visibility="intermediate",
                     ),
                 )
                 results.add_measurement(
