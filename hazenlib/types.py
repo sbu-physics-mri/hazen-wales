@@ -153,7 +153,7 @@ class Measurement(JsonSerializableMixin):
         if self.type not in get_args(MEASUREMENT_TYPES):
             raise InvalidMeasurementTypeError(self.type)
 
-        if self.visibility not in MEASUREMENT_VISIBILITY:
+        if self.visibility not in get_args(MEASUREMENT_VISIBILITY):
             raise InvalidMeasurementVisibilityError(self.visibility)
 
     @property
