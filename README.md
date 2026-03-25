@@ -1,3 +1,5 @@
+*This repository is no longer maintained. Moreover, all improvements have been merged into the GSTT version of Hazen. Please see [https://github.com/GSTT-CSC/hazen](https://github.com/GSTT-CSC/hazen) for the most up-to-date version.*
+
 <!-- PROJECT HEADING -->
 <br />
 <p align="center">
